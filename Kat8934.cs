@@ -1,6 +1,6 @@
 /*
  * Kat8934.cs
- * Version: 0.13 (2026-08-01)
+ * Version: 0.14 (2026-08-01)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy) with entry, SL, TP dash lines.
  * A0 EMA-ribbon fan filter (9..200) with MTF (3m/5m/15m), ADX/volume and time-window gates, alert sound.
  */
@@ -81,7 +81,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.13";
+		public const string VERSION = "0.14";
 		public const string RELEASE_DATE = "2026-08-01";
 
 		private EMA fastEma;
@@ -123,6 +123,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private double pendingBestRef;   // best extreme used for migration (sell: highest qualifying low / buy: lowest high)
 		private double pendingMigrateRef; // better extreme found; new order placed once the cancelled one is terminal
 		private bool pendingMigrate;
+		private int bip3m = -1;  // BarsArray index of the 3m series (-1 = not added)
+		private int bip5m = -1;
+		private int bip15m = -1;
 		private const int MAX_SIGNAL_RECORDS = 200;
 		private sealed class KatSignalRecord
 		{
@@ -198,10 +201,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 		else if (State == State.Configure)
 		{
-			// Always added — the ON/OFF toggles gate evaluation, not the series (keeps BarsArray indexes stable).
-			AddDataSeries(Data.BarsPeriodType.Minute, 3);
-			AddDataSeries(Data.BarsPeriodType.Minute, 5);
-			AddDataSeries(Data.BarsPeriodType.Minute, 15);
+			// Only add a secondary series for timeframes actually enabled — with every MTF filter
+			// OFF (the default) the chart keeps its single primary series untouched.
+			int next = 1;
+			bip3m  = Use3mFan  ? next++ : -1;
+			bip5m  = Use5mFan  ? next++ : -1;
+			bip15m = Use15mFan ? next++ : -1;
+			if (bip3m > 0)  AddDataSeries(Data.BarsPeriodType.Minute, 3);
+			if (bip5m > 0)  AddDataSeries(Data.BarsPeriodType.Minute, 5);
+			if (bip15m > 0) AddDataSeries(Data.BarsPeriodType.Minute, 15);
 		}
 		else if (State == State.DataLoaded)
 		{
@@ -223,7 +231,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				timeWindowDisabled = false;
 			else
 				Print(string.Format("[Kat8934] Bad time filter '{0}'-'{1}' — time window disabled.", TimeFilterStart, TimeFilterEnd));
-				Print(string.Format("[Kat8934] v{0} ({1}) loaded.", VERSION, RELEASE_DATE));
+
+			Print(string.Format("[Kat8934] v{0} ({1}) loaded.", VERSION, RELEASE_DATE));
 			cachedShowArrows = ShowArrows;
 			cachedShowLabels = ShowLabels;
 			cachedBotAtm = BotAtmTemplate ?? "";
@@ -232,11 +241,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (ChartControl != null)
 					ChartControl.Dispatcher.InvokeAsync(BuildHud);
 			}
-			else if (State == State.Terminated)
-			{
-				if (ChartControl != null)
-					ChartControl.Dispatcher.InvokeAsync(RemoveHud);
-			}
+		else if (State == State.Terminated)
+		{
+			pendingMigrate = false;
+			CancelPendingBotOrder("indicator terminated"); // never orphan a live order
+			if (ChartControl != null)
+				ChartControl.Dispatcher.InvokeAsync(RemoveHud);
+		}
 		}
 		#endregion
 
@@ -462,9 +473,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	private bool MtfPass(int dir)
 	{
 		if (!cachedMtf || dir == 0) return true;
-		if (Use3mFan  && SeriesFanDirection(1) != dir) return false;
-		if (Use5mFan  && SeriesFanDirection(2) != dir) return false;
-		if (Use15mFan && SeriesFanDirection(3) != dir) return false;
+		if (bip3m > 0  && SeriesFanDirection(bip3m) != dir) return false;
+		if (bip5m > 0  && SeriesFanDirection(bip5m) != dir) return false;
+		if (bip15m > 0 && SeriesFanDirection(bip15m) != dir) return false;
 		return true;
 	}
 

@@ -1,6 +1,6 @@
 # NT8 Kat8934 — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.13` (Released: `2026-08-01`)
+**Current Version**: `v0.14` (Released: `2026-08-01`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -8,7 +8,7 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 
 ### 1. Filters (A0 fan + market gates)
 - **A0 fan**: EMAs 9/21/34/55/89/144/200 strictly ordered **and** spreading (EMA9↔EMA200 wider than `Fan Spread Lookback` bars ago, at least `Fan Min Spread (ticks)`). First bar of a fan episode draws a small triangle (buy blue below / sell orange above) and plays the `Alert Sound`. Re-arms when the fan collapses.
-- **MTF**: optional 3m / 5m / 15m ribbons must fan in the same direction (per-TF ON/OFF in settings).
+- **MTF**: optional 3m / 5m / 15m ribbons must fan in the same direction (per-TF ON/OFF in settings). A secondary data series is added **only** for enabled timeframes — with all MTF off (default) the chart keeps its single primary series and every other chart indicator (your EMAs) is completely untouched.
 - **Market**: ADX ≥ `ADX Min` (blocks sideways) and bar volume ≥ `Volume Min (x SMA)` × volume SMA (blocks dead bars).
 - **Time window**: `HH:mm` machine-local start/end; overnight wraps midnight; equal start/end disables.
 - A1 (Sell/Buy) fires only while a same-direction fan is active and every enabled gate passes.
