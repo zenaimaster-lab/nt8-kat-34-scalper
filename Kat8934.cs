@@ -1,6 +1,6 @@
 /*
  * Kat8934.cs
- * Version: 0.06 (2026-08-01)
+ * Version: 0.07 (2026-08-01)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy) with entry, SL, TP dash lines.
  */
 
@@ -32,7 +32,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.06";
+		public const string VERSION = "0.07";
 		public const string RELEASE_DATE = "2026-08-01";
 
 		// 1. Chuẩn bị — section reserved in settings (added later). No properties yet.
@@ -46,6 +46,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private bool buyUturned;
 		private bool versionDrawn;
 		private volatile bool pendingClearSignals;
+		private volatile bool cachedShowArrows = true;
+		private volatile bool cachedShowLabels;
 		private Border hudBorder;
 		private bool hudVisible = true;
 		#endregion
@@ -88,11 +90,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				// 4. Lines & Text defaults
 				LineLengthBars				= 7;
 				LineWidth					= 2;
-				EntryLineColor				= Colors.Gold;
+				SellEntryLineColor			= Colors.Red;
+				BuyEntryLineColor			= Colors.LimeGreen;
 				SLLineColor					= Colors.Red;
 				TPLineColor					= Colors.Green;
 				SellTextColor				= Colors.Red;
-				BuyTextColor				= Colors.Green;
+				BuyTextColor				= Colors.LimeGreen;
+				ShowArrows					= true;
+				ShowLabels					= false;
 			}
 			else if (State == State.DataLoaded)
 			{
@@ -101,6 +106,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				buyFastEma  = EMA(BarsArray[0], BuyEmaFastPeriod);
 				buySlowEma  = EMA(BarsArray[0], BuyEmaSlowPeriod);
 				Print(string.Format("[Kat8934] v{0} ({1}) loaded.", VERSION, RELEASE_DATE));
+				cachedShowArrows = ShowArrows;
+				cachedShowLabels = ShowLabels;
 
 				if (ChartControl != null)
 					ChartControl.Dispatcher.InvokeAsync(BuildHud);
@@ -184,18 +191,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Print(string.Format("[Kat8934] Cleared {0} old signal drawing(s).", doomed.Count));
 		}
 
-		private void BuildHud()
+		private Button CreateHudButton(string text, Brush bg, RoutedEventHandler handler)
 		{
-			// Attach to the outer grid (ChartControl.Parent), never ChartControl itself —
-			// ChartControl lays out the price panel and a child would squeeze it (side gaps).
-			Grid host = ChartControl != null ? ChartControl.Parent as Grid : null;
-			if (hudBorder != null || host == null) return;
-
-			// Graphics mirror the KatTradeManager HUD: dark navy panel, slate border, borderless white buttons.
-			Button btnClear = new Button
+			Button btn = new Button
 			{
-				Content = "Xóa Line",
-				Background = new SolidColorBrush(Color.FromRgb(20, 20, 20)),
+				Content = text,
+				Background = bg,
 				Foreground = Brushes.White,
 				FontWeight = FontWeights.Normal,
 				FontSize = 12,
@@ -204,20 +205,44 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				Height = 24,
 				BorderThickness = new Thickness(0)
 			};
-			btnClear.Click += (s, e) => pendingClearSignals = true;
+			if (handler != null)
+				btn.Click += handler;
+			return btn;
+		}
 
-			Button btnToggle = new Button
+		private void BuildHud()
+		{
+			// Attach to the outer grid (ChartControl.Parent), never ChartControl itself —
+			// ChartControl lays out the price panel and a child would squeeze it (side gaps).
+			Grid host = ChartControl != null ? ChartControl.Parent as Grid : null;
+			if (hudBorder != null || host == null) return;
+
+			SolidColorBrush onBrush = new SolidColorBrush(Color.FromRgb(0, 122, 204));
+			SolidColorBrush offBrush = new SolidColorBrush(Color.FromRgb(45, 50, 65));
+
+			Button btnClear = CreateHudButton("Xóa Line", new SolidColorBrush(Color.FromRgb(20, 20, 20)), (s, e) => pendingClearSignals = true);
+
+			Button btnArrows = CreateHudButton(cachedShowArrows ? "Mũi tên: ON" : "Mũi tên: OFF",
+				cachedShowArrows ? onBrush : offBrush, null);
+			btnArrows.Click += (s, e) =>
 			{
-				Content = "Ẩn",
-				Background = new SolidColorBrush(Color.FromRgb(45, 50, 65)),
-				Foreground = Brushes.White,
-				FontWeight = FontWeights.Normal,
-				FontSize = 12,
-				Margin = new Thickness(0),
-				Padding = new Thickness(2),
-				Height = 24,
-				BorderThickness = new Thickness(0)
+				cachedShowArrows = !cachedShowArrows;
+				ShowArrows = cachedShowArrows;
+				btnArrows.Content = cachedShowArrows ? "Mũi tên: ON" : "Mũi tên: OFF";
+				btnArrows.Background = cachedShowArrows ? onBrush : offBrush;
 			};
+
+			Button btnLabels = CreateHudButton(cachedShowLabels ? "Chữ: ON" : "Chữ: OFF",
+				cachedShowLabels ? onBrush : offBrush, null);
+			btnLabels.Click += (s, e) =>
+			{
+				cachedShowLabels = !cachedShowLabels;
+				ShowLabels = cachedShowLabels;
+				btnLabels.Content = cachedShowLabels ? "Chữ: ON" : "Chữ: OFF";
+				btnLabels.Background = cachedShowLabels ? onBrush : offBrush;
+			};
+
+			Button btnToggle = CreateHudButton("Ẩn", offBrush, null);
 			btnToggle.Click += (s, e) =>
 			{
 				hudVisible = !hudVisible;
@@ -227,6 +252,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			var panel = new StackPanel { Orientation = Orientation.Horizontal };
 			panel.Children.Add(btnClear);
+			panel.Children.Add(btnArrows);
+			panel.Children.Add(btnLabels);
 			panel.Children.Add(btnToggle);
 
 			hudBorder = new Border
@@ -280,28 +307,36 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double slPrice = isBuy ? entryPrice - stopTicks * tick : entryPrice + stopTicks * tick;
 			double tpPrice = isBuy ? entryPrice + targetTicks * tick : entryPrice - targetTicks * tick;
 
-			Brush entryBrush = new SolidColorBrush(EntryLineColor);
+			Brush entryBrush = new SolidColorBrush(isBuy ? BuyEntryLineColor : SellEntryLineColor);
 			Brush slBrush = new SolidColorBrush(SLLineColor);
 			Brush tpBrush = new SolidColorBrush(TPLineColor);
 			Brush textBrush = new SolidColorBrush(isBuy ? BuyTextColor : SellTextColor);
 			int endAgo = -LineLengthBars; // negative barsAgo = bars into the future
-			double textY = isBuy ? entryPrice - tick : entryPrice + tick;
+			double textY = isBuy ? entryPrice - tick : entryPrice + tick; // buy label below line, sell above
+
+			if (cachedShowArrows)
+			{
+				if (isBuy)
+					Draw.ArrowUp(this, "K8934_B_ARROW_" + bar, false, 0, arrowY, textBrush);
+				else
+					Draw.ArrowDown(this, "K8934_S_ARROW_" + bar, false, 0, arrowY, textBrush);
+			}
 
 			if (isBuy)
 			{
-				Draw.ArrowUp(this, "K8934_B_ARROW_" + bar, false, 0, arrowY, textBrush);
-				Draw.Line(this, "K8934_B_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K8934_B_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Solid, LineWidth);
 				Draw.Line(this, "K8934_B_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
 				Draw.Line(this, "K8934_B_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
-				Draw.Text(this, "K8934_B_TEXT_" + bar, "BUY", endAgo, textY, textBrush);
+				if (cachedShowLabels)
+					Draw.Text(this, "K8934_B_TEXT_" + bar, "BUY", endAgo, textY, textBrush);
 			}
 			else
 			{
-				Draw.ArrowDown(this, "K8934_S_ARROW_" + bar, false, 0, arrowY, textBrush);
-				Draw.Line(this, "K8934_S_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K8934_S_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Solid, LineWidth);
 				Draw.Line(this, "K8934_S_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
 				Draw.Line(this, "K8934_S_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
-				Draw.Text(this, "K8934_S_TEXT_" + bar, "SELL", endAgo, textY, textBrush);
+				if (cachedShowLabels)
+					Draw.Text(this, "K8934_S_TEXT_" + bar, "SELL", endAgo, textY, textBrush);
 			}
 
 			Print(string.Format("[Kat8934] {0} signal @ bar {1} — entry {2:F5}, SL {3:F5}, TP {4:F5}", isBuy ? "BUY" : "SELL", bar, entryPrice, slPrice, tpPrice));
@@ -386,19 +421,33 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		public int LineWidth { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Entry Line Color", Order = 3, GroupName = "4. Lines & Text")]
+		[Display(Name = "Sell Entry Line Color", Order = 3, GroupName = "4. Lines & Text",
+			Description = "Sell entry line (solid).")]
 		[XmlIgnore]
-		public Color EntryLineColor { get; set; }
+		public Color SellEntryLineColor { get; set; }
 
 		[Browsable(false)]
-		public string EntryLineColorSerializable
+		public string SellEntryLineColorSerializable
 		{
-			get { return EntryLineColor.ToString(); }
-			set { EntryLineColor = ParseColor(value, Colors.Gold); }
+			get { return SellEntryLineColor.ToString(); }
+			set { SellEntryLineColor = ParseColor(value, Colors.Red); }
 		}
 
 		[NinjaScriptProperty]
-		[Display(Name = "SL Line Color", Order = 4, GroupName = "4. Lines & Text")]
+		[Display(Name = "Buy Entry Line Color", Order = 4, GroupName = "4. Lines & Text",
+			Description = "Buy entry line (solid).")]
+		[XmlIgnore]
+		public Color BuyEntryLineColor { get; set; }
+
+		[Browsable(false)]
+		public string BuyEntryLineColorSerializable
+		{
+			get { return BuyEntryLineColor.ToString(); }
+			set { BuyEntryLineColor = ParseColor(value, Colors.LimeGreen); }
+		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "SL Line Color", Order = 5, GroupName = "4. Lines & Text")]
 		[XmlIgnore]
 		public Color SLLineColor { get; set; }
 
@@ -410,7 +459,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		[NinjaScriptProperty]
-		[Display(Name = "TP Line Color", Order = 5, GroupName = "4. Lines & Text")]
+		[Display(Name = "TP Line Color", Order = 6, GroupName = "4. Lines & Text")]
 		[XmlIgnore]
 		public Color TPLineColor { get; set; }
 
@@ -422,7 +471,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		[NinjaScriptProperty]
-		[Display(Name = "Sell Text Color", Order = 6, GroupName = "4. Lines & Text",
+		[Display(Name = "Sell Text Color", Order = 7, GroupName = "4. Lines & Text",
 			Description = "SELL label and arrow color.")]
 		[XmlIgnore]
 		public Color SellTextColor { get; set; }
@@ -435,7 +484,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		[NinjaScriptProperty]
-		[Display(Name = "Buy Text Color", Order = 7, GroupName = "4. Lines & Text",
+		[Display(Name = "Buy Text Color", Order = 8, GroupName = "4. Lines & Text",
 			Description = "BUY label and arrow color.")]
 		[XmlIgnore]
 		public Color BuyTextColor { get; set; }
@@ -444,8 +493,18 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		public string BuyTextColorSerializable
 		{
 			get { return BuyTextColor.ToString(); }
-			set { BuyTextColor = ParseColor(value, Colors.Green); }
+			set { BuyTextColor = ParseColor(value, Colors.LimeGreen); }
 		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "Show Arrows", Order = 9, GroupName = "4. Lines & Text",
+			Description = "Draw the up/down arrow on the signal candle.")]
+		public bool ShowArrows { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Show Buy/Sell Labels", Order = 10, GroupName = "4. Lines & Text",
+			Description = "Draw the BUY/SELL text next to the entry line (default off).")]
+		public bool ShowLabels { get; set; }
 
 		private static Color ParseColor(string value, Color fallback)
 		{

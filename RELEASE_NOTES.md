@@ -1,3 +1,10 @@
+# Release Notes — v0.07 (2026-08-01)
+
+- Entry lines are now **solid** with per-side colors: Sell entry = bright red, Buy entry = bright lime green (settings `Sell/Buy Entry Line Color` replace the shared gold `Entry Line Color`). SL/TP stay dashed.
+- BUY/SELL labels: bright colors (Buy lime green, Sell red), Buy label below the entry line end, Sell above; **default off** (`Show Buy/Sell Labels` = false).
+- HUD gained 2 toggle buttons: **Mũi tên: ON/OFF** (arrows) and **Chữ: ON/OFF** (labels) — blue when ON, gray when OFF, write through to the persisted settings.
+- Verification: 9/9 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.06 (2026-08-01)
 
 - **HUD layout squeeze fix**: the HUD was added to `ChartControl.Children`; ChartControl is the grid that lays out the price panel, so a direct child forced empty side gaps and squeezed the chart to the middle. The HUD now attaches to the outer grid (`ChartControl.Parent`) like the KatTradeManager HUD, restoring the full-width chart.
