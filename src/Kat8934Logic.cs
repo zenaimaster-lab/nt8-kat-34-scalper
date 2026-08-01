@@ -21,6 +21,48 @@ namespace Kat8934
 	public static class Kat8934Logic
 	{
 		/// <summary>
+		/// A0 ribbon fan. emasNow/emasPrev ordered fastest to slowest (9,21,34,55,89,144,200).
+		/// Returns +1 = buy fan (ascending, spreading, wide enough), -1 = sell fan, 0 = no fan.
+		/// Fan = strict order + total spread wider than lookback + at least minSpreadTicks.
+		/// </summary>
+		public static int FanDirection(double[] emasNow, double[] emasPrev, int minSpreadTicks, double tickSize)
+		{
+			if (emasNow == null || emasPrev == null || emasNow.Length < 2 || emasPrev.Length != emasNow.Length)
+				return 0;
+
+			int n = emasNow.Length;
+			bool up = true, down = true;
+			for (int i = 0; i < n - 1; i++)
+			{
+				if (emasNow[i] <= emasNow[i + 1]) up = false;
+				if (emasNow[i] >= emasNow[i + 1]) down = false;
+			}
+			if (!up && !down) return 0;
+
+			double spreadNow = Math.Abs(emasNow[0] - emasNow[n - 1]);
+			double spreadPrev = Math.Abs(emasPrev[0] - emasPrev[n - 1]);
+			if (spreadNow <= spreadPrev) return 0;          // must be spreading out
+			if (spreadNow < minSpreadTicks * tickSize) return 0;
+			return up ? 1 : -1;
+		}
+
+		/// <summary>Market filter: ADX strength + relative volume. volumeSma 0 disables the volume leg.</summary>
+		public static bool PassMarketFilter(double adx, double adxMin, double volume, double volumeSma, double volumeMult)
+		{
+			if (adx < adxMin) return false;
+			if (volumeSma > 0 && volume < volumeSma * volumeMult) return false;
+			return true;
+		}
+
+		/// <summary>Time window in machine-local time. start == end disables the window (always true). Overnight (start &gt; end) wraps midnight.</summary>
+		public static bool IsInTimeWindow(TimeSpan time, TimeSpan start, TimeSpan end)
+		{
+			if (start == end) return true;
+			if (start < end) return time >= start && time < end;
+			return time >= start || time < end;
+		}
+
+		/// <summary>
 		/// Advances the per-side state machine by one bar. Caller owns the state flags.
 		/// Sell: downtrend (ema34 below ema89) — price touches/crosses ema89, U-turns and closes
 		/// back below ema34, then (RetestBounce) a later bar closes back above ema34 → Sell.

@@ -113,4 +113,104 @@ public class Kat8934LogicTests
 		var signal = Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, false, 100, 98, 99, 101, 98.5, ref touched, ref uturned);
 		Assert.Null(signal);
 	}
+
+	// --- A0 EMA-ribbon fan ---
+	private static readonly double[] BuyFanNow  = { 110, 108, 106, 104, 102, 100, 98 };  // 9>21>34>55>89>144>200
+	private static readonly double[] BuyFanPrev = { 106, 105, 104, 103, 102, 101, 100 }; // narrower spread (10 vs 12)
+
+	[Fact]
+	public void Fan_BuyOrderedSpreadingWide_ReturnsPlus1()
+	{
+		Assert.Equal(1, Kat8934Logic.FanDirection(BuyFanNow, BuyFanPrev, 20, 0.25)); // spread 12 >= 5
+	}
+
+	[Fact]
+	public void Fan_SellOrderedSpreadingWide_ReturnsMinus1()
+	{
+		double[] now  = { 98, 100, 102, 104, 106, 108, 110 };
+		double[] prev = { 100, 101, 102, 103, 104, 105, 106 };
+		Assert.Equal(-1, Kat8934Logic.FanDirection(now, prev, 20, 0.25));
+	}
+
+	[Fact]
+	public void Fan_Unordered_ReturnsZero()
+	{
+		double[] messy = { 110, 108, 112, 104, 102, 100, 98 }; // 34 above 21
+		Assert.Equal(0, Kat8934Logic.FanDirection(messy, BuyFanPrev, 20, 0.25));
+	}
+
+	[Fact]
+	public void Fan_NotSpreading_ReturnsZero()
+	{
+		Assert.Equal(0, Kat8934Logic.FanDirection(BuyFanNow, BuyFanNow, 20, 0.25)); // same spread
+	}
+
+	[Fact]
+	public void Fan_TooNarrow_ReturnsZero()
+	{
+		double[] now  = { 101, 100.9, 100.8, 100.7, 100.6, 100.5, 100 }; // spread 1 < 5
+		double[] prev = { 100.5, 100.4, 100.3, 100.2, 100.1, 100.05, 100 };
+		Assert.Equal(0, Kat8934Logic.FanDirection(now, prev, 20, 0.25));
+	}
+
+	[Fact]
+	public void Fan_NullOrShort_ReturnsZero()
+	{
+		Assert.Equal(0, Kat8934Logic.FanDirection(null, BuyFanPrev, 20, 0.25));
+		Assert.Equal(0, Kat8934Logic.FanDirection(new double[] { 1 }, new double[] { 1 }, 20, 0.25));
+	}
+
+	// --- Market filter ---
+	[Fact]
+	public void Market_AdxTooLow_Blocked()
+	{
+		Assert.False(Kat8934Logic.PassMarketFilter(15, 20, 1000, 500, 1.0));
+	}
+
+	[Fact]
+	public void Market_VolumeTooLow_Blocked()
+	{
+		Assert.False(Kat8934Logic.PassMarketFilter(25, 20, 400, 500, 1.0));
+	}
+
+	[Fact]
+	public void Market_BothOk_Passes()
+	{
+		Assert.True(Kat8934Logic.PassMarketFilter(25, 20, 1000, 500, 1.0));
+	}
+
+	[Fact]
+	public void Market_ZeroVolSma_DisablesVolumeLeg()
+	{
+		Assert.True(Kat8934Logic.PassMarketFilter(25, 20, 0, 0, 1.0));
+	}
+
+	// --- Time window ---
+	[Fact]
+	public void Time_InsideWindow_True()
+	{
+		Assert.True(Kat8934Logic.IsInTimeWindow(new TimeSpan(10, 0, 0), new TimeSpan(8, 0, 0), new TimeSpan(17, 0, 0)));
+	}
+
+	[Fact]
+	public void Time_OutsideWindow_False()
+	{
+		Assert.False(Kat8934Logic.IsInTimeWindow(new TimeSpan(18, 0, 0), new TimeSpan(8, 0, 0), new TimeSpan(17, 0, 0)));
+	}
+
+	[Fact]
+	public void Time_OvernightWindow_WrapsMidnight()
+	{
+		var start = new TimeSpan(22, 0, 0);
+		var end = new TimeSpan(6, 0, 0);
+		Assert.True(Kat8934Logic.IsInTimeWindow(new TimeSpan(23, 30, 0), start, end));
+		Assert.True(Kat8934Logic.IsInTimeWindow(new TimeSpan(2, 0, 0), start, end));
+		Assert.False(Kat8934Logic.IsInTimeWindow(new TimeSpan(12, 0, 0), start, end));
+	}
+
+	[Fact]
+	public void Time_StartEqualsEnd_Disabled_AlwaysTrue()
+	{
+		Assert.True(Kat8934Logic.IsInTimeWindow(new TimeSpan(3, 0, 0), new TimeSpan(8, 0, 0), new TimeSpan(8, 0, 0)));
+	}
 }

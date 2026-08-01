@@ -1,10 +1,17 @@
 # NT8 Kat8934 — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.10` (Released: `2026-08-01`)
+**Current Version**: `v0.11` (Released: `2026-08-01`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
 ## Signals
+
+### 1. Filters (A0 fan + market gates)
+- **A0 fan**: EMAs 9/21/34/55/89/144/200 strictly ordered **and** spreading (EMA9↔EMA200 wider than `Fan Spread Lookback` bars ago, at least `Fan Min Spread (ticks)`). First bar of a fan episode draws a small triangle (buy blue below / sell orange above) and plays the `Alert Sound`. Re-arms when the fan collapses.
+- **MTF**: optional 3m / 5m / 15m ribbons must fan in the same direction (per-TF ON/OFF in settings).
+- **Market**: ADX ≥ `ADX Min` (blocks sideways) and bar volume ≥ `Volume Min (x SMA)` × volume SMA (blocks dead bars).
+- **Time window**: `HH:mm` machine-local start/end; overnight wraps midnight; equal start/end disables.
+- A1 (Sell/Buy) fires only while a same-direction fan is active and every enabled gate passes.
 
 ### 2. Signal (shared by Sell and Buy — mirrored mechanism)
 - **Context**: Fast EMA vs Slow EMA — Sell: fast below slow (downtrend); Buy: fast above slow.
@@ -14,23 +21,19 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
   - `Breakdown`: fires immediately on the U-turn close.
 - **Drawing**: sell entry line **solid red** below the signal low, buy entry line **solid lime green** above the signal high (both with `Entry Offset` ticks); SL dashed red (`Stop Distance` above/below entry), TP dashed green; big 2x arrow near the candle (Buy white above, Sell black below, `Arrow Offset` ticks away, default 3); optional BUY/SELL label at the candle (Buy below / Sell above the entry level, default off, toggled from the HUD).
 
-### 1. Preparation
-- Section reserved in settings — conditions to be added later. Currently empty (no settings group visible in the property grid until a property is added).
-
 ## Settings (3 sections)
 | Section | Settings |
 |---|---|
-| 1. Preparation | *(reserved — none yet)* |
+| 1. Filters | A0 Fan Filter Enabled, Fan Min Spread (20 ticks), Fan Spread Lookback (5 bars), Use 3m/5m/15m Fan (off), ADX Period (14), ADX Min (20), Volume SMA Period (20), Volume Min x SMA (1.0), Time Start/End (08:00–17:00), Alert Sound (dropdown of NT8 .wav files) |
 | 2. Signal | Enabled, Fast EMA Period (34), Slow EMA Period (89), Trigger Mode, Entry Offset (1 tick), Stop Distance (60), Target Distance (120) |
 | 3. Lines & Text | Line Length (7 bars), Line Width (2 px), Arrow Offset (3 ticks), Sell/Buy Entry Line Colors (solid), SL/TP Line Colors, Sell/Buy Text Colors, Show Arrows, Show Buy/Sell Labels (default off) |
 
 Parameters group: `Show Version Label` — draws `Kat8934 vX.XX (date)` top-left on the chart (updates on every F5 recompile).
 
 ## HUD
-Small panel at the bottom-left of the chart (graphics match the KatTradeManager HUD: dark navy panel, slate border, borderless white buttons) with 3 buttons:
-- **Clear** — removes all signal drawings (old Entry/SL/TP lines, arrows, labels) — reacts immediately.
-- **Arrow: ON/OFF** — show or hide the signal arrows — reacts immediately.
-- **Text: ON/OFF** — show or hide the BUY/SELL labels — reacts immediately.
+Small panel at the bottom-left of the chart (graphics match the KatTradeManager HUD: dark navy panel, slate border, borderless white buttons):
+- Row 1: **Clear** — removes all signal drawings; **Arrow: ON/OFF** — signal arrows; **Text: ON/OFF** — BUY/SELL labels. All react immediately.
+- Row 2: **A0 / MTF / ADX / Vol / Time** — runtime filter toggles (blue ON / gray OFF), effective from the next bar.
 
 ## Installation in NinjaTrader 8
 
