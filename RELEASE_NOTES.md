@@ -1,0 +1,25 @@
+# Release Notes — v0.01 (2026-08-01)
+
+Initial release of **Kat8934** — EMA 34/89 rejection signal indicator for NinjaTrader 8.
+
+## Features
+- 3 settings sections: `1. Chuẩn bị` (reserved, empty), `2. Sell Signal`, `3. Buy Signal`.
+- Sell/Buy state machine (pure, testable): downtrend/uptrend context via Fast/Slow EMA; price touches/crosses Slow EMA, U-turns and closes back through the Fast EMA; configurable trigger mode:
+  - `Retest Bounce` — signal on the later bar closing back through the Fast EMA (retest).
+  - `Breakdown` — signal immediately on the U-turn close.
+- Chart drawing per signal: text + arrow above the signal candle; dashed Entry (gold), SL (red), TP (green) lines with configurable tick offsets/distances.
+- Version label top-left on chart (`Kat8934 vX.XX (date)`) — auto-updates after F5 recompile.
+- All EMA periods and trigger modes configurable per side.
+
+## Structure
+- `Kat8934.cs` — indicator: lifecycle, signal evaluation, drawing, NinjaScript properties.
+- `src/Kat8934Logic.cs` — pure state machine, zero NT8 dependencies (xunit-testable).
+- `tests/Kat8934.Tests` — 9 unit tests.
+- `tools/CompileCheck` — net48 compile gate mirroring NT8's Roslyn compile.
+- `scripts/Deploy-NT8.ps1` / `scripts/Run-AllChecks.ps1`.
+
+## Verification
+| Layer | Result |
+|---|---|
+| xunit suite | 9/9 passed |
+| CompileCheck (net48 gate) | 0 errors |
