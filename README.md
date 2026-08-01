@@ -1,6 +1,6 @@
 # NT8 Kat8934 — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.04` (Released: `2026-08-01`)
+**Current Version**: `v0.05` (Released: `2026-08-01`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -31,7 +31,7 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 Parameters group: `Show Version Label` — draws `Kat8934 vX.XX (date)` top-left on the chart (updates on every F5 recompile).
 
 ## HUD
-Small panel at the top-center of the chart with 2 buttons:
+Small panel at the bottom-left of the chart (graphics match the KatTradeManager HUD: dark navy panel, slate border, borderless white buttons) with 2 buttons:
 - **Xóa Line** — removes all signal drawings (old Entry/SL/TP lines, arrows, labels).
 - **Ẩn / Hiện** — hide or show the HUD panel.
 

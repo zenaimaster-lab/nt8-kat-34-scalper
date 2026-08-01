@@ -1,3 +1,11 @@
+# Release Notes — v0.05 (2026-08-01)
+
+- HUD restyled to mirror the KatTradeManager HUD (graphics + position only, no new buttons/features):
+  - Panel: dark navy `Argb(240,20,24,33)`, slate border `Rgb(35,42,56)` 1px, corner radius 6, padding 8.
+  - Buttons: borderless, white foreground, height 24, padding 2; Xóa Line dark `Rgb(20,20,20)` (matches the Close/flatten style), Ẩn/Hiện OFF-gray `Rgb(45,50,65)`.
+  - Position: bottom-left of the chart with 10px left inset (KatTradeManager InChart placement).
+- Verification: 9/9 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.04 (2026-08-01)
 
 - **Root-cause fix for over-long lines**: `DrawSignal` passed `CurrentBar` (absolute bar index) into the `barsAgo` parameter of `Draw.Line`/`Draw.Arrow`/`Draw.Text`. NT8 measures `barsAgo` from the right edge, so every signal's anchors jumped to the chart start and lines spanned the whole chart. Anchors are now `0` (signal bar) with the line extending `Line Length (bars)` forward.

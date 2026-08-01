@@ -1,6 +1,6 @@
 /*
  * Kat8934.cs
- * Version: 0.04 (2026-08-01)
+ * Version: 0.05 (2026-08-01)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy) with entry, SL, TP dash lines.
  */
 
@@ -32,7 +32,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.04";
+		public const string VERSION = "0.05";
 		public const string RELEASE_DATE = "2026-08-01";
 
 		// 1. Chuẩn bị — section reserved in settings (added later). No properties yet.
@@ -188,22 +188,32 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (hudBorder != null || ChartControl == null) return;
 
-			var btnClear = new Button
+			// Graphics mirror the KatTradeManager HUD: dark navy panel, slate border, borderless white buttons.
+			Button btnClear = new Button
 			{
 				Content = "Xóa Line",
-				FontSize = 11,
-				Padding = new Thickness(6, 2, 6, 2),
+				Background = new SolidColorBrush(Color.FromRgb(20, 20, 20)),
+				Foreground = Brushes.White,
+				FontWeight = FontWeights.Normal,
+				FontSize = 12,
 				Margin = new Thickness(0, 0, 4, 0),
-				Cursor = System.Windows.Input.Cursors.Hand
+				Padding = new Thickness(2),
+				Height = 24,
+				BorderThickness = new Thickness(0)
 			};
 			btnClear.Click += (s, e) => pendingClearSignals = true;
 
-			var btnToggle = new Button
+			Button btnToggle = new Button
 			{
 				Content = "Ẩn",
-				FontSize = 11,
-				Padding = new Thickness(6, 2, 6, 2),
-				Cursor = System.Windows.Input.Cursors.Hand
+				Background = new SolidColorBrush(Color.FromRgb(45, 50, 65)),
+				Foreground = Brushes.White,
+				FontWeight = FontWeights.Normal,
+				FontSize = 12,
+				Margin = new Thickness(0),
+				Padding = new Thickness(2),
+				Height = 24,
+				BorderThickness = new Thickness(0)
 			};
 			btnToggle.Click += (s, e) =>
 			{
@@ -219,14 +229,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			hudBorder = new Border
 			{
 				Child = panel,
-				Background = new SolidColorBrush(Color.FromArgb(180, 20, 20, 20)),
-				BorderBrush = Brushes.DimGray,
+				Background = new SolidColorBrush(Color.FromArgb(240, 20, 24, 33)),
+				BorderBrush = new SolidColorBrush(Color.FromRgb(35, 42, 56)),
 				BorderThickness = new Thickness(1),
-				CornerRadius = new CornerRadius(3),
-				Padding = new Thickness(4),
-				HorizontalAlignment = HorizontalAlignment.Center,
-				VerticalAlignment = VerticalAlignment.Top,
-				Margin = new Thickness(0, 5, 0, 0)
+				CornerRadius = new CornerRadius(6),
+				Padding = new Thickness(8),
+				HorizontalAlignment = HorizontalAlignment.Left,
+				VerticalAlignment = VerticalAlignment.Bottom,
+				Margin = new Thickness(10, 0, 0, 4)
 			};
 			ChartControl.Children.Add(hudBorder);
 		}
