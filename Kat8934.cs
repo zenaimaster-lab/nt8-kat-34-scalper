@@ -1,6 +1,6 @@
 /*
  * Kat8934.cs
- * Version: 0.01 (2026-08-01)
+ * Version: 0.02 (2026-08-01)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy) with entry, SL, TP dash lines.
  */
 
@@ -23,12 +23,12 @@ public enum Kat8934TriggerMode
 	Breakdown = 1
 }
 
-namespace NinjaTrader.NinjaScript.Indicators
+namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.01";
+		public const string VERSION = "0.02";
 		public const string RELEASE_DATE = "2026-08-01";
 
 		// 1. Chuẩn bị — section reserved in settings (added later). No properties yet.

@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.02] — 2026-08-01
+- Indicator moved into the **KAT** folder in NT8 Add Indicator dialog: namespace changed from `NinjaTrader.NinjaScript.Indicators` to `NinjaTrader.NinjaScript.Indicators.KAT`.
+- No logic changes. 9/9 xunit tests, CompileCheck 0 errors.
+- **Graphify entity mapping**: `Kat8934` (namespace `NinjaTrader.NinjaScript.Indicators.KAT`).
+
 ### [v0.01] — 2026-08-01
 - Initial release: EMA 34/89 rejection signal indicator.
   - Sell: EMA34 < EMA89, price touches/crosses EMA89, U-turns and closes below EMA34; trigger modes `Retest Bounce` (later bar closes back above EMA34) or `Breakdown` (immediate on U-turn close).

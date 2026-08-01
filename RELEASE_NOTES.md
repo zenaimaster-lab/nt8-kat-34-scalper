@@ -1,3 +1,8 @@
+# Release Notes — v0.02 (2026-08-01)
+
+- Indicator moved into the **KAT** folder in NT8's Add Indicator dialog via namespace `NinjaTrader.NinjaScript.Indicators.KAT`.
+- No logic changes. Verification: 9/9 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.01 (2026-08-01)
 
 Initial release of **Kat8934** — EMA 34/89 rejection signal indicator for NinjaTrader 8.
