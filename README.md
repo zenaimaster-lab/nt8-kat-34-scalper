@@ -1,21 +1,18 @@
 # NT8 Kat8934 — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.09` (Released: `2026-08-01`)
+**Current Version**: `v0.10` (Released: `2026-08-01`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
 ## Signals
 
-### 2. Sell Signal
-- **Context**: Fast EMA below Slow EMA (downtrend).
-- **Setup**: price rallies up to touch/cross the Slow EMA (89), then U-turns and closes back below the Fast EMA (34).
+### 2. Signal (shared by Sell and Buy — mirrored mechanism)
+- **Context**: Fast EMA vs Slow EMA — Sell: fast below slow (downtrend); Buy: fast above slow.
+- **Setup**: price touches/crosses the Slow EMA, U-turns and closes back through the Fast EMA.
 - **Trigger** (configurable):
-  - `Retest Bounce`: a later bar closes back **above** the Fast EMA → SELL (sell the retest).
-  - `Breakdown`: fires immediately on the U-turn close below the Fast EMA.
-- **Drawing**: entry line is **solid** (Sell = bright red, Buy = bright green), SL/TP dashed; big 2x arrow on the signal candle (Buy = white, Sell = black); optional BUY/SELL label next to the entry line end (Buy label below the line, Sell above, default off, toggled from the HUD).
-
-### 3. Buy Signal
-- Mirror of Sell: Fast EMA above Slow EMA; price drops to touch/cross Slow EMA, U-turns and closes back above Fast EMA; trigger modes mirrored. Entry is `offset` ticks above signal high, SL below, TP above.
+  - `Retest Bounce`: a later bar closes back through the Fast EMA → signal (sell the retest / buy the retest).
+  - `Breakdown`: fires immediately on the U-turn close.
+- **Drawing**: sell entry line **solid red** below the signal low, buy entry line **solid lime green** above the signal high (both with `Entry Offset` ticks); SL dashed red (`Stop Distance` above/below entry), TP dashed green; big 2x arrow near the candle (Buy white above, Sell black below, `Arrow Offset` ticks away, default 3); optional BUY/SELL label at the candle (Buy below / Sell above the entry level, default off, toggled from the HUD).
 
 ### 1. Preparation
 - Section reserved in settings — conditions to be added later. Currently empty (no settings group visible in the property grid until a property is added).
@@ -24,18 +21,16 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | Section | Settings |
 |---|---|
 | 1. Preparation | *(reserved — none yet)* |
-| 2. Sell Signal | Enabled, Fast EMA Period (34), Slow EMA Period (89), Trigger Mode, Entry Offset (1 tick), Stop Distance (60), Target Distance (120) |
-| 3. Buy Signal | Enabled, Fast EMA Period (34), Slow EMA Period (89), Trigger Mode, Entry Offset (1 tick), Stop Distance (60), Target Distance (120) |
-| 4. Lines & Text | Line Length (7 bars), Line Width (2 px), Sell/Buy Entry Line Colors (solid), SL/TP Line Colors, Sell/Buy Text Colors, Show Arrows, Show Buy/Sell Labels (default off) |
+| 2. Signal | Enabled, Fast EMA Period (34), Slow EMA Period (89), Trigger Mode, Entry Offset (1 tick), Stop Distance (60), Target Distance (120) |
+| 3. Lines & Text | Line Length (7 bars), Line Width (2 px), Arrow Offset (3 ticks), Sell/Buy Entry Line Colors (solid), SL/TP Line Colors, Sell/Buy Text Colors, Show Arrows, Show Buy/Sell Labels (default off) |
 
 Parameters group: `Show Version Label` — draws `Kat8934 vX.XX (date)` top-left on the chart (updates on every F5 recompile).
 
 ## HUD
-Small panel at the bottom-left of the chart (graphics match the KatTradeManager HUD: dark navy panel, slate border, borderless white buttons) with 4 buttons:
+Small panel at the bottom-left of the chart (graphics match the KatTradeManager HUD: dark navy panel, slate border, borderless white buttons) with 3 buttons:
 - **Clear** — removes all signal drawings (old Entry/SL/TP lines, arrows, labels) — reacts immediately.
 - **Arrow: ON/OFF** — show or hide the signal arrows — reacts immediately.
 - **Text: ON/OFF** — show or hide the BUY/SELL labels — reacts immediately.
-- **Hide / Show** — hide or show the HUD panel.
 
 ## Installation in NinjaTrader 8
 

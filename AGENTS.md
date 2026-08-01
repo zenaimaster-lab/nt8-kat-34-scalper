@@ -59,4 +59,4 @@ On every code change, BEFORE closing session:
 ## Version Tracking
 - Code versions: Kat8934.cs VERSION constant
 - Doc versions: README.md, DIARY.md
-- **Current: v0.09 (2026-08-01)**
+- **Current: v0.10 (2026-08-01)**

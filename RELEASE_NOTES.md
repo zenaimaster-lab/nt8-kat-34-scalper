@@ -1,3 +1,11 @@
+# Release Notes — v0.10 (2026-08-01)
+
+- **Text column bug fixed**: the Text toggle redrew labels with `barsAgo` relative to the current bar — for old signals that anchored near the right edge, stacking all labels into a column outside the chart. Redraws now compute `barsAgo = CurrentBars[0] - r.Bar` so every object lands back on its signal candle. (Root cause confirmed by metadata probe: NT8 `Draw.Text` has no simple `DateTime` overload — only a 13-arg one with font/alignment.)
+- **Hide button removed** from the HUD (now: Clear, Arrow, Text).
+- **Arrow distance setting**: `Arrow Offset (ticks)` (default 3) moves the arrow away from the candle.
+- **Sell/Buy settings merged** into one `2. Signal` group — both directions share the same mirrored mechanism (Enabled, Fast/Slow EMA, Trigger Mode, Entry Offset, Stop, Target).
+- Verification: 9/9 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.09 (2026-08-01)
 
 - **Instant HUD reaction fix**: toggles previously queued a pending flag consumed on the next `OnBarUpdate` (next bar close) — so buttons appeared to only affect future signals. All HUD buttons now marshal directly to the data thread via `Dispatcher.InvokeAsync` and apply immediately (Clear removes drawings now, Arrow/Text toggles redraw/remove instantly).
