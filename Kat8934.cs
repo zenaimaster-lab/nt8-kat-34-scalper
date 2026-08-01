@@ -1,6 +1,6 @@
 /*
  * Kat8934.cs
- * Version: 0.11 (2026-08-01)
+ * Version: 0.12 (2026-08-01)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy) with entry, SL, TP dash lines.
  * A0 EMA-ribbon fan filter (9..200) with MTF (3m/5m/15m), ADX/volume and time-window gates, alert sound.
  */
@@ -55,7 +55,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.11";
+		public const string VERSION = "0.12";
 		public const string RELEASE_DATE = "2026-08-01";
 
 		private EMA fastEma;
@@ -64,6 +64,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private bool sellUturned;
 		private bool buyTouched89;
 		private bool buyUturned;
+		private double sellC1;
+		private double sellC2;
+		private double buyC1;
+		private double buyC2;
 		private bool versionDrawn;
 		private volatile bool cachedShowArrows = true;
 		private volatile bool cachedShowLabels;
@@ -219,15 +223,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			KatTriggerMode mode = ToLogicMode(TriggerMode);
 			if (sellAllowed && Kat8934Logic.Update(KatSignalKind.Sell, mode,
 				fast < slow, high, low, close, fast, slow,
-				ref sellTouched89, ref sellUturned) == KatSignalKind.Sell)
+				ref sellTouched89, ref sellUturned, ref sellC1, ref sellC2) == KatSignalKind.Sell)
 			{
-				DrawSignal(false, CurrentBar, high, low, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
+				DrawSignal(false, CurrentBar, high, low, sellC1, sellC2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
 			}
 			if (buyAllowed && Kat8934Logic.Update(KatSignalKind.Buy, mode,
 				fast > slow, high, low, close, fast, slow,
-				ref buyTouched89, ref buyUturned) == KatSignalKind.Buy)
+				ref buyTouched89, ref buyUturned, ref buyC1, ref buyC2) == KatSignalKind.Buy)
 			{
-				DrawSignal(true, CurrentBar, high, low, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
+				DrawSignal(true, CurrentBar, high, low, buyC1, buyC2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
 			}
 		}
 	}
@@ -513,22 +517,19 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			return mode == Kat8934TriggerMode.Breakdown ? KatTriggerMode.Breakdown : KatTriggerMode.RetestBounce;
 		}
 
-		private void DrawSignal(bool isBuy, int bar, double high, double low, int offsetTicks, int stopTicks, int targetTicks)
-		{
-			double tick = TickSize;
-			double entryPrice;
-			double arrowY;
+	private void DrawSignal(bool isBuy, int bar, double high, double low, double c1, double c2, int offsetTicks, int stopTicks, int targetTicks)
+	{
+		double tick = TickSize;
+		double entryPrice;
+		double arrowY;
 
-			if (isBuy)
-			{
-				entryPrice = high + offsetTicks * tick; // buy stop above signal high
-				arrowY = low - ArrowOffsetTicks * tick;  // arrow away from the candle
-			}
-			else
-			{
-				entryPrice = low - offsetTicks * tick; // sell stop below signal low
-				arrowY = high + ArrowOffsetTicks * tick;
-			}
+		// A1 dual entry: c1 = U-turn bar extreme, c2 = best later candidate (0 = none yet — fall back to the signal bar).
+		double ref1 = c1 != 0 ? c1 : (isBuy ? high : low);
+		double ref2 = c2 != 0 ? c2 : ref1;
+		entryPrice = Kat8934Logic.EffectiveEntry(isBuy, ref1, ref2, offsetTicks, tick);
+		double cand1 = isBuy ? ref1 + offsetTicks * tick : ref1 - offsetTicks * tick;
+		double cand2 = isBuy ? ref2 + offsetTicks * tick : ref2 - offsetTicks * tick;
+		arrowY = isBuy ? low - ArrowOffsetTicks * tick : high + ArrowOffsetTicks * tick;
 
 			double slPrice = isBuy ? entryPrice - stopTicks * tick : entryPrice + stopTicks * tick;
 			double tpPrice = isBuy ? entryPrice + targetTicks * tick : entryPrice - targetTicks * tick;
@@ -537,8 +538,17 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Brush slBrush = new SolidColorBrush(SLLineColor);
 			Brush tpBrush = new SolidColorBrush(TPLineColor);
 			Brush textBrush = new SolidColorBrush(isBuy ? BuyTextColor : SellTextColor);
-			int endAgo = -LineLengthBars; // negative barsAgo = bars into the future
-			double textY = isBuy ? entryPrice - tick : entryPrice + tick; // buy label below line, sell above
+		int endAgo = -LineLengthBars; // negative barsAgo = bars into the future
+		double textY = isBuy ? entryPrice - tick : entryPrice + tick; // buy label below line, sell above
+
+		// A1 candidate lines (C1 = U-turn bar, C2 = best later bar) — faded dotted, only when they differ.
+		if (cand1 != cand2)
+		{
+			string side = isBuy ? "B" : "S";
+			Brush faded = new SolidColorBrush(isBuy ? BuyEntryLineColor : SellEntryLineColor) { Opacity = 0.35 };
+			Draw.Line(this, "K8934_" + side + "_C1_" + bar, false, 0, cand1, endAgo, cand1, faded, DashStyleHelper.Dot, 1);
+			Draw.Line(this, "K8934_" + side + "_C2_" + bar, false, 0, cand2, endAgo, cand2, faded, DashStyleHelper.Dot, 1);
+		}
 
 			// barsAgo 0 = the signal candle at draw time.
 			if (cachedShowArrows)

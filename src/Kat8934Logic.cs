@@ -46,6 +46,17 @@ namespace Kat8934
 			return up ? 1 : -1;
 		}
 
+		/// <summary>
+		/// A1 effective entry from the two candidates: sell takes the higher stop (max), buy the lower (min).
+		/// Sell stops sit below the candidate lows; buy stops above the candidate highs.
+		/// </summary>
+		public static double EffectiveEntry(bool isBuy, double c1, double c2, int offsetTicks, double tickSize)
+		{
+			if (isBuy)
+				return Math.Min(c1, c2) + offsetTicks * tickSize;
+			return Math.Max(c1, c2) - offsetTicks * tickSize;
+		}
+
 		/// <summary>Market filter: ADX strength + relative volume. volumeSma 0 disables the volume leg.</summary>
 		public static bool PassMarketFilter(double adx, double adxMin, double volume, double volumeSma, double volumeMult)
 		{
@@ -75,17 +86,47 @@ namespace Kat8934
 			double ema34, double ema89,
 			ref bool touched89, ref bool uturned)
 		{
+			double c1 = 0, c2 = 0;
+			return Update(kind, mode, trendOk, high, low, close, ema34, ema89,
+				ref touched89, ref uturned, ref c1, ref c2);
+		}
+
+		/// <summary>
+		/// Full update with A1 dual-entry candidates.
+		/// Sell: c1 = low of the U-turn bar (first close back below ema34); c2 = the highest low
+		/// among later bars that still close below ema34 (better — higher — sell entry).
+		/// Buy mirrors with highs (c2 = lowest high). c1/c2 are 0 until a U-turn sets them.
+		/// </summary>
+		public static KatSignalKind? Update(
+			KatSignalKind kind, KatTriggerMode mode,
+			bool trendOk,
+			double high, double low, double close,
+			double ema34, double ema89,
+			ref bool touched89, ref bool uturned,
+			ref double c1, ref double c2)
+		{
 			if (!trendOk)
 			{
 				touched89 = false;
 				uturned = false;
+				c1 = 0;
+				c2 = 0;
 				return null;
 			}
 
 			if (kind == KatSignalKind.Sell)
 			{
 				if (!touched89 && high >= ema89) touched89 = true;
-				if (touched89 && !uturned && close < ema34) uturned = true;
+				if (touched89 && !uturned && close < ema34)
+				{
+					uturned = true;
+					c1 = low;
+					c2 = low;
+				}
+				else if (uturned && close < ema34 && low > c2)
+				{
+					c2 = low; // bar closed below ema34 with a higher low — better sell entry
+				}
 				if (touched89 && uturned)
 				{
 					if (mode == KatTriggerMode.Breakdown || close > ema34)
@@ -99,7 +140,16 @@ namespace Kat8934
 			else
 			{
 				if (!touched89 && low <= ema89) touched89 = true;
-				if (touched89 && !uturned && close > ema34) uturned = true;
+				if (touched89 && !uturned && close > ema34)
+				{
+					uturned = true;
+					c1 = high;
+					c2 = high;
+				}
+				else if (uturned && close > ema34 && high < c2)
+				{
+					c2 = high; // bar closed above ema34 with a lower high — better buy entry
+				}
 				if (touched89 && uturned)
 				{
 					if (mode == KatTriggerMode.Breakdown || close < ema34)

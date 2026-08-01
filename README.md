@@ -1,6 +1,6 @@
 # NT8 Kat8934 — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.11` (Released: `2026-08-01`)
+**Current Version**: `v0.12` (Released: `2026-08-01`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -19,7 +19,8 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 - **Trigger** (configurable):
   - `Retest Bounce`: a later bar closes back through the Fast EMA → signal (sell the retest / buy the retest).
   - `Breakdown`: fires immediately on the U-turn close.
-- **Drawing**: sell entry line **solid red** below the signal low, buy entry line **solid lime green** above the signal high (both with `Entry Offset` ticks); SL dashed red (`Stop Distance` above/below entry), TP dashed green; big 2x arrow near the candle (Buy white above, Sell black below, `Arrow Offset` ticks away, default 3); optional BUY/SELL label at the candle (Buy below / Sell above the entry level, default off, toggled from the HUD).
+- **Dual entry (A1)**: two candidates tracked per setup — **C1** = the U-turn bar's low/high, **C2** = the best later bar that still closes on the setup side of the fast EMA (higher low for sells / lower high for buys). The solid entry line sits at the better of the two (sell = higher stop, buy = lower stop); when they differ, both candidates also show as faded dotted lines.
+- **Drawing**: sell entry line **solid red**, buy entry line **solid lime green** (both with `Entry Offset` ticks); SL dashed red (`Stop Distance` above/below entry), TP dashed green; big 2x arrow near the candle (Buy white above, Sell black below, `Arrow Offset` ticks away, default 3); optional BUY/SELL label at the candle (Buy below / Sell above the entry level, default off, toggled from the HUD).
 
 ## Settings (3 sections)
 | Section | Settings |

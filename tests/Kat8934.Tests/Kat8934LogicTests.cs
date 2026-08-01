@@ -213,4 +213,83 @@ public class Kat8934LogicTests
 	{
 		Assert.True(Kat8934Logic.IsInTimeWindow(new TimeSpan(3, 0, 0), new TimeSpan(8, 0, 0), new TimeSpan(8, 0, 0)));
 	}
+
+	// --- A1 dual-entry candidates (C1 = U-turn bar, C2 = best later bar) ---
+	[Fact]
+	public void Sell_UturnBar_SetsC1AndC2ToItsLow()
+	{
+		bool touched = false, uturned = false;
+		double c1 = 0, c2 = 0;
+		// bar 1: touch ema89
+		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 102, 100, 101, 101, 101.5, ref touched, ref uturned, ref c1, ref c2);
+		// bar 2: U-turn close below ema34, low 99.5
+		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 101, 99.5, 99.8, 100.5, 101.5, ref touched, ref uturned, ref c1, ref c2);
+		Assert.Equal(99.5, c1);
+		Assert.Equal(99.5, c2);
+	}
+
+	[Fact]
+	public void Sell_LaterBarWithHigherLow_UpdatesC2Only()
+	{
+		bool touched = false, uturned = false;
+		double c1 = 0, c2 = 0;
+		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 102, 100, 101, 101, 101.5, ref touched, ref uturned, ref c1, ref c2);
+		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 101, 99.5, 99.8, 100.5, 101.5, ref touched, ref uturned, ref c1, ref c2);
+		// bar 3: still below ema34, higher low 99.9 -> better sell entry
+		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 100.4, 99.9, 100.1, 100.5, 101.5, ref touched, ref uturned, ref c1, ref c2);
+		Assert.Equal(99.5, c1); // unchanged
+		Assert.Equal(99.9, c2); // raised
+	}
+
+	[Fact]
+	public void Sell_BarAboveEma34_DoesNotUpdateC2_ButFires()
+	{
+		bool touched = false, uturned = false;
+		double c1 = 0, c2 = 0;
+		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 102, 100, 101, 101, 101.5, ref touched, ref uturned, ref c1, ref c2);
+		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 101, 99.5, 99.8, 100.5, 101.5, ref touched, ref uturned, ref c1, ref c2);
+		// retest bar closes back above ema34 -> signal; its low (100.2) must NOT become c2
+		var signal = Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 101.5, 100.2, 101.2, 100.5, 101.5, ref touched, ref uturned, ref c1, ref c2);
+		Assert.Equal(KatSignalKind.Sell, signal);
+		Assert.Equal(99.5, c2);
+	}
+
+	[Fact]
+	public void Buy_LaterBarWithLowerHigh_UpdatesC2Only()
+	{
+		bool touched = false, uturned = false;
+		double c1 = 0, c2 = 0;
+		Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, true, 100, 98, 99, 101, 98.5, ref touched, ref uturned, ref c1, ref c2);
+		Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, true, 100.5, 99.8, 101.2, 100.5, 98.5, ref touched, ref uturned, ref c1, ref c2);
+		Assert.Equal(100.5, c1);
+		// bar 3: ema34 drifted down to 99.9 — close 100.0 still above it, lower high 100.1 -> better buy entry
+		Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, true, 100.1, 99.6, 100.0, 99.9, 98.5, ref touched, ref uturned, ref c1, ref c2);
+		Assert.Equal(100.5, c1);
+		Assert.Equal(100.1, c2);
+	}
+
+	[Fact]
+	public void Candidates_ResetOnTrendLoss()
+	{
+		bool touched = true, uturned = true;
+		double c1 = 99, c2 = 99;
+		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, false, 105, 104, 104.5, 103, 101, ref touched, ref uturned, ref c1, ref c2);
+		Assert.Equal(0, c1);
+		Assert.Equal(0, c2);
+	}
+
+	// --- EffectiveEntry ---
+	[Fact]
+	public void EffectiveEntry_Sell_TakesHigherStop()
+	{
+		// sell: below candidate lows; c2 higher -> better
+		Assert.Equal(99.9 - 0.25, Kat8934Logic.EffectiveEntry(false, 99.5, 99.9, 1, 0.25));
+	}
+
+	[Fact]
+	public void EffectiveEntry_Buy_TakesLowerStop()
+	{
+		// buy: above candidate highs; c2 lower -> better
+		Assert.Equal(100.1 + 0.25, Kat8934Logic.EffectiveEntry(true, 100.5, 100.1, 1, 0.25));
+	}
 }
