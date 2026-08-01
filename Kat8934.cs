@@ -1,6 +1,6 @@
 /*
  * Kat8934.cs
- * Version: 0.05 (2026-08-01)
+ * Version: 0.06 (2026-08-01)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy) with entry, SL, TP dash lines.
  */
 
@@ -32,7 +32,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.05";
+		public const string VERSION = "0.06";
 		public const string RELEASE_DATE = "2026-08-01";
 
 		// 1. Chuẩn bị — section reserved in settings (added later). No properties yet.
@@ -186,7 +186,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private void BuildHud()
 		{
-			if (hudBorder != null || ChartControl == null) return;
+			// Attach to the outer grid (ChartControl.Parent), never ChartControl itself —
+			// ChartControl lays out the price panel and a child would squeeze it (side gaps).
+			Grid host = ChartControl != null ? ChartControl.Parent as Grid : null;
+			if (hudBorder != null || host == null) return;
 
 			// Graphics mirror the KatTradeManager HUD: dark navy panel, slate border, borderless white buttons.
 			Button btnClear = new Button
@@ -238,13 +241,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				VerticalAlignment = VerticalAlignment.Bottom,
 				Margin = new Thickness(10, 0, 0, 4)
 			};
-			ChartControl.Children.Add(hudBorder);
+			host.Children.Add(hudBorder);
 		}
 
 		private void RemoveHud()
 		{
-			if (hudBorder != null && ChartControl != null)
-				ChartControl.Children.Remove(hudBorder);
+			if (hudBorder != null)
+			{
+				if (hudBorder.Parent is Grid host)
+					host.Children.Remove(hudBorder);
+			}
 			hudBorder = null;
 		}
 		#endregion

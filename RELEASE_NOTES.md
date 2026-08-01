@@ -1,3 +1,8 @@
+# Release Notes — v0.06 (2026-08-01)
+
+- **HUD layout squeeze fix**: the HUD was added to `ChartControl.Children`; ChartControl is the grid that lays out the price panel, so a direct child forced empty side gaps and squeezed the chart to the middle. The HUD now attaches to the outer grid (`ChartControl.Parent`) like the KatTradeManager HUD, restoring the full-width chart.
+- Verification: 9/9 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.05 (2026-08-01)
 
 - HUD restyled to mirror the KatTradeManager HUD (graphics + position only, no new buttons/features):
