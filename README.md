@@ -1,6 +1,6 @@
 # NT8 Kat8934 — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.08` (Released: `2026-08-01`)
+**Current Version**: `v0.09` (Released: `2026-08-01`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -12,7 +12,7 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 - **Trigger** (configurable):
   - `Retest Bounce`: a later bar closes back **above** the Fast EMA → SELL (sell the retest).
   - `Breakdown`: fires immediately on the U-turn close below the Fast EMA.
-- **Drawing**: entry line is **solid** (Sell = bright red, Buy = bright green), SL/TP dashed; arrow on the signal candle; optional BUY/SELL label next to the entry line end (Buy label below the line, Sell above, default off, toggled from the HUD).
+- **Drawing**: entry line is **solid** (Sell = bright red, Buy = bright green), SL/TP dashed; big 2x arrow on the signal candle (Buy = white, Sell = black); optional BUY/SELL label next to the entry line end (Buy label below the line, Sell above, default off, toggled from the HUD).
 
 ### 3. Buy Signal
 - Mirror of Sell: Fast EMA above Slow EMA; price drops to touch/cross Slow EMA, U-turns and closes back above Fast EMA; trigger modes mirrored. Entry is `offset` ticks above signal high, SL below, TP above.
@@ -32,9 +32,9 @@ Parameters group: `Show Version Label` — draws `Kat8934 vX.XX (date)` top-left
 
 ## HUD
 Small panel at the bottom-left of the chart (graphics match the KatTradeManager HUD: dark navy panel, slate border, borderless white buttons) with 4 buttons:
-- **Clear** — removes all signal drawings (old Entry/SL/TP lines, arrows, labels).
-- **Arrow: ON/OFF** — show or hide the signal arrows (applies to already-drawn signals immediately).
-- **Text: ON/OFF** — show or hide the BUY/SELL labels (applies to already-drawn signals immediately).
+- **Clear** — removes all signal drawings (old Entry/SL/TP lines, arrows, labels) — reacts immediately.
+- **Arrow: ON/OFF** — show or hide the signal arrows — reacts immediately.
+- **Text: ON/OFF** — show or hide the BUY/SELL labels — reacts immediately.
 - **Hide / Show** — hide or show the HUD panel.
 
 ## Installation in NinjaTrader 8

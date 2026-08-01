@@ -1,6 +1,6 @@
 /*
  * Kat8934.cs
- * Version: 0.08 (2026-08-01)
+ * Version: 0.09 (2026-08-01)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy) with entry, SL, TP dash lines.
  */
 
@@ -32,7 +32,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.08";
+		public const string VERSION = "0.09";
 		public const string RELEASE_DATE = "2026-08-01";
 
 		// 1. Preparation - section reserved in settings (added later). No properties yet.
@@ -45,16 +45,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private bool buyTouched89;
 		private bool buyUturned;
 		private bool versionDrawn;
-		private volatile bool pendingClearSignals;
 		private volatile bool cachedShowArrows = true;
 		private volatile bool cachedShowLabels;
-		private volatile int pendingDrawMode; // bit 1 = arrows toggle, bit 2 = labels toggle (UI -> data thread)
 		private const int MAX_SIGNAL_RECORDS = 200;
 		private sealed class KatSignalRecord
 		{
 			public int Bar;
 			public bool IsBuy;
 			public double ArrowY;
+			public double ArrowY2;
 			public double TextY;
 		}
 		private readonly List<KatSignalRecord> signalRecords = new List<KatSignalRecord>();
@@ -135,16 +134,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (BarsInProgress != 0 || CurrentBars[0] < 1) return;
 
-			if (pendingClearSignals)
-				ClearOldSignalDrawings();
-
-			if (pendingDrawMode != 0)
-			{
-				int bits = pendingDrawMode;
-				pendingDrawMode = 0;
-				ApplyDrawMode(bits);
-			}
-
 			if (ShowVersion && !versionDrawn)
 				DrawVersionLabel();
 
@@ -186,71 +175,94 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Draw.TextFixed(this, "K8934_version", string.Format("Kat8934 v{0} ({1})", VERSION, RELEASE_DATE), TextPosition.TopLeft);
 		}
 
-		// Runs on the data thread (consumed from OnBarUpdate); UI thread only sets the flag.
+		// Called from the data thread (marshaled via Dispatcher.InvokeAsync from HUD clicks).
 		private void ClearOldSignalDrawings()
 		{
-			pendingClearSignals = false;
-			signalRecords.Clear();
-			var doomed = new List<string>();
-			foreach (IDrawingTool tool in DrawObjects)
+			try
 			{
-				string name = tool.Name;
-				if (name != null && (name.StartsWith("K8934_S_") || name.StartsWith("K8934_B_")))
-					doomed.Add(name);
+				signalRecords.Clear();
+				var doomed = new List<string>();
+				foreach (IDrawingTool tool in DrawObjects)
+				{
+					string name = tool.Name;
+					if (name != null && (name.StartsWith("K8934_S_") || name.StartsWith("K8934_B_")))
+						doomed.Add(name);
+				}
+				foreach (string tag in doomed)
+					RemoveDrawObject(tag);
+				if (ShowVersion && versionDrawn)
+				{
+					versionDrawn = false;
+					DrawVersionLabel();
+				}
+				ForceRefresh();
+				Print(string.Format("[Kat8934] Cleared {0} old signal drawing(s).", doomed.Count));
 			}
-			foreach (string tag in doomed)
-				RemoveDrawObject(tag);
-			if (ShowVersion && versionDrawn)
+			catch (Exception ex)
 			{
-				versionDrawn = false;
-				DrawVersionLabel();
+				Print(string.Format("[Kat8934] Clear error: {0}", ex.Message));
 			}
-			ForceRefresh();
-			Print(string.Format("[Kat8934] Cleared {0} old signal drawing(s).", doomed.Count));
 		}
 
-		// Applies the HUD arrow/label toggles to already-drawn signals (data thread only).
+		// Applies the HUD arrow/label toggles to already-drawn signals.
+		// Called from the data thread (marshaled via Dispatcher.InvokeAsync from HUD clicks).
 		private void ApplyDrawMode(int bits)
 		{
-			if ((bits & 1) != 0)
+			try
 			{
-				if (cachedShowArrows)
+				if ((bits & 1) != 0)
 				{
-					foreach (KatSignalRecord r in signalRecords)
+					if (cachedShowArrows)
 					{
-						if (r.IsBuy)
-							Draw.ArrowUp(this, "K8934_B_ARROW_" + r.Bar, false, 0, r.ArrowY, new SolidColorBrush(BuyTextColor));
-						else
-							Draw.ArrowDown(this, "K8934_S_ARROW_" + r.Bar, false, 0, r.ArrowY, new SolidColorBrush(SellTextColor));
+						foreach (KatSignalRecord r in signalRecords)
+						{
+							if (r.IsBuy)
+							{
+								Draw.ArrowUp(this, "K8934_B_ARROW_" + r.Bar, false, 0, r.ArrowY, Brushes.White);
+								Draw.ArrowUp(this, "K8934_B_ARROW_" + r.Bar + "_2", false, 0, r.ArrowY2, Brushes.White);
+							}
+							else
+							{
+								Draw.ArrowDown(this, "K8934_S_ARROW_" + r.Bar, false, 0, r.ArrowY, Brushes.Black);
+								Draw.ArrowDown(this, "K8934_S_ARROW_" + r.Bar + "_2", false, 0, r.ArrowY2, Brushes.Black);
+							}
+						}
+					}
+					else
+					{
+						foreach (KatSignalRecord r in signalRecords)
+						{
+							RemoveDrawObject(r.IsBuy ? "K8934_B_ARROW_" + r.Bar : "K8934_S_ARROW_" + r.Bar);
+							RemoveDrawObject(r.IsBuy ? "K8934_B_ARROW_" + r.Bar + "_2" : "K8934_S_ARROW_" + r.Bar + "_2");
+						}
 					}
 				}
-				else
-				{
-					foreach (KatSignalRecord r in signalRecords)
-						RemoveDrawObject(r.IsBuy ? "K8934_B_ARROW_" + r.Bar : "K8934_S_ARROW_" + r.Bar);
-				}
-			}
 
-			if ((bits & 2) != 0)
-			{
-				int endAgo = -LineLengthBars;
-				if (cachedShowLabels)
+				if ((bits & 2) != 0)
 				{
-					foreach (KatSignalRecord r in signalRecords)
+					int endAgo = -LineLengthBars;
+					if (cachedShowLabels)
 					{
-						if (r.IsBuy)
-							Draw.Text(this, "K8934_B_TEXT_" + r.Bar, "BUY", endAgo, r.TextY, new SolidColorBrush(BuyTextColor));
-						else
-							Draw.Text(this, "K8934_S_TEXT_" + r.Bar, "SELL", endAgo, r.TextY, new SolidColorBrush(SellTextColor));
+						foreach (KatSignalRecord r in signalRecords)
+						{
+							if (r.IsBuy)
+								Draw.Text(this, "K8934_B_TEXT_" + r.Bar, "BUY", endAgo, r.TextY, new SolidColorBrush(BuyTextColor));
+							else
+								Draw.Text(this, "K8934_S_TEXT_" + r.Bar, "SELL", endAgo, r.TextY, new SolidColorBrush(SellTextColor));
+						}
+					}
+					else
+					{
+						foreach (KatSignalRecord r in signalRecords)
+							RemoveDrawObject(r.IsBuy ? "K8934_B_TEXT_" + r.Bar : "K8934_S_TEXT_" + r.Bar);
 					}
 				}
-				else
-				{
-					foreach (KatSignalRecord r in signalRecords)
-						RemoveDrawObject(r.IsBuy ? "K8934_B_TEXT_" + r.Bar : "K8934_S_TEXT_" + r.Bar);
-				}
+				ForceRefresh();
 			}
-			ForceRefresh();
+			catch (Exception ex)
+			{
+				Print(string.Format("[Kat8934] Draw mode error: {0}", ex.Message));
+			}
 		}
 
 		private Button CreateHudButton(string text, Brush bg, RoutedEventHandler handler)
@@ -282,7 +294,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			SolidColorBrush onBrush = new SolidColorBrush(Color.FromRgb(0, 122, 204));
 			SolidColorBrush offBrush = new SolidColorBrush(Color.FromRgb(45, 50, 65));
 
-			Button btnClear = CreateHudButton("Clear", new SolidColorBrush(Color.FromRgb(20, 20, 20)), (s, e) => pendingClearSignals = true);
+			Button btnClear = CreateHudButton("Clear", new SolidColorBrush(Color.FromRgb(20, 20, 20)), (s, e) => Dispatcher.InvokeAsync(() => ClearOldSignalDrawings()));
 
 			Button btnArrows = CreateHudButton(cachedShowArrows ? "Arrow: ON" : "Arrow: OFF",
 				cachedShowArrows ? onBrush : offBrush, null);
@@ -292,7 +304,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				ShowArrows = cachedShowArrows;
 				btnArrows.Content = cachedShowArrows ? "Arrow: ON" : "Arrow: OFF";
 				btnArrows.Background = cachedShowArrows ? onBrush : offBrush;
-				pendingDrawMode |= 1;
+				Dispatcher.InvokeAsync(() => ApplyDrawMode(1));
 			};
 
 			Button btnLabels = CreateHudButton(cachedShowLabels ? "Text: ON" : "Text: OFF",
@@ -303,7 +315,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				ShowLabels = cachedShowLabels;
 				btnLabels.Content = cachedShowLabels ? "Text: ON" : "Text: OFF";
 				btnLabels.Background = cachedShowLabels ? onBrush : offBrush;
-				pendingDrawMode |= 2;
+				Dispatcher.InvokeAsync(() => ApplyDrawMode(2));
 			};
 
 			Button btnToggle = CreateHudButton("Hide", offBrush, null);
@@ -380,10 +392,18 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			if (cachedShowArrows)
 			{
+				// ponytail: NT8 Draw.Arrow* has no size parameter — two overlapping arrows (1 tick apart) render a visually ~2x marker; upgrade path: custom IDrawingTool.
+				double arrowY2 = isBuy ? arrowY + tick : arrowY - tick;
 				if (isBuy)
-					Draw.ArrowUp(this, "K8934_B_ARROW_" + bar, false, 0, arrowY, textBrush);
+				{
+					Draw.ArrowUp(this, "K8934_B_ARROW_" + bar, false, 0, arrowY, Brushes.White);
+					Draw.ArrowUp(this, "K8934_B_ARROW_" + bar + "_2", false, 0, arrowY2, Brushes.White);
+				}
 				else
-					Draw.ArrowDown(this, "K8934_S_ARROW_" + bar, false, 0, arrowY, textBrush);
+				{
+					Draw.ArrowDown(this, "K8934_S_ARROW_" + bar, false, 0, arrowY, Brushes.Black);
+					Draw.ArrowDown(this, "K8934_S_ARROW_" + bar + "_2", false, 0, arrowY2, Brushes.Black);
+				}
 			}
 
 			if (isBuy)
@@ -405,7 +425,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			if (signalRecords.Count >= MAX_SIGNAL_RECORDS)
 				signalRecords.RemoveAt(0);
-			signalRecords.Add(new KatSignalRecord { Bar = bar, IsBuy = isBuy, ArrowY = arrowY, TextY = textY });
+			signalRecords.Add(new KatSignalRecord { Bar = bar, IsBuy = isBuy, ArrowY = arrowY, ArrowY2 = isBuy ? arrowY + tick : arrowY - tick, TextY = textY });
 
 			Print(string.Format("[Kat8934] {0} signal @ bar {1} — entry {2:F5}, SL {3:F5}, TP {4:F5}", isBuy ? "BUY" : "SELL", bar, entryPrice, slPrice, tpPrice));
 		}

@@ -1,3 +1,9 @@
+# Release Notes — v0.09 (2026-08-01)
+
+- **Instant HUD reaction fix**: toggles previously queued a pending flag consumed on the next `OnBarUpdate` (next bar close) — so buttons appeared to only affect future signals. All HUD buttons now marshal directly to the data thread via `Dispatcher.InvokeAsync` and apply immediately (Clear removes drawings now, Arrow/Text toggles redraw/remove instantly).
+- **Bigger arrows**: NT8 `Draw.Arrow*` has no size parameter (verified in the 8.1.9 assemblies) — arrows are now drawn twice, 1 tick apart, rendering a visually ~2x marker. Buy arrows are white, Sell arrows black.
+- Verification: 9/9 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.08 (2026-08-01)
 
 - **HUD toggles now react on screen**: the Arrow/Text toggles previously only affected future signals. The indicator now records drawn signals (max 200) and the toggles immediately remove or redraw arrows/labels on all already-drawn signals (processed on the data thread via a pending bitmask).
