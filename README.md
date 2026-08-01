@@ -1,6 +1,6 @@
 # NT8 Kat8934 — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.02` (Released: `2026-08-01`)
+**Current Version**: `v0.03` (Released: `2026-08-01`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -12,7 +12,7 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 - **Trigger** (configurable):
   - `Retest Bounce`: a later bar closes back **above** the Fast EMA → SELL (sell the retest).
   - `Breakdown`: fires immediately on the U-turn close below the Fast EMA.
-- **Drawing**: red `SELL` text + down arrow above the signal candle; dashed lines — Entry (gold, `offset` ticks below signal low), SL (red, `stop` ticks above entry), TP (green, `target` ticks below entry).
+- **Drawing**: red `SELL` text + down arrow at the signal candle; dashed lines — Entry (gold, `offset` ticks below signal low), SL (red, `stop` ticks above entry), TP (green, `target` ticks below entry). Lines are short (default 7 bars forward) with the SELL/BUY label placed next to the entry line.
 
 ### 3. Buy Signal
 - Mirror of Sell: Fast EMA above Slow EMA; price drops to touch/cross Slow EMA, U-turns and closes back above Fast EMA; trigger modes mirrored. Entry is `offset` ticks above signal high, SL below, TP above.
@@ -26,6 +26,7 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | 1. Chuẩn bị | *(reserved — none yet)* |
 | 2. Sell Signal | Enabled, Fast EMA Period (34), Slow EMA Period (89), Trigger Mode, Entry Offset (1 tick), Stop Distance (60), Target Distance (120) |
 | 3. Buy Signal | Enabled, Fast EMA Period (34), Slow EMA Period (89), Trigger Mode, Entry Offset (1 tick), Stop Distance (60), Target Distance (120) |
+| 4. Lines & Text | Line Length (7 bars), Line Width (2 px), Entry/SL/TP Line Colors, Sell/Buy Text Colors |
 
 Parameters group: `Show Version Label` — draws `Kat8934 vX.XX (date)` top-left on the chart (updates on every F5 recompile).
 

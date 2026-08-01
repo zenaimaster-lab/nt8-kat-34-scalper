@@ -1,3 +1,10 @@
+# Release Notes — v0.03 (2026-08-01)
+
+- Entry/SL/TP lines shortened: length configurable (`Line Length (bars)`, default 7), same for all three lines.
+- New settings group `4. Lines & Text`: line length, line width, Entry/SL/TP line colors, Sell/Buy text colors (SELL/BUY label now drawn next to the entry line end instead of above the candle; arrow uses the same color).
+- Color properties use the standard NT8 `Color` + hidden serializable-string pattern.
+- Verification: 9/9 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.02 (2026-08-01)
 
 - Indicator moved into the **KAT** folder in NT8's Add Indicator dialog via namespace `NinjaTrader.NinjaScript.Indicators.KAT`.

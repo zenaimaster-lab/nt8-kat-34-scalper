@@ -1,6 +1,6 @@
 /*
  * Kat8934.cs
- * Version: 0.02 (2026-08-01)
+ * Version: 0.03 (2026-08-01)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy) with entry, SL, TP dash lines.
  */
 
@@ -9,6 +9,7 @@ using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Windows.Media;
+using System.Xml.Serialization;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
@@ -28,7 +29,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.02";
+		public const string VERSION = "0.03";
 		public const string RELEASE_DATE = "2026-08-01";
 
 		// 1. Chuẩn bị — section reserved in settings (added later). No properties yet.
@@ -77,6 +78,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				BuyEntryOffsetTicks			= 1;
 				BuyStopDistanceTicks		= 60;
 				BuyTargetDistanceTicks		= 120;
+
+				// 4. Lines & Text defaults
+				LineLengthBars				= 7;
+				LineWidth					= 2;
+				EntryLineColor				= Colors.Gold;
+				SLLineColor					= Colors.Red;
+				TPLineColor					= Colors.Green;
+				SellTextColor				= Colors.Red;
+				BuyTextColor				= Colors.Green;
 			}
 			else if (State == State.DataLoaded)
 			{
@@ -141,40 +151,43 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double tick = TickSize;
 			double entryPrice;
 			double arrowY;
-			double textY;
 
 			if (isBuy)
 			{
 				entryPrice = high + offsetTicks * tick; // buy stop above signal high
 				arrowY = low - tick;
-				textY = low - 2 * tick;
 			}
 			else
 			{
 				entryPrice = low - offsetTicks * tick; // sell stop below signal low
 				arrowY = high + tick;
-				textY = high + 2 * tick;
 			}
 
 			double slPrice = isBuy ? entryPrice - stopTicks * tick : entryPrice + stopTicks * tick;
 			double tpPrice = isBuy ? entryPrice + targetTicks * tick : entryPrice - targetTicks * tick;
 
-			// ponytail: arrows use double-width pixel brush instead of PriceLevels to avoid needing an extra PriceLevel registration
+			Brush entryBrush = new SolidColorBrush(EntryLineColor);
+			Brush slBrush = new SolidColorBrush(SLLineColor);
+			Brush tpBrush = new SolidColorBrush(TPLineColor);
+			Brush textBrush = new SolidColorBrush(isBuy ? BuyTextColor : SellTextColor);
+			int endAgo = -LineLengthBars; // negative barsAgo = bars into the future
+			double textY = isBuy ? entryPrice - tick : entryPrice + tick;
+
 			if (isBuy)
 			{
-				Draw.ArrowUp(this, "K8934_B_ARROW_" + bar, false, bar, arrowY, Brushes.Green);
-				Draw.Text(this, "K8934_B_TEXT_" + bar, "BUY", bar, textY, Brushes.Green);
-				Draw.Line(this, "K8934_B_ENTRY_" + bar, false, bar, entryPrice, -5, entryPrice, Brushes.Gold, DashStyleHelper.Dash, 2);
-				Draw.Line(this, "K8934_B_SL_" + bar, false, bar, slPrice, -5, slPrice, Brushes.Red, DashStyleHelper.Dash, 1);
-				Draw.Line(this, "K8934_B_TP_" + bar, false, bar, tpPrice, -5, tpPrice, Brushes.Green, DashStyleHelper.Dash, 1);
+				Draw.ArrowUp(this, "K8934_B_ARROW_" + bar, false, bar, arrowY, textBrush);
+				Draw.Line(this, "K8934_B_ENTRY_" + bar, false, bar, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K8934_B_SL_" + bar, false, bar, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K8934_B_TP_" + bar, false, bar, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Text(this, "K8934_B_TEXT_" + bar, "BUY", endAgo, textY, textBrush);
 			}
 			else
 			{
-				Draw.ArrowDown(this, "K8934_S_ARROW_" + bar, false, bar, arrowY, Brushes.Red);
-				Draw.Text(this, "K8934_S_TEXT_" + bar, "SELL", bar, textY, Brushes.Red);
-				Draw.Line(this, "K8934_S_ENTRY_" + bar, false, bar, entryPrice, -5, entryPrice, Brushes.Gold, DashStyleHelper.Dash, 2);
-				Draw.Line(this, "K8934_S_SL_" + bar, false, bar, slPrice, -5, slPrice, Brushes.Red, DashStyleHelper.Dash, 1);
-				Draw.Line(this, "K8934_S_TP_" + bar, false, bar, tpPrice, -5, tpPrice, Brushes.Green, DashStyleHelper.Dash, 1);
+				Draw.ArrowDown(this, "K8934_S_ARROW_" + bar, false, bar, arrowY, textBrush);
+				Draw.Line(this, "K8934_S_ENTRY_" + bar, false, bar, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K8934_S_SL_" + bar, false, bar, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K8934_S_TP_" + bar, false, bar, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Text(this, "K8934_S_TEXT_" + bar, "SELL", endAgo, textY, textBrush);
 			}
 
 			Print(string.Format("[Kat8934] {0} signal @ bar {1} — entry {2:F5}, SL {3:F5}, TP {4:F5}", isBuy ? "BUY" : "SELL", bar, entryPrice, slPrice, tpPrice));
@@ -247,6 +260,89 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[NinjaScriptProperty]
 		[Display(Name = "Target Distance (ticks)", Order = 7, GroupName = "3. Buy Signal")]
 		public int BuyTargetDistanceTicks { get; set; }
+
+		// --- 4. Lines & Text ---
+		[NinjaScriptProperty]
+		[Display(Name = "Line Length (bars)", Order = 1, GroupName = "4. Lines & Text",
+			Description = "Entry, SL and TP lines extend this many bars forward from the signal candle.")]
+		public int LineLengthBars { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Line Width (px)", Order = 2, GroupName = "4. Lines & Text")]
+		public int LineWidth { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Entry Line Color", Order = 3, GroupName = "4. Lines & Text")]
+		[XmlIgnore]
+		public Color EntryLineColor { get; set; }
+
+		[Browsable(false)]
+		public string EntryLineColorSerializable
+		{
+			get { return EntryLineColor.ToString(); }
+			set { EntryLineColor = ParseColor(value, Colors.Gold); }
+		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "SL Line Color", Order = 4, GroupName = "4. Lines & Text")]
+		[XmlIgnore]
+		public Color SLLineColor { get; set; }
+
+		[Browsable(false)]
+		public string SLLineColorSerializable
+		{
+			get { return SLLineColor.ToString(); }
+			set { SLLineColor = ParseColor(value, Colors.Red); }
+		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "TP Line Color", Order = 5, GroupName = "4. Lines & Text")]
+		[XmlIgnore]
+		public Color TPLineColor { get; set; }
+
+		[Browsable(false)]
+		public string TPLineColorSerializable
+		{
+			get { return TPLineColor.ToString(); }
+			set { TPLineColor = ParseColor(value, Colors.Green); }
+		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "Sell Text Color", Order = 6, GroupName = "4. Lines & Text",
+			Description = "SELL label and arrow color.")]
+		[XmlIgnore]
+		public Color SellTextColor { get; set; }
+
+		[Browsable(false)]
+		public string SellTextColorSerializable
+		{
+			get { return SellTextColor.ToString(); }
+			set { SellTextColor = ParseColor(value, Colors.Red); }
+		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "Buy Text Color", Order = 7, GroupName = "4. Lines & Text",
+			Description = "BUY label and arrow color.")]
+		[XmlIgnore]
+		public Color BuyTextColor { get; set; }
+
+		[Browsable(false)]
+		public string BuyTextColorSerializable
+		{
+			get { return BuyTextColor.ToString(); }
+			set { BuyTextColor = ParseColor(value, Colors.Green); }
+		}
+
+		private static Color ParseColor(string value, Color fallback)
+		{
+			try
+			{
+				var c = ColorConverter.ConvertFromString(value);
+				if (c != null) return (Color)c;
+			}
+			catch { }
+			return fallback;
+		}
 		#endregion
 	}
 }
