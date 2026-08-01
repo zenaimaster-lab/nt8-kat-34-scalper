@@ -1,3 +1,9 @@
+# Release Notes — v0.04 (2026-08-01)
+
+- **Root-cause fix for over-long lines**: `DrawSignal` passed `CurrentBar` (absolute bar index) into the `barsAgo` parameter of `Draw.Line`/`Draw.Arrow`/`Draw.Text`. NT8 measures `barsAgo` from the right edge, so every signal's anchors jumped to the chart start and lines spanned the whole chart. Anchors are now `0` (signal bar) with the line extending `Line Length (bars)` forward.
+- **HUD panel** at top-center of the chart: `Xóa Line` button (clears all K8934_S_/K8934_B_ draw objects on the data thread, redraws the version label) and `Ẩn/Hiện` toggle.
+- Verification: 9/9 xunit, CompileCheck 0 errors (CS0436 warnings vs the previously compiled copy in NinjaTrader.Custom.dll are expected — source wins).
+
 # Release Notes — v0.03 (2026-08-01)
 
 - Entry/SL/TP lines shortened: length configurable (`Line Length (bars)`, default 7), same for all three lines.

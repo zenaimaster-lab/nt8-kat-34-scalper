@@ -1,13 +1,16 @@
 /*
  * Kat8934.cs
- * Version: 0.03 (2026-08-01)
+ * Version: 0.04 (2026-08-01)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy) with entry, SL, TP dash lines.
  */
 
 #region Using declarations
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Xml.Serialization;
 using NinjaTrader.Gui;
@@ -29,7 +32,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.03";
+		public const string VERSION = "0.04";
 		public const string RELEASE_DATE = "2026-08-01";
 
 		// 1. Chuẩn bị — section reserved in settings (added later). No properties yet.
@@ -42,6 +45,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private bool buyTouched89;
 		private bool buyUturned;
 		private bool versionDrawn;
+		private volatile bool pendingClearSignals;
+		private Border hudBorder;
+		private bool hudVisible = true;
 		#endregion
 
 		#region Indicator Lifecycle
@@ -95,6 +101,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				buyFastEma  = EMA(BarsArray[0], BuyEmaFastPeriod);
 				buySlowEma  = EMA(BarsArray[0], BuyEmaSlowPeriod);
 				Print(string.Format("[Kat8934] v{0} ({1}) loaded.", VERSION, RELEASE_DATE));
+
+				if (ChartControl != null)
+					ChartControl.Dispatcher.InvokeAsync(BuildHud);
+			}
+			else if (State == State.Terminated)
+			{
+				if (ChartControl != null)
+					ChartControl.Dispatcher.InvokeAsync(RemoveHud);
 			}
 		}
 		#endregion
@@ -104,11 +118,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (BarsInProgress != 0 || CurrentBars[0] < 1) return;
 
+			if (pendingClearSignals)
+				ClearOldSignalDrawings();
+
 			if (ShowVersion && !versionDrawn)
-			{
-				versionDrawn = true;
-				Draw.TextFixed(this, "K8934_version", string.Format("Kat8934 v{0} ({1})", VERSION, RELEASE_DATE), TextPosition.TopLeft);
-			}
+				DrawVersionLabel();
 
 			double high = Highs[0][0];
 			double low = Lows[0][0];
@@ -140,6 +154,90 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				}
 			}
 		}
+
+		#region HUD Panel & Drawings
+		private void DrawVersionLabel()
+		{
+			versionDrawn = true;
+			Draw.TextFixed(this, "K8934_version", string.Format("Kat8934 v{0} ({1})", VERSION, RELEASE_DATE), TextPosition.TopLeft);
+		}
+
+		// Runs on the data thread (consumed from OnBarUpdate); UI thread only sets the flag.
+		private void ClearOldSignalDrawings()
+		{
+			pendingClearSignals = false;
+			var doomed = new List<string>();
+			foreach (IDrawingTool tool in DrawObjects)
+			{
+				string name = tool.Name;
+				if (name != null && (name.StartsWith("K8934_S_") || name.StartsWith("K8934_B_")))
+					doomed.Add(name);
+			}
+			foreach (string tag in doomed)
+				RemoveDrawObject(tag);
+			if (ShowVersion && versionDrawn)
+			{
+				versionDrawn = false;
+				DrawVersionLabel();
+			}
+			ForceRefresh();
+			Print(string.Format("[Kat8934] Cleared {0} old signal drawing(s).", doomed.Count));
+		}
+
+		private void BuildHud()
+		{
+			if (hudBorder != null || ChartControl == null) return;
+
+			var btnClear = new Button
+			{
+				Content = "Xóa Line",
+				FontSize = 11,
+				Padding = new Thickness(6, 2, 6, 2),
+				Margin = new Thickness(0, 0, 4, 0),
+				Cursor = System.Windows.Input.Cursors.Hand
+			};
+			btnClear.Click += (s, e) => pendingClearSignals = true;
+
+			var btnToggle = new Button
+			{
+				Content = "Ẩn",
+				FontSize = 11,
+				Padding = new Thickness(6, 2, 6, 2),
+				Cursor = System.Windows.Input.Cursors.Hand
+			};
+			btnToggle.Click += (s, e) =>
+			{
+				hudVisible = !hudVisible;
+				btnToggle.Content = hudVisible ? "Ẩn" : "Hiện";
+				hudBorder.Visibility = hudVisible ? Visibility.Visible : Visibility.Collapsed;
+			};
+
+			var panel = new StackPanel { Orientation = Orientation.Horizontal };
+			panel.Children.Add(btnClear);
+			panel.Children.Add(btnToggle);
+
+			hudBorder = new Border
+			{
+				Child = panel,
+				Background = new SolidColorBrush(Color.FromArgb(180, 20, 20, 20)),
+				BorderBrush = Brushes.DimGray,
+				BorderThickness = new Thickness(1),
+				CornerRadius = new CornerRadius(3),
+				Padding = new Thickness(4),
+				HorizontalAlignment = HorizontalAlignment.Center,
+				VerticalAlignment = VerticalAlignment.Top,
+				Margin = new Thickness(0, 5, 0, 0)
+			};
+			ChartControl.Children.Add(hudBorder);
+		}
+
+		private void RemoveHud()
+		{
+			if (hudBorder != null && ChartControl != null)
+				ChartControl.Children.Remove(hudBorder);
+			hudBorder = null;
+		}
+		#endregion
 
 		private static KatTriggerMode ToLogicMode(Kat8934TriggerMode mode)
 		{
@@ -175,18 +273,18 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			if (isBuy)
 			{
-				Draw.ArrowUp(this, "K8934_B_ARROW_" + bar, false, bar, arrowY, textBrush);
-				Draw.Line(this, "K8934_B_ENTRY_" + bar, false, bar, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Dash, LineWidth);
-				Draw.Line(this, "K8934_B_SL_" + bar, false, bar, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
-				Draw.Line(this, "K8934_B_TP_" + bar, false, bar, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.ArrowUp(this, "K8934_B_ARROW_" + bar, false, 0, arrowY, textBrush);
+				Draw.Line(this, "K8934_B_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K8934_B_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K8934_B_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
 				Draw.Text(this, "K8934_B_TEXT_" + bar, "BUY", endAgo, textY, textBrush);
 			}
 			else
 			{
-				Draw.ArrowDown(this, "K8934_S_ARROW_" + bar, false, bar, arrowY, textBrush);
-				Draw.Line(this, "K8934_S_ENTRY_" + bar, false, bar, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Dash, LineWidth);
-				Draw.Line(this, "K8934_S_SL_" + bar, false, bar, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
-				Draw.Line(this, "K8934_S_TP_" + bar, false, bar, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.ArrowDown(this, "K8934_S_ARROW_" + bar, false, 0, arrowY, textBrush);
+				Draw.Line(this, "K8934_S_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K8934_S_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K8934_S_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
 				Draw.Text(this, "K8934_S_TEXT_" + bar, "SELL", endAgo, textY, textBrush);
 			}
 
