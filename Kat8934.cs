@@ -1,6 +1,6 @@
 /*
  * Kat8934.cs
- * Version: 0.12 (2026-08-01)
+ * Version: 0.13 (2026-08-01)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy) with entry, SL, TP dash lines.
  * A0 EMA-ribbon fan filter (9..200) with MTF (3m/5m/15m), ADX/volume and time-window gates, alert sound.
  */
@@ -15,6 +15,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Xml.Serialization;
+using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
@@ -27,6 +28,31 @@ public enum Kat8934TriggerMode
 	RetestBounce = 0,
 	[Display(Name = "Breakdown")]
 	Breakdown = 1
+}
+
+// Dropdown of the ATM strategy templates in NT8's templates\AtmStrategy folder (+ "None" = bare order).
+public class Kat8934AtmTemplateConverter : TypeConverter
+{
+	public override bool GetStandardValuesSupported(ITypeDescriptorContext context) { return true; }
+	public override bool GetStandardValuesExclusive(ITypeDescriptorContext context) { return true; }
+	public override StandardValuesCollection GetStandardValues(ITypeDescriptorContext context)
+	{
+		var list = new List<string> { "None" };
+		try
+		{
+			string dir = Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "templates", "AtmStrategy");
+			if (Directory.Exists(dir))
+			{
+				var names = new List<string>();
+				foreach (string f in Directory.GetFiles(dir, "*.xml"))
+					names.Add(Path.GetFileNameWithoutExtension(f));
+				names.Sort(StringComparer.OrdinalIgnoreCase); // filesystem order is not deterministic
+				list.AddRange(names);
+			}
+		}
+		catch { }
+		return new StandardValuesCollection(list);
+	}
 }
 
 // Dropdown of the .wav files in NT8's sounds folder (for the Alert Sound setting).
@@ -55,7 +81,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.12";
+		public const string VERSION = "0.13";
 		public const string RELEASE_DATE = "2026-08-01";
 
 		private EMA fastEma;
@@ -87,6 +113,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private volatile bool cachedAdx = true;
 		private volatile bool cachedVol = true;
 		private volatile bool cachedTime = true;
+
+		// 4. Bot (semi-auto: trades only while the HUD BOT button is ON)
+		private volatile bool cachedBotOn;
+		private volatile string cachedBotAtm = "";
+		private volatile string cachedBotAccountName = "";
+		private Order pendingOrder;
+		private bool pendingIsBuy;
+		private double pendingBestRef;   // best extreme used for migration (sell: highest qualifying low / buy: lowest high)
+		private double pendingMigrateRef; // better extreme found; new order placed once the cancelled one is terminal
+		private bool pendingMigrate;
 		private const int MAX_SIGNAL_RECORDS = 200;
 		private sealed class KatSignalRecord
 		{
@@ -131,6 +167,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			TimeFilterStart				= "08:00";
 			TimeFilterEnd				= "17:00";
 			AlertSound					= "Alert1.wav";
+
+			// 4. Bot defaults
+			BotEnabled					= false;
+			BotOrderQuantity			= 1;
+			BotAtmTemplate				= "None";
+			BotAccountName				= "";
 
 				// 2. Signal defaults (Sell and Buy share the same mirrored mechanism)
 				SignalEnabled				= true;
@@ -182,8 +224,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			else
 				Print(string.Format("[Kat8934] Bad time filter '{0}'-'{1}' — time window disabled.", TimeFilterStart, TimeFilterEnd));
 				Print(string.Format("[Kat8934] v{0} ({1}) loaded.", VERSION, RELEASE_DATE));
-				cachedShowArrows = ShowArrows;
-				cachedShowLabels = ShowLabels;
+			cachedShowArrows = ShowArrows;
+			cachedShowLabels = ShowLabels;
+			cachedBotAtm = BotAtmTemplate ?? "";
+			cachedBotAccountName = BotAccountName ?? "";
 
 				if (ChartControl != null)
 					ChartControl.Dispatcher.InvokeAsync(BuildHud);
@@ -226,15 +270,156 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				ref sellTouched89, ref sellUturned, ref sellC1, ref sellC2) == KatSignalKind.Sell)
 			{
 				DrawSignal(false, CurrentBar, high, low, sellC1, sellC2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
+				TrySubmitBotEntry(false, sellC2);
 			}
 			if (buyAllowed && Kat8934Logic.Update(KatSignalKind.Buy, mode,
 				fast > slow, high, low, close, fast, slow,
 				ref buyTouched89, ref buyUturned, ref buyC1, ref buyC2) == KatSignalKind.Buy)
 			{
 				DrawSignal(true, CurrentBar, high, low, buyC1, buyC2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
+				TrySubmitBotEntry(true, buyC2);
 			}
 		}
+
+		ManageBotEntry(high, low, close);
 	}
+
+	#region Bot Order Operations (semi-auto — runs only while the HUD BOT button is ON)
+	private Account ResolveBotAccount()
+	{
+		string name = cachedBotAccountName;
+		if (string.IsNullOrEmpty(name) || Account.All == null) return null;
+		foreach (Account acc in Account.All)
+			if (acc.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) return acc;
+		return null;
+	}
+
+	private bool HasAtmTemplate(string tpl)
+	{
+		return !string.IsNullOrEmpty(tpl)
+			&& !tpl.Equals("None", StringComparison.OrdinalIgnoreCase)
+			&& File.Exists(Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "templates", "AtmStrategy", tpl + ".xml"));
+	}
+
+	// Called from the data thread after a signal fires. refExtreme = best candidate extreme (sell: c2 low / buy: c2 high).
+	private void TrySubmitBotEntry(bool isBuy, double refExtreme)
+	{
+		if (!cachedBotOn || !BotEnabled || refExtreme == 0) return;
+		if (pendingOrder != null || pendingMigrate) return; // one bot order at a time
+		SubmitBotOrder(isBuy, refExtreme);
+	}
+
+	private void SubmitBotOrder(bool isBuy, double refExtreme)
+	{
+		Account acc = ResolveBotAccount();
+		if (acc == null)
+		{
+			Print("[Kat8934] BOT: no account selected — pick one on the HUD or in settings.");
+			return;
+		}
+		double stopPrice = isBuy
+			? refExtreme + EntryOffsetTicks * TickSize
+			: refExtreme - EntryOffsetTicks * TickSize;
+		try
+		{
+			// ATM contract: the entry order name MUST be "Entry" (see KatTradeManager).
+			Order order = acc.CreateOrder(Instrument,
+				isBuy ? OrderAction.Buy : OrderAction.Sell,
+				OrderType.StopMarket, OrderEntry.Manual, TimeInForce.Gtc,
+				BotOrderQuantity, 0, stopPrice, "", "Entry", NinjaTrader.Core.Globals.MaxDate, null);
+
+			pendingOrder = order;
+			pendingIsBuy = isBuy;
+			pendingBestRef = refExtreme;
+
+			string tpl = cachedBotAtm;
+			if (HasAtmTemplate(tpl))
+				NinjaTrader.NinjaScript.AtmStrategy.StartAtmStrategy(tpl, order);
+			else
+			{
+				if (!string.IsNullOrEmpty(tpl) && !tpl.Equals("None", StringComparison.OrdinalIgnoreCase))
+					Print(string.Format("[Kat8934] BOT: ATM template '{0}' not found — bare stop order.", tpl));
+				acc.Submit(new[] { order });
+			}
+			Print(string.Format("[Kat8934] BOT: {0} stop @ {1:F5} submitted (account {2}, ATM {3}).",
+				isBuy ? "BUY" : "SELL", stopPrice, acc.Name, HasAtmTemplate(tpl) ? tpl : "none"));
+		}
+		catch (Exception ex)
+		{
+			pendingOrder = null;
+			Print(string.Format("[Kat8934] BOT submit error: {0}", ex.Message));
+		}
+	}
+
+	// Polls the pending order on the data thread: terminal cleanup, trend-flip cancel, migrate to a better extreme.
+	private void ManageBotEntry(double high, double low, double close)
+	{
+		if (pendingOrder == null)
+		{
+			// A cancelled order left a better entry behind — re-place it while the setup still holds.
+			if (pendingMigrate && cachedBotOn && BotEnabled)
+			{
+				pendingMigrate = false;
+				if (fastEma != null && slowEma != null
+					&& (pendingIsBuy ? fastEma[0] > slowEma[0] && close > fastEma[0] : fastEma[0] < slowEma[0] && close < fastEma[0]))
+					SubmitBotOrder(pendingIsBuy, pendingMigrateRef);
+			}
+			return;
+		}
+
+		OrderState state = pendingOrder.OrderState;
+		if (state == OrderState.Filled || state == OrderState.Cancelled || state == OrderState.Rejected)
+		{
+			Print(string.Format("[Kat8934] BOT: entry order {0} @ {1:F5}.", state, pendingOrder.StopPrice));
+			pendingOrder = null;
+			return; // filled: ATM owns the brackets from here
+		}
+		if (state != OrderState.Working && state != OrderState.Accepted) return;
+		if (fastEma == null || slowEma == null) return;
+
+		// Trend flipped — cancel the pending entry.
+		if (pendingIsBuy ? fastEma[0] < slowEma[0] : fastEma[0] > slowEma[0])
+		{
+			CancelPendingBotOrder("trend flip");
+			return;
+		}
+
+		// Migration: a newer bar closed on the setup side of ema34 with a better extreme.
+		if (!pendingIsBuy && close < fastEma[0] && low > pendingBestRef)
+		{
+			pendingBestRef = low;
+			pendingMigrateRef = low;
+			pendingMigrate = true;
+			CancelPendingBotOrder("migrate to higher sell stop");
+		}
+		else if (pendingIsBuy && close > fastEma[0] && high < pendingBestRef)
+		{
+			pendingBestRef = high;
+			pendingMigrateRef = high;
+			pendingMigrate = true;
+			CancelPendingBotOrder("migrate to lower buy stop");
+		}
+	}
+
+	private void CancelPendingBotOrder(string reason)
+	{
+		if (pendingOrder == null) return;
+		try
+		{
+			Account acc = ResolveBotAccount();
+			if (acc != null)
+			{
+				acc.Cancel(new[] { pendingOrder });
+				Print(string.Format("[Kat8934] BOT: entry cancel requested ({0}).", reason));
+			}
+		}
+		catch (Exception ex)
+		{
+			Print(string.Format("[Kat8934] BOT cancel error: {0}", ex.Message));
+		}
+	}
+	#endregion
+
 
 	#region Filters (A0 fan, MTF, market, time)
 	private void EvaluateFilters()
@@ -482,9 +667,96 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		row2.Children.Add(CreateFilterToggle("Vol", onBrush, offBrush, () => cachedVol, v => cachedVol = v));
 		row2.Children.Add(CreateFilterToggle("Time", onBrush, offBrush, () => cachedTime, v => cachedTime = v));
 
+		// Row 3: semi-auto bot — OFF by default; trades only while ON. OFF cancels the pending bot entry.
+		var row3 = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+
+		Button btnBot = CreateHudButton("BOT: OFF", offBrush, null);
+		btnBot.Click += (s, e) =>
+		{
+			cachedBotOn = !cachedBotOn;
+			btnBot.Content = cachedBotOn ? "BOT: ON" : "BOT: OFF";
+			btnBot.Background = cachedBotOn ? onBrush : offBrush;
+			if (!cachedBotOn)
+				Dispatcher.InvokeAsync(() =>
+				{
+					pendingMigrate = false;
+					CancelPendingBotOrder("BOT switched OFF");
+				});
+		};
+		row3.Children.Add(btnBot);
+
+		// ATM template dropdown (sorted; "None" = bare stop order).
+		var atmCombo = new ComboBox
+		{
+			FontSize = 11, Height = 22, Margin = new Thickness(0, 0, 4, 0),
+			Background = offBrush, Foreground = Brushes.White, BorderThickness = new Thickness(0)
+		};
+		atmCombo.Items.Add("None");
+		try
+		{
+			string atmDir = Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "templates", "AtmStrategy");
+			if (Directory.Exists(atmDir))
+			{
+				var names = new List<string>();
+				foreach (string f in Directory.GetFiles(atmDir, "*.xml"))
+					names.Add(Path.GetFileNameWithoutExtension(f));
+				names.Sort(StringComparer.OrdinalIgnoreCase);
+				foreach (string n in names) atmCombo.Items.Add(n);
+			}
+		}
+		catch { }
+		for (int i = 0; i < atmCombo.Items.Count; i++)
+			if (atmCombo.Items[i].ToString().Equals(cachedBotAtm, StringComparison.OrdinalIgnoreCase))
+				atmCombo.SelectedIndex = i;
+		if (atmCombo.SelectedIndex < 0) atmCombo.SelectedIndex = 0;
+		atmCombo.SelectionChanged += (s, e) =>
+		{
+			if (atmCombo.SelectedItem == null) return;
+			cachedBotAtm = atmCombo.SelectedItem.ToString();
+			BotAtmTemplate = cachedBotAtm;
+		};
+		row3.Children.Add(atmCombo);
+
+		// Account dropdown.
+		var accCombo = new ComboBox
+		{
+			FontSize = 11, Height = 22, Margin = new Thickness(0, 0, 4, 0),
+			Background = offBrush, Foreground = Brushes.White, BorderThickness = new Thickness(0)
+		};
+		if (Account.All != null)
+		{
+			foreach (Account acc in Account.All)
+				accCombo.Items.Add(acc.Name);
+		}
+		for (int i = 0; i < accCombo.Items.Count; i++)
+			if (accCombo.Items[i].ToString().Equals(cachedBotAccountName, StringComparison.OrdinalIgnoreCase))
+				accCombo.SelectedIndex = i;
+		if (accCombo.SelectedIndex < 0 && accCombo.Items.Count > 0) accCombo.SelectedIndex = 0;
+		if (accCombo.SelectedItem != null)
+		{
+			cachedBotAccountName = accCombo.SelectedItem.ToString();
+			BotAccountName = cachedBotAccountName;
+		}
+		accCombo.SelectionChanged += (s, e) =>
+		{
+			if (accCombo.SelectedItem == null) return;
+			cachedBotAccountName = accCombo.SelectedItem.ToString();
+			BotAccountName = cachedBotAccountName;
+		};
+		row3.Children.Add(accCombo);
+
+		// Placeholders for future signal entries (A2, A3…).
+		Button btnA2 = CreateHudButton("A2…", offBrush, null);
+		btnA2.IsEnabled = false;
+		Button btnA3 = CreateHudButton("A3…", offBrush, null);
+		btnA3.IsEnabled = false;
+		row3.Children.Add(btnA2);
+		row3.Children.Add(btnA3);
+
 		var panel = new StackPanel { Orientation = Orientation.Vertical };
 		panel.Children.Add(row1);
 		panel.Children.Add(row2);
+		panel.Children.Add(row3);
 
 			hudBorder = new Border
 			{
@@ -701,7 +973,28 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "Target Distance (ticks)", Order = 7, GroupName = "2. Signal")]
 		public int TargetDistanceTicks { get; set; }
 
-		// --- 3. Lines & Text ---
+		// --- 4. Bot (semi-auto — trades only while the HUD BOT button is ON) ---
+	[NinjaScriptProperty]
+	[Display(Name = "Bot Enabled", Order = 1, GroupName = "4. Bot",
+		Description = "Master switch. The bot still trades only while the HUD BOT button is ON.")]
+	public bool BotEnabled { get; set; }
+
+	[NinjaScriptProperty]
+	[Display(Name = "Order Quantity", Order = 2, GroupName = "4. Bot")]
+	public int BotOrderQuantity { get; set; }
+
+	[NinjaScriptProperty]
+	[Display(Name = "ATM Template", Order = 3, GroupName = "4. Bot",
+		Description = "ATM strategy managing the entry (brackets). 'None' submits a bare stop order.")]
+	[TypeConverter(typeof(Kat8934AtmTemplateConverter))]
+	public string BotAtmTemplate { get; set; }
+
+	[NinjaScriptProperty]
+	[Display(Name = "Account Name", Order = 4, GroupName = "4. Bot",
+		Description = "Account the bot trades on (also selectable on the HUD).")]
+	public string BotAccountName { get; set; }
+
+	// --- 3. Lines & Text ---
 		[NinjaScriptProperty]
 		[Display(Name = "Line Length (bars)", Order = 1, GroupName = "3. Lines & Text",
 			Description = "Entry, SL and TP lines extend this many bars forward from the signal candle.")]
