@@ -1,3 +1,9 @@
+# Release Notes — v0.08 (2026-08-01)
+
+- **HUD toggles now react on screen**: the Arrow/Text toggles previously only affected future signals. The indicator now records drawn signals (max 200) and the toggles immediately remove or redraw arrows/labels on all already-drawn signals (processed on the data thread via a pending bitmask).
+- **UI translated to English**: `Clear`, `Arrow: ON/OFF`, `Text: ON/OFF`, `Hide/Show`; Vietnamese comments/section names replaced.
+- Verification: 9/9 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.07 (2026-08-01)
 
 - Entry lines are now **solid** with per-side colors: Sell entry = bright red, Buy entry = bright lime green (settings `Sell/Buy Entry Line Color` replace the shared gold `Entry Line Color`). SL/TP stay dashed.

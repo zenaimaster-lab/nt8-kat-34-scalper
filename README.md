@@ -1,6 +1,6 @@
 # NT8 Kat8934 — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.07` (Released: `2026-08-01`)
+**Current Version**: `v0.08` (Released: `2026-08-01`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -17,13 +17,13 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 ### 3. Buy Signal
 - Mirror of Sell: Fast EMA above Slow EMA; price drops to touch/cross Slow EMA, U-turns and closes back above Fast EMA; trigger modes mirrored. Entry is `offset` ticks above signal high, SL below, TP above.
 
-### 1. Chuẩn bị (preparation)
+### 1. Preparation
 - Section reserved in settings — conditions to be added later. Currently empty (no settings group visible in the property grid until a property is added).
 
 ## Settings (3 sections)
 | Section | Settings |
 |---|---|
-| 1. Chuẩn bị | *(reserved — none yet)* |
+| 1. Preparation | *(reserved — none yet)* |
 | 2. Sell Signal | Enabled, Fast EMA Period (34), Slow EMA Period (89), Trigger Mode, Entry Offset (1 tick), Stop Distance (60), Target Distance (120) |
 | 3. Buy Signal | Enabled, Fast EMA Period (34), Slow EMA Period (89), Trigger Mode, Entry Offset (1 tick), Stop Distance (60), Target Distance (120) |
 | 4. Lines & Text | Line Length (7 bars), Line Width (2 px), Sell/Buy Entry Line Colors (solid), SL/TP Line Colors, Sell/Buy Text Colors, Show Arrows, Show Buy/Sell Labels (default off) |
@@ -32,10 +32,10 @@ Parameters group: `Show Version Label` — draws `Kat8934 vX.XX (date)` top-left
 
 ## HUD
 Small panel at the bottom-left of the chart (graphics match the KatTradeManager HUD: dark navy panel, slate border, borderless white buttons) with 4 buttons:
-- **Xóa Line** — removes all signal drawings (old Entry/SL/TP lines, arrows, labels).
-- **Mũi tên: ON/OFF** — show or hide the signal arrows.
-- **Chữ: ON/OFF** — show or hide the BUY/SELL labels.
-- **Ẩn / Hiện** — hide or show the HUD panel.
+- **Clear** — removes all signal drawings (old Entry/SL/TP lines, arrows, labels).
+- **Arrow: ON/OFF** — show or hide the signal arrows (applies to already-drawn signals immediately).
+- **Text: ON/OFF** — show or hide the BUY/SELL labels (applies to already-drawn signals immediately).
+- **Hide / Show** — hide or show the HUD panel.
 
 ## Installation in NinjaTrader 8
 
