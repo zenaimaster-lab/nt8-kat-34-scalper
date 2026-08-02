@@ -98,17 +98,18 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			// barsAgo 0 = the signal candle at draw time.
 			if (cachedShowArrows)
 			{
-				// ponytail: NT8 Draw.Arrow* has no size parameter — two overlapping arrows (1 tick apart) render a visually ~2x marker; upgrade path: custom IDrawingTool.
-				double arrowY2 = isBuy ? arrowY + tick : arrowY - tick;
+				// ponytail: NT8 Draw.Arrow* has no size/outline parameter — outline = same arrow drawn
+				// 1 tick beyond the candle first, main color on top. Upgrade path: custom IDrawingTool.
+				double arrowY2 = isBuy ? arrowY - tick : arrowY + tick; // outline fringe on the outer edge
 				if (isBuy)
 				{
-					Draw.ArrowUp(this, "K34S_B_ARROW_" + bar, false, 0, arrowY, Brushes.White);
-					Draw.ArrowUp(this, "K34S_B_ARROW_" + bar + "_2", false, 0, arrowY2, Brushes.White);
+					Draw.ArrowUp(this, "K34S_B_ARROW_" + bar + "_2", false, 0, arrowY2, Brushes.Black); // outline
+					Draw.ArrowUp(this, "K34S_B_ARROW_" + bar, false, 0, arrowY, Brushes.White);          // main
 				}
 				else
 				{
-					Draw.ArrowDown(this, "K34S_S_ARROW_" + bar, false, 0, arrowY, Brushes.Black);
-					Draw.ArrowDown(this, "K34S_S_ARROW_" + bar + "_2", false, 0, arrowY2, Brushes.Black);
+					Draw.ArrowDown(this, "K34S_S_ARROW_" + bar + "_2", false, 0, arrowY2, Brushes.White); // outline
+					Draw.ArrowDown(this, "K34S_S_ARROW_" + bar, false, 0, arrowY, Brushes.Black);           // main
 				}
 			}
 
@@ -156,7 +157,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				Bar = bar,
 				IsBuy = isBuy,
 				ArrowY = arrowY,
-				ArrowY2 = isBuy ? arrowY + tick : arrowY - tick,
+				ArrowY2 = isBuy ? arrowY - tick : arrowY + tick, // outline position (outer edge)
 				TextY = textY
 			});
 
@@ -209,13 +210,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 							int barsAgo = CurrentBars[0] - r.Bar;
 							if (r.IsBuy)
 							{
+								Draw.ArrowUp(this, "K34S_B_ARROW_" + r.Bar + "_2", false, barsAgo, r.ArrowY2, Brushes.Black);
 								Draw.ArrowUp(this, "K34S_B_ARROW_" + r.Bar, false, barsAgo, r.ArrowY, Brushes.White);
-								Draw.ArrowUp(this, "K34S_B_ARROW_" + r.Bar + "_2", false, barsAgo, r.ArrowY2, Brushes.White);
 							}
 							else
 							{
+								Draw.ArrowDown(this, "K34S_S_ARROW_" + r.Bar + "_2", false, barsAgo, r.ArrowY2, Brushes.White);
 								Draw.ArrowDown(this, "K34S_S_ARROW_" + r.Bar, false, barsAgo, r.ArrowY, Brushes.Black);
-								Draw.ArrowDown(this, "K34S_S_ARROW_" + r.Bar + "_2", false, barsAgo, r.ArrowY2, Brushes.Black);
 							}
 						}
 					}

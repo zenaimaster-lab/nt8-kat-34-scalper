@@ -15,11 +15,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
 	public partial class Kat34Scalper : Indicator
 	{
-		// --- Filter module state (HUD toggles) ---
-		private volatile bool cachedMtf = true;
-		private volatile bool cachedAdx = true;
-		private volatile bool cachedVol = true;
-		private volatile bool cachedTime = true;
+		// --- Filter module state (HUD toggles — default OFF: every gate open until user enables) ---
+		private volatile bool cachedMtf;
+		private volatile bool cachedAdx;
+		private volatile bool cachedVol;
+		private volatile bool cachedTime;
 
 		// Fan gate + MTF + market + time. a0Dir comes from the Signal module (0 = A0 off or no fan).
 		private void PassFilters(int a0Dir, out bool sellAllowed, out bool buyAllowed)

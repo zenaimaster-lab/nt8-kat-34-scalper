@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.21` (Released: `2026-08-02`)
+**Current Version**: `v0.23` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -24,6 +24,7 @@ Per bar the pipeline runs: **Signal** (A0) → **Filter** (gates) → **Signal**
 - **MTF**: optional 3m / 5m / 15m ribbons must fan in the same direction (per-TF ON/OFF in settings). A secondary data series is added **only** for enabled timeframes — with all MTF off (default) the chart keeps its single primary series and every other chart indicator (your EMAs) is completely untouched.
 - **Market**: ADX ≥ `ADX Min` (blocks sideways) and bar volume ≥ `Volume Min (x SMA)` × volume SMA (blocks dead bars).
 - **Time window**: `HH:mm` machine-local start/end; overnight wraps midnight; equal start/end disables.
+- **Every filter gate is OFF by default** (settings + HUD toggles start OFF) — A1 fires on trend alone out of the box. Enable gates one by one as needed.
 - A1 (Sell/Buy) fires only while a same-direction fan is active and every enabled gate passes.
 
 ### 2. Signal (shared by Sell and Buy — mirrored mechanism)
@@ -50,7 +51,7 @@ Per bar the pipeline runs: **Signal** (A0) → **Filter** (gates) → **Signal**
 |---|---|
 | 1. Filters | A0 Fan Filter Enabled, Fan Min Spread (20 ticks), Fan Spread Lookback (5 bars), Use 3m/5m/15m Fan (off), ADX Period (14), ADX Min (20), Volume SMA Period (20), Volume Min x SMA (1.0), Time Start/End (08:00–17:00), Alert Sound (dropdown of NT8 .wav files) |
 | 2. Signal | Enabled, Fast EMA Period (34), Slow EMA Period (89), Max Sequence Bars (30), Trigger Mode, Entry Offset (1 tick), Stop Distance (60, ATM fallback), Target Distance (120, ATM fallback) |
-| 4. Bot | Bot Enabled (off), Order Quantity (1), ATM Template (dropdown of NT8 ATM templates + None), Account Name |
+| 4. Bot | Bot Enabled (off), Order Quantity (1), ATM Template (default `mnq. 1ct. 15-be20-35move15-50triggertrail5step1` — its SL 60 / TP 120 / BE / trail levels drive the signal lines; dropdown of NT8 ATM templates + None), Account Name |
 | 3. Lines & Text | Line Length (7 bars), Line Width (2 px), Arrow Offset (3 ticks), Sell/Buy Entry Line Colors (solid), SL/TP Line Colors, Sell/Buy Text Colors, Show Arrows, Show Buy/Sell Labels (default off) |
 
 Parameters group: `Show Version Label` — draws `Kat34Scalper vX.XX (date) [chart timeframe]` top-left on the chart (updates on every F5 recompile). All signal math runs on the primary series of the chart the indicator is added to — the label proves which timeframe that is (e.g. `[30 Second]`).

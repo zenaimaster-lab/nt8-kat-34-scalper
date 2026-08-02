@@ -1,3 +1,15 @@
+# Release Notes — v0.23 (2026-08-02)
+
+- **Default ATM = MNQ 1ct template**: `ATM Template` now defaults to `mnq. 1ct. 15-be20-35move15-50triggertrail5step1`, so every signal draws the ATM's entry/SL 60/TP 120 lines plus BE (dash-dot DeepSkyBlue) and trail trigger lines out of the box. Missing template file falls back to the settings distances (same 60/120).
+- **Stale-deploy compile errors fixed**: NT8's Indicators folder still held the pre-split monolith next to the new partial-class modules (CS0111/CS0102/CS0121/CS0229 collisions). Full redeploy of the current sources resolves it — press F5 in NinjaScript Editor to recompile.
+- Verification: 35/35 xunit, CompileCheck 0 errors.
+
+# Release Notes — v0.22 (2026-08-02)
+
+- **Every filter gate OFF by default**: `FanFilterEnabled` and all HUD filter toggles (MTF/ADX/Volume/Time) start OFF — A1 fires on trend alone out of the box.
+- **Arrow outline pass**: buy = white up-arrow with black outline below the candle, sell = black down-arrow with white outline above (outline drawn 1 tick beyond the candle edge).
+- Verification: 35/35 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.21 (2026-08-02)
 
 - **Bot cancel-account safety**: pending entry cancel now uses owner account captured at submit time, avoiding cancel misses after changing HUD account selection.

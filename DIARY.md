@@ -19,6 +19,20 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.23] — 2026-08-02
+- **Timestamp**: `2026-08-02T05:55:00Z`
+- **Default ATM = MNQ 1ct**: `BotAtmTemplate` default changed from `None` to `mnq. 1ct. 15-be20-35move15-50triggertrail5step1` (verified against the real template XML: StopLoss 60, Target 120, AutoBreakEvenProfitTrigger 80, trail steps 140/200 — parser XPath `//AtmStrategy/Brackets/Bracket/*` matches). Every A1 signal now draws ATM-driven entry/SL/TP + BE/trail trigger lines with zero setup; missing template file falls back to settings distances (60/120 — same values) via the existing `HasAtmTemplate` guard.
+- **Re-audit + stale-deploy fix**: NT8's Indicators folder held the old pre-split monolith (30 KB) next to the new partial-class modules — the CS0111/CS0102/CS0121/CS0229 collision storm in the NinjaScript Editor. Redeployed all 6 current sources; net48 CompileCheck mirrors NT8's compile and passes.
+- **Filter defaults verified OFF**: settings (`FanFilterEnabled`, `Use3m/5m/15mFan`) and HUD gates (`cachedMtf/cachedAdx/cachedVol/cachedTime`) all default OFF — every gate open until the user enables it. A0 sub-module toggle stays ON but is inert while the fan filter setting is OFF.
+- **Arrows verified**: Buy = white `ArrowUp` + black outline 1 tick beyond the low, Sell = black `ArrowDown` + white outline 1 tick beyond the high (scheme confirmed in v0.17, outline pass in v0.22).
+- **Validation**: 35/35 xunit tests; CompileCheck 0 errors.
+- **Graphify entity mapping**: `Kat34Scalper.BotAtmTemplate` (default), `Kat34Scalper.GetAtmData`/`Kat34ScalperAtmParser.ParseDocument` (ATM levels), `Kat34Scalper.DrawSignal` (ATM entry/SL/TP/BE/SL1/SL2 lines).
+### [v0.22] — 2026-08-02
+- **Timestamp**: `2026-08-02T05:30:00Z`
+- **Every filter gate OFF by default**: `FanFilterEnabled` true→false; HUD filter toggles `cachedMtf/cachedAdx/cachedVol/cachedTime` true→false — A1 fires on trend alone out of the box, gates enabled one by one as needed.
+- **Arrow outline pass**: outline arrow drawn 1 tick beyond the candle on the outer edge (Buy black outline + white main below the candle; Sell white outline + black main above); `KatSignalRecord.ArrowY2` stores the outline anchor for toggle redraws.
+- **Validation**: 35/35 xunit tests; CompileCheck 0 errors.
+- **Graphify entity mapping**: `Kat34Scalper.FanFilterEnabled` (default), `Kat34Scalper.DrawSignal` (arrow outline), `KatSignalRecord.ArrowY2`.
 ### [v0.21] — 2026-08-02
 - **Timestamp**: `2026-08-02T05:18:00Z`
 - **Bot cancel-account safety fix**: pending entry cancellation now targets the account that actually owns the order (`pendingOrderAccount`) instead of the currently selected HUD account; prevents cancel failures when user changes account dropdown after submit.
