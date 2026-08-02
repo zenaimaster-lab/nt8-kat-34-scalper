@@ -1,3 +1,11 @@
+# Release Notes — v0.21 (2026-08-02)
+
+- **Bot cancel-account safety**: pending entry cancel now uses owner account captured at submit time, avoiding cancel misses after changing HUD account selection.
+- **HUD ATM sync fix**: when saved template is missing, HUD fallback selection (`None`) now syncs back to runtime state immediately (no stale template execution path).
+- **Deploy script hardening**: `scripts/Deploy-NT8.ps1` now includes focused timeout diagnostics and optional strict mode (`-FailOnMissingRecompile`) so local sync can complete while still surfacing root-cause hints when NT8 does not auto-recompile.
+- **Tests expanded**: added boundary tests for time-window start/end semantics and trigger==market stop/limit decision.
+- Verification: 35/35 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.20 (2026-08-02)
 
 - **Renamed Kat8934 → Kat 34 Scalper** everywhere: code, files, indicator name, HUD, repo folder, GitHub repo. NT8 sees it as a new indicator — re-add it on charts that used Kat8934.

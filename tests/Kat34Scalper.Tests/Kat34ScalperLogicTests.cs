@@ -279,6 +279,15 @@ public class Kat34ScalperLogicTests
 		Assert.True(Kat34ScalperLogic.IsInTimeWindow(new TimeSpan(3, 0, 0), new TimeSpan(8, 0, 0), new TimeSpan(8, 0, 0)));
 	}
 
+	[Fact]
+	public void Time_StartInclusive_EndExclusive_Boundaries()
+	{
+		var start = new TimeSpan(8, 0, 0);
+		var end = new TimeSpan(17, 0, 0);
+		Assert.True(Kat34ScalperLogic.IsInTimeWindow(start, start, end));
+		Assert.False(Kat34ScalperLogic.IsInTimeWindow(end, start, end));
+	}
+
 	// --- Bot entry order type (stop only on the valid side of market, else limit) ---
 	[Fact]
 	public void BotEntry_SellStopBelowMarket_UsesStop_AboveMarket_UsesLimit()
@@ -292,6 +301,13 @@ public class Kat34ScalperLogicTests
 	{
 		Assert.True(Kat34ScalperLogic.UseStopOrder(true, 100.5, 100.0));  // buy stop above current -> valid stop
 		Assert.False(Kat34ScalperLogic.UseStopOrder(true, 99.5, 100.0));   // price ran past -> limit
+	}
+
+	[Fact]
+	public void BotEntry_TriggerEqualsMarket_UsesLimit_BothSides()
+	{
+		Assert.False(Kat34ScalperLogic.UseStopOrder(false, 100.0, 100.0)); // sell stop must be below market
+		Assert.False(Kat34ScalperLogic.UseStopOrder(true, 100.0, 100.0));  // buy stop must be above market
 	}
 
 	// --- EffectiveEntry ---

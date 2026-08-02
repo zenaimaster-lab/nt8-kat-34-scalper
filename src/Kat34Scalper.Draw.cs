@@ -649,6 +649,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (atmCombo.Items[i].ToString().Equals(cachedBotAtm, StringComparison.OrdinalIgnoreCase))
 					atmCombo.SelectedIndex = i;
 			if (atmCombo.SelectedIndex < 0) atmCombo.SelectedIndex = 0;
+			if (atmCombo.SelectedItem != null)
+			{
+				cachedBotAtm = atmCombo.SelectedItem.ToString();
+				BotAtmTemplate = cachedBotAtm;
+			}
 			atmCombo.SelectionChanged += (s, e) =>
 			{
 				if (atmCombo.SelectedItem == null) return;

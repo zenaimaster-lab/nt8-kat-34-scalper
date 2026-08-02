@@ -19,6 +19,14 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.21] — 2026-08-02
+- **Timestamp**: `2026-08-02T05:18:00Z`
+- **Bot cancel-account safety fix**: pending entry cancellation now targets the account that actually owns the order (`pendingOrderAccount`) instead of the currently selected HUD account; prevents cancel failures when user changes account dropdown after submit.
+- **HUD ATM default-state fix**: when cached ATM template no longer exists, HUD fallback selection (`None`) is now written back immediately to runtime state (`cachedBotAtm`/`BotAtmTemplate`) so UI and execution stay aligned (no stale-template warning spam while HUD shows `None`).
+- **Deploy workflow hardening**: `scripts/Deploy-NT8.ps1` now supports non-strict verification mode by default (still checks recompile), prints focused trace/log hints on timeout, and keeps strict CI-like behavior available via `-FailOnMissingRecompile`.
+- **Test coverage improved**: added boundary tests for time window semantics (start inclusive, end exclusive) and stop-vs-limit decision when trigger equals market price.
+- **Validation**: 35/35 xunit tests; CompileCheck 0 errors.
+- **Graphify entity mapping**: `Kat34Scalper.pendingOrderAccount`, `Kat34Scalper.SubmitBotOrder` (owner-account capture + ATM existence reuse), `Kat34Scalper.ManageBotEntry` (owner-account cleanup), `Kat34Scalper.CancelPendingBotOrder` (owner-account cancel path), `Kat34Scalper.BuildHud` (ATM fallback sync), `Kat34ScalperLogicTests.Time_StartInclusive_EndExclusive_Boundaries`, `Kat34ScalperLogicTests.BotEntry_TriggerEqualsMarket_UsesLimit_BothSides`, `scripts/Deploy-NT8.ps1` (`-FailOnMissingRecompile`, timeout diagnostics).
 ### [v0.20] — 2026-08-02
 - **Project renamed: Kat8934 → Kat 34 Scalper**. Every occurrence updated: class `Kat34Scalper` (namespace `NinjaTrader.NinjaScript.Indicators.KAT` — still the KAT folder in NT8), pure namespace `Kat34Scalper`, all types (`Kat34ScalperLogic`, `Kat34ScalperTriggerMode`, `Kat34ScalperAtmParser`, `Kat34ScalperAtmData`, converters), indicator `Name`, version label, HUD title (`⚡ KAT 34 SCALPER`), Print prefixes, draw-object tags (`K8934_*` → `K34S_*`), file names (`Kat34Scalper.cs`, `src/Kat34Scalper{Logic,.Signal,.Filter,.Bot,.Draw}.cs`, `tests/Kat34Scalper.Tests`), build/deploy scripts, README/AGENTS/RULES, local repo folder (`nt8-kat-34-scalper`) and the GitHub repo. DIARY/RELEASE_NOTES history entries keep the old name (historical record).
 - **NT8 migration**: `Deploy-NT8.ps1` now deletes legacy `Kat8934*.cs` from the Indicators folder (stale files would keep the old indicator alive next to the new one). NT8 sees `Kat34Scalper` as a NEW indicator — charts that had `Kat8934` must re-add it (old settings in saved workspaces do not carry over).

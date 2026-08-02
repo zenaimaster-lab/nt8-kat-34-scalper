@@ -25,6 +25,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private volatile string cachedBotAtm = "";
 		private volatile string cachedBotAccountName = "";
 		private Order pendingOrder;
+		private Account pendingOrderAccount; // account that owns pendingOrder (cancel must target owner account)
 		private bool pendingIsBuy;
 		private double pendingEntryPrice; // last submitted entry price (limit OR stop — Order.StopPrice is 0 on limits)
 		private double pendingBestRef;    // best extreme used for migration (sell: highest qualifying low / buy: lowest high)
@@ -98,8 +99,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				pendingBestRef = refExtreme;
 				pendingEntryPrice = entryPrice;
 
+				pendingOrderAccount = acc;
+
 				string tpl = cachedBotAtm;
-				if (HasAtmTemplate(tpl))
+				bool hasAtm = HasAtmTemplate(tpl);
+				if (hasAtm)
 					NinjaTrader.NinjaScript.AtmStrategy.StartAtmStrategy(tpl, order);
 				else
 				{
@@ -108,12 +112,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					acc.Submit(new[] { order });
 				}
 				Print(string.Format("[Kat34Scalper] BOT: {0} {1} @ {2:F5} submitted (account {3}, ATM {4}).",
-					isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, acc.Name, HasAtmTemplate(tpl) ? tpl : "none"));
-				ShowHudStatus(string.Format("BOT: {0} {1} @ {2:F2} ({3})", isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, HasAtmTemplate(tpl) ? tpl : "no ATM"), Brushes.LightGreen);
+					isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, acc.Name, hasAtm ? tpl : "none"));
+				ShowHudStatus(string.Format("BOT: {0} {1} @ {2:F2} ({3})", isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, hasAtm ? tpl : "no ATM"), Brushes.LightGreen);
 			}
 			catch (Exception ex)
 			{
 				pendingOrder = null;
+				pendingOrderAccount = null;
 				Print(string.Format("[Kat34Scalper] BOT submit error: {0}", ex.Message));
 				ShowHudStatus("BOT submit error: " + ex.Message, Brushes.OrangeRed);
 			}
@@ -124,6 +129,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (pendingOrder == null)
 			{
+				pendingOrderAccount = null;
 				// A cancelled order left a better entry behind — re-place it while the setup still holds.
 				if (pendingMigrate && cachedBotOn && BotEnabled)
 				{
@@ -142,6 +148,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (state == OrderState.Filled)
 					ShowHudStatus(string.Format("BOT: entry FILLED @ {0:F2} — ATM manages brackets", pendingEntryPrice), Brushes.LightGreen);
 				pendingOrder = null;
+				pendingOrderAccount = null;
 				return; // filled: ATM owns the brackets from here
 			}
 			if (state != OrderState.Working && state != OrderState.Accepted) return;
@@ -176,7 +183,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (pendingOrder == null) return;
 			try
 			{
-				Account acc = ResolveBotAccount();
+				Account acc = pendingOrderAccount ?? ResolveBotAccount();
 				if (acc != null)
 				{
 					acc.Cancel(new[] { pendingOrder });
