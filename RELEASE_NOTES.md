@@ -1,3 +1,8 @@
+# Release Notes — v0.26 (2026-08-02)
+
+- **Legacy workspace cleanup**: workspaces retaining the removed `Kat8934` indicator can leave persisted `K8934_*` triangles/arrows behind after migration. Kat34Scalper now removes those stale objects once on the first primary bar; HUD Clear also removes both legacy and current prefixes.
+- Verification: 35/35 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.25 (2026-08-02)
 
 - **Draw pipeline repaired**: replaced unsupported negative future `barsAgo` anchors with rolling signal-candle-to-current-bar lines using non-negative anchors, capped by `Line Length`. Stored signal records now retain entry, SL, TP and ATM trigger prices for reliable redraws on historical and realtime bars.

@@ -19,6 +19,10 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.26] — 2026-08-02
+- **Workspace migration cleanup**: NT8 workspace still contained failed-to-restore `Kat8934` instances and their persisted `K8934_*` draw objects. Kat34Scalper now removes stale legacy drawings once on the first primary bar and the HUD Clear action removes both `K34S_*` and `K8934_*` prefixes.
+- **Validation target**: distinguish current A1 drawings from stale pre-rename A0 markers before changing signal semantics.
+- **Graphify entity mapping**: `Kat34Scalper.ClearLegacySignalDrawings`, `Kat34Scalper.ClearOldSignalDrawings`, `Kat34Scalper.OnBarUpdate`.
 ### [v0.25] — 2026-08-02
 - **Root-cause draw repair**: removed unsupported negative `barsAgo` future anchors. Each A1 record now stores entry, SL, TP, BE, SL1, SL2 and candidate prices; `RenderSignal` refreshes lines from the signal candle to the current bar using non-negative anchors for up to `LineLengthBars`.
 - **Arrow determinism**: removed the fake two-arrow outline pass; each A1 signal now owns one per-side arrow using the configured entry color. A0 fan triangles remain separate.

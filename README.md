@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.25` (Released: `2026-08-02`)
+**Current Version**: `v0.26` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -13,7 +13,7 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | `src/Kat34Scalper.Signal.cs` | **Signal** | signal sub-modules: **A0** (EMA-ribbon fan) and **A1** (89-34 pullback); future signals (A2, A3…) plug in as a new region |
 | `src/Kat34Scalper.Filter.cs` | **Filter** | gates: fan direction, MTF (3m/5m/15m), ADX, Volume, Time window; future filters (MACD, RSI…) plug in here |
 | `src/Kat34Scalper.Bot.cs` | **Bot** | signal → order conversion (stop on valid side, limit when price ran past), ATM brackets, migration, trend-flip cancel |
-| `src/Kat34Scalper.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, arrows, labels, version label, alert sound, HUD (sections titled SIGNAL / FILTER / BOT / DRAW) |
+| `src/Kat34Scalper.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, arrows, labels, legacy drawing cleanup, version label, alert sound, HUD (sections titled SIGNAL / FILTER / BOT / DRAW) |
 
 Per bar the pipeline runs: **Signal** (A0) → **Filter** (gates) → **Signal** (A1) → fires **Draw** + **Bot**.
 

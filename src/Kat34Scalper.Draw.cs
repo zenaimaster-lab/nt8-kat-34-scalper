@@ -44,6 +44,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 		private readonly List<KatSignalRecord> signalRecords = new List<KatSignalRecord>();
 		private bool versionDrawn;
+		private bool legacySignalDrawingsCleared;
 		private volatile bool cachedShowArrows = true;
 		private volatile bool cachedShowLabels;
 
@@ -140,6 +141,30 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				RenderSignal(record);
 		}
 
+		private void ClearLegacySignalDrawings()
+		{
+			if (legacySignalDrawingsCleared) return;
+			legacySignalDrawingsCleared = true;
+			try
+			{
+				var doomed = new List<string>();
+				foreach (IDrawingTool tool in DrawObjects)
+				{
+					string name = tool.Name;
+					if (name != null && name.StartsWith("K8934_", StringComparison.Ordinal))
+						doomed.Add(name);
+				}
+				foreach (string tag in doomed)
+					RemoveDrawObject(tag);
+				if (doomed.Count > 0)
+					Print(string.Format("[Kat34Scalper] Removed {0} stale Kat8934 drawing(s).", doomed.Count));
+			}
+			catch (Exception ex)
+			{
+				Print(string.Format("[Kat34Scalper] Legacy drawing cleanup error: {0}", ex.Message));
+			}
+		}
+
 		private void DrawSignal(bool isBuy, int bar, double high, double low, double c1, double c2, int offsetTicks, int stopTicks, int targetTicks)
 		{
 			double tick = TickSize;
@@ -211,7 +236,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				foreach (IDrawingTool tool in DrawObjects)
 				{
 					string name = tool.Name;
-					if (name != null && (name.StartsWith("K34S_S_") || name.StartsWith("K34S_B_") || name.StartsWith("K34S_A0_")))
+					if (name != null &&
+						(name.StartsWith("K34S_", StringComparison.Ordinal) || name.StartsWith("K8934_", StringComparison.Ordinal)))
 						doomed.Add(name);
 				}
 				foreach (string tag in doomed)
