@@ -80,25 +80,35 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			KatSignalKind? sellSignal = null;
 			KatSignalKind? buySignal = null;
 
-			if (sellAllowed)
+			// Advance both state machines on every primary bar while their 34/89 trend is valid.
+			// The A0/fan and other filters gate signal emission, not setup progression; otherwise
+			// a normal pullback that collapses the ribbon freezes before it can reach the U-turn.
+			sellSignal = Kat34ScalperLogic.Update(KatSignalKind.Sell, mode, MaxSequenceBars,
+				fast < slow, high, low, close, fast, slow, sellState);
+			buySignal = Kat34ScalperLogic.Update(KatSignalKind.Buy, mode, MaxSequenceBars,
+				fast > slow, high, low, close, fast, slow, buyState);
+
+			if (sellSignal == KatSignalKind.Sell)
 			{
-				sellSignal = Kat34ScalperLogic.Update(KatSignalKind.Sell, mode, MaxSequenceBars,
-					fast < slow, high, low, close, fast, slow, sellState);
-				if (sellSignal == KatSignalKind.Sell)
+				if (sellAllowed)
 				{
 					DrawSignal(false, CurrentBar, high, low, sellState.C1, sellState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
 					TrySubmitBotEntry(false, sellState.C2);
 				}
+				else
+					Print(string.Format("[Kat34Scalper][A1] bar {0} SELL result suppressed by filters; A0={1}, allowed={2}",
+						CurrentBar, diagnosticA0Dir, sellAllowed));
 			}
-			if (buyAllowed)
+			if (buySignal == KatSignalKind.Buy)
 			{
-				buySignal = Kat34ScalperLogic.Update(KatSignalKind.Buy, mode, MaxSequenceBars,
-					fast > slow, high, low, close, fast, slow, buyState);
-				if (buySignal == KatSignalKind.Buy)
+				if (buyAllowed)
 				{
 					DrawSignal(true, CurrentBar, high, low, buyState.C1, buyState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
 					TrySubmitBotEntry(true, buyState.C2);
 				}
+				else
+					Print(string.Format("[Kat34Scalper][A1] bar {0} BUY result suppressed by filters; A0={1}, allowed={2}",
+						CurrentBar, diagnosticA0Dir, buyAllowed));
 			}
 
 			if (sellState.Phase != sellPhaseBefore)

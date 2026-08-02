@@ -1,3 +1,8 @@
+# Release Notes — v0.28 (2026-08-02)
+
+- **A1 setup progression fixed**: A1 state machines now advance on every primary bar while 34/89 trend is valid. Previously the A0/fan gate prevented state updates during ribbon compression, making touch/U-turn sequences impossible and leaving DrawSignal unreachable. Filters still gate completed signal emission.
+- Verification: pending after NT8 reload; pure tests and CompileCheck run before deploy.
+
 # Release Notes — v0.27 (2026-08-02)
 
 - **A1/draw runtime telemetry**: added low-noise NinjaScript Output markers for loaded configuration (`[DIAG]`), gate transitions (`[GATE]`), A1 phase/result transitions (`[A1]`), and draw record creation (`[DRAW]`). This separates “no A1 signal” from “draw object API failure” without logging every bar.

@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.27` (Released: `2026-08-02`)
+**Current Version**: `v0.28` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -25,7 +25,7 @@ Per bar the pipeline runs: **Signal** (A0) → **Filter** (gates) → **Signal**
 - **Market**: ADX ≥ `ADX Min` (blocks sideways) and bar volume ≥ `Volume Min (x SMA)` × volume SMA (blocks dead bars).
 - **Time window**: `HH:mm` machine-local start/end; overnight wraps midnight; equal start/end disables.
 - **Every filter gate is OFF by default** (settings + HUD toggles start OFF) — A1 fires on trend alone out of the box. Enable gates one by one as needed.
-- A1 (Sell/Buy) fires only while a same-direction fan is active and every enabled gate passes.
+- A1 (Sell/Buy) setup state progresses while 34/89 trend remains valid; A0 fan and other enabled gates decide whether a completed trigger is emitted.
 
 ### 2. Signal (shared by Sell and Buy — mirrored mechanism)
 - **Context**: Fast EMA vs Slow EMA — Sell: fast below slow (downtrend); Buy: fast above slow.
