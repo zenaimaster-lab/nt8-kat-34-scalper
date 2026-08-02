@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.32 (2026-08-02)
+ * Version: 0.33 (2026-08-02)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Module layout (partial classes):
@@ -9,9 +9,9 @@
  *   src/Kat34Scalper.Signal.cs    — Signal module shared helpers (backfill window, mode conversion)
  *   src/Kat34Scalper.Signal.A0.cs — Signal sub-module A0: EMA-ribbon fan (independent)
  *   src/Kat34Scalper.Signal.A1.cs — Signal sub-module A1: 89-34 pullback (independent)
- *   src/Kat34Scalper.Filter.cs    — Filter module: A0 fan gate, MTF, ADX, Volume, Time window gates
+ *   src/Kat34Scalper.Filter.cs    — Filter module: MTF, ADX, Volume, Time window gates (A0 fan gate removed)
  *   src/Kat34Scalper.Bot.cs       — Bot module: signal -> order (stop/limit conversion), migration, ATM brackets
- *   src/Kat34Scalper.Draw.cs      — Draw module: entry/SL/TP/trigger lines, arrows, labels, HUD (module-titled sections)
+ *   src/Kat34Scalper.Draw.cs      — Draw module: entry/SL/TP/trigger lines, HUD (module-titled sections); arrows/text removed; Clear nukes all K34S_*; per-signal ownership prefix K34S_<OWNER>_
  *
  * Signal stages are specified per signal in docs/SIGNALS.md (A0, A1-arm/pull/pull-T/U, ...).
  *
@@ -91,7 +91,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.32";
+		public const string VERSION = "0.33";
 		public const string RELEASE_DATE = "2026-08-02";
 
 		// Indicator series (primary chart TF + optional MTF BarsArrays)
@@ -177,8 +177,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				TPLineColor					= Colors.Green;
 				SellTextColor				= Colors.Red;
 				BuyTextColor				= Colors.LimeGreen;
-				ShowArrows					= true;
-				ShowLabels					= false;
 			}
 			else if (State == State.Configure)
 			{
@@ -215,10 +213,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 				Print(string.Format("[Kat34Scalper] v{0} ({1}) loaded on {2} {3} — all signals compute on THIS series.",
 					VERSION, RELEASE_DATE, Instrument.MasterInstrument.Name, ChartTimeframe()));
-				Print(string.Format("[Kat34Scalper][DIAG] A0Enabled={0}, A1Enabled={1}, FanFilterEnabled={2}, TriggerMode={3}, MaxSequenceBars={4}, LineLengthBars={5}, ShowArrows={6}, ShowLabels={7}",
-					A0Enabled, A1Enabled, FanFilterEnabled, TriggerMode, MaxSequenceBars, LineLengthBars, ShowArrows, ShowLabels));
-				cachedShowArrows = ShowArrows;
-				cachedShowLabels = ShowLabels;
+				Print(string.Format("[Kat34Scalper][DIAG] A0Enabled={0}, A1Enabled={1}, FanFilterEnabled={2}, TriggerMode={3}, MaxSequenceBars={4}, LineLengthBars={5}",
+					A0Enabled, A1Enabled, FanFilterEnabled, TriggerMode, MaxSequenceBars, LineLengthBars));
 				cachedA0 = A0Enabled;
 				cachedA1 = A1Enabled;
 				a0BackfillPending = A0Enabled;   // enabled at load -> draw the History Days window once
@@ -509,15 +505,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			set { BuyTextColor = ParseColor(value, Colors.LimeGreen); }
 		}
 
-		[NinjaScriptProperty]
-		[Display(Name = "Show Arrows", Order = 10, GroupName = "4. Lines & Text",
-			Description = "Draw the up/down arrow near the signal candle.")]
-		public bool ShowArrows { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Show Buy/Sell Labels", Order = 11, GroupName = "4. Lines & Text",
-			Description = "Draw the BUY/SELL text at the signal candle (default off).")]
-		public bool ShowLabels { get; set; }
+		// Arrow/Text feature removed. Only lines + ATM triggers render.
 
 		private static Color ParseColor(string value, Color fallback)
 		{

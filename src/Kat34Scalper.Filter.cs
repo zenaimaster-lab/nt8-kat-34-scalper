@@ -40,16 +40,17 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 		}
 
-		// Fan gate + MTF + market + time at any bar (barsAgo 0 = live, >0 = backfill replay).
+		// MTF + market + time at any bar (barsAgo 0 = live, >0 = backfill replay).
+		// A0 fan filter removed: A1 no longer gated by primary fan direction (A0 signal still computes fan for its markers).
 		private void PassFiltersAt(int barsAgo, int a0Dir, out bool sellAllowed, out bool buyAllowed)
 		{
-			bool fanOff = !FanFilterEnabled;
-			bool pass = (fanOff || a0Dir != 0) && MtfPassAt(a0Dir, barsAgo) && MarketPassAt(barsAgo) && TimePassAt(barsAgo);
-			sellAllowed = pass && (fanOff || a0Dir < 0);
-			buyAllowed  = pass && (fanOff || a0Dir > 0);
+			bool pass = MtfPassAt(a0Dir, barsAgo) && MarketPassAt(barsAgo) && TimePassAt(barsAgo);
+			sellAllowed = pass;
+			buyAllowed  = pass;
 		}
 
 		// Ribbon direction of one BarsArray series at the current bar (+1 buy fan / -1 sell fan / 0 none).
+		// Still computed for A0 signal markers; no longer used to gate A1.
 		private int SeriesFanDirection(int s)
 		{
 			return SeriesFanDirectionAt(s, 0);

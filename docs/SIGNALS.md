@@ -14,6 +14,7 @@ trước/khi code. Khi thêm signal mới (A2, A3...): copy template, điền đ
   state machine được đồng bộ sang live để không bắt đầu lại từ idle.
 - **OFF = độc lập tuyệt đối.** Tắt signal chỉ xoá drawing có tag prefix của chính nó,
   reset state machine của nó; không ảnh hưởng signal khác.
+- **Ownership rule (MANDATORY cho tất cả signal hiện tại và tương lai):** Mỗi signal là một sub-module độc lập. Khi HUD toggle ON: sub-module backfill + vẽ toàn bộ drawings của nó (signal lines/entry/SL/TP + stage markers + arrow/text nếu có). Khi OFF: chỉ xoá NHỮNG GÌ CHÍNH NÓ VẼ RA (dùng prefix `K34S_<OWNER>_` và `K34S_<OWNER>ST_`), không đụng đến các signal khác. ON lại: vẽ lại chính nó. OFF lại: chỉ xóa của nó. Clear button HUD xóa TOÀN BỘ K34S_* + K8934_* của HUD này (không phân biệt owner).
 - **Stage marker** là text label persistent vẽ tại bar xảy ra giai đoạn (không phải marker
   trôi theo bar hiện tại), tag unique per bar.
 - Mọi signal chạy trên primary series của chart (`Calculate.OnBarClose`).
@@ -96,6 +97,6 @@ trước/khi code. Khi thêm signal mới (A2, A3...): copy template, điền đ
 - Bot: nếu BOT ON + `Bot Enabled` → submit stop (hoặc limit nếu giá đã chạy qua) qua ATM template trên account `Sim101` (default). Backfill/replay KHÔNG bắn order.
 
 ### Drawing khi fire
-- Arrow tại nến signal (buy LimeGreen / sell Red, offset `Arrow Offset (ticks)`).
 - Entry line solid (per-side color), SL dashed red, TP dashed green; C1/C2 faded dotted nếu khác nhau; ATM trigger lines BE (DeepSkyBlue dash-dot) / SL1 (orange dot) / SL2 (magenta dot) khi template có.
-- Label `BUY`/`SELL` optional (default off). Lines hiển thị tối đa `Line Length (bars)` (7).
+- Lines hiển thị tối đa `Line Length (bars)` (7).
+- **Ownership prefix:** mọi drawing của signal A1 dùng prefix `K34S_A1_<B/S>_` (entry/SL/TP) và `K34S_A1ST_<B/S>_` (stage markers). Khi A1 OFF chỉ xóa prefix này. Clear HUD xóa toàn bộ `K34S_*`.

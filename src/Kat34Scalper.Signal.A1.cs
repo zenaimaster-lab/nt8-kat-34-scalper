@@ -79,7 +79,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				if (sellAllowed)
 				{
-					DrawSignal(false, CurrentBar, high, low, sellState.C1, sellState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
+					DrawSignal(false, CurrentBar, high, low, sellState.C1, sellState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks, false, "A1");
 					TrySubmitBotEntry(false, sellState.C2);
 				}
 				else
@@ -90,7 +90,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				if (buyAllowed)
 				{
-					DrawSignal(true, CurrentBar, high, low, buyState.C1, buyState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
+					DrawSignal(true, CurrentBar, high, low, buyState.C1, buyState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks, false, "A1");
 					TrySubmitBotEntry(true, buyState.C2);
 				}
 				else
@@ -174,9 +174,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					f > sl, h, l, c, f, sl, tmpBuy);
 
 				if (sellSignal == KatSignalKind.Sell && sellAllowed)
-					DrawSignal(false, CurrentBars[0] - ago, h, l, tmpSell.C1, tmpSell.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks, true);
+					DrawSignal(false, CurrentBars[0] - ago, h, l, tmpSell.C1, tmpSell.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks, true, "A1");
 				if (buySignal == KatSignalKind.Buy && buyAllowed)
-					DrawSignal(true, CurrentBars[0] - ago, h, l, tmpBuy.C1, tmpBuy.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks, true);
+					DrawSignal(true, CurrentBars[0] - ago, h, l, tmpBuy.C1, tmpBuy.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks, true, "A1");
 
 				if (tmpSell.Phase != sellPhaseBefore)
 					DrawA1PhaseMarkerAt(false, ago, h, l, tmpSell.Phase, tmpSell.Touched89);

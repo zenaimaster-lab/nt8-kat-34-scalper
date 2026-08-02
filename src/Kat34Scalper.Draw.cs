@@ -31,6 +31,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			public int Bar;
 			public bool IsBuy;
+			public string Owner; // "A1" or future "A2" etc. — enables per-signal ON/OFF cleanup
 			public double ArrowY;
 			public double TextY;
 			public double Candidate1;
@@ -46,8 +47,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private readonly List<KatSignalRecord> signalRecords = new List<KatSignalRecord>();
 		private bool versionDrawn;
 		private bool legacySignalDrawingsCleared;
-		private volatile bool cachedShowArrows = true;
-		private volatile bool cachedShowLabels;
+		// Arrow/Text feature removed per request. Only lines + ATM triggers remain.
 
 		// Primary-series timeframe, e.g. "30 Second" — proof the indicator computes on the chart TF it was added to.
 		private string ChartTimeframe()
@@ -78,13 +78,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private string SignalTag(KatSignalRecord record, string suffix)
 		{
-			return "K34S_" + (record.IsBuy ? "B" : "S") + "_" + suffix + "_" + record.Bar;
+			string mod = string.IsNullOrEmpty(record.Owner) ? "A1" : record.Owner;
+			return "K34S_" + mod + "_" + (record.IsBuy ? "B" : "S") + "_" + suffix + "_" + record.Bar;
 		}
 
 		private void RenderSignal(KatSignalRecord record)
 		{
 			int age = CurrentBars[0] - record.Bar;
 			if (age < 0) return;
+			// Per-signal ownership: if owner disabled, skip (OFF already removed its drawings)
+			if ((record.Owner ?? "A1") == "A1" && !cachedA1) return;
 
 			Brush entryBrush = new SolidColorBrush(record.IsBuy ? BuyEntryLineColor : SellEntryLineColor);
 			Brush slBrush = new SolidColorBrush(SLLineColor);
@@ -93,23 +96,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			int lineLength = SafeLineLengthBars();
 			int width = SafeLineWidth();
 
-			if (cachedShowArrows)
-			{
-				if (record.IsBuy)
-					Draw.ArrowUp(this, SignalTag(record, "ARROW"), false, age, record.ArrowY, entryBrush);
-				else
-					Draw.ArrowDown(this, SignalTag(record, "ARROW"), false, age, record.ArrowY, entryBrush);
-			}
-			else
-				RemoveDrawObject(SignalTag(record, "ARROW"));
-
-			if (cachedShowLabels)
-			{
-				Draw.Text(this, SignalTag(record, "TEXT"), record.IsBuy ? "BUY" : "SELL", age, record.TextY, textBrush);
-			}
-			else
-				RemoveDrawObject(SignalTag(record, "TEXT"));
-
+			// Arrows + BUY/SELL text removed. Only lines + ATM triggers (BE/SL1/SL2) render.
 			if (age <= lineLength)
 			{
 				if (record.Candidate1 != record.Candidate2)
@@ -174,7 +161,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		// replay = true during a History Days backfill pass: same drawing, no alert sound, no bot order.
-		private void DrawSignal(bool isBuy, int bar, double high, double low, double c1, double c2, int offsetTicks, int stopTicks, int targetTicks, bool replay = false)
+		// owner = signal module id ("A1", "A2"...) for per-signal ON/OFF cleanup ownership.
+		private void DrawSignal(bool isBuy, int bar, double high, double low, double c1, double c2, int offsetTicks, int stopTicks, int targetTicks, bool replay = false, string owner = "A1")
 		{
 			double tick = TickSize;
 			double entryPrice;
@@ -217,6 +205,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				Bar = bar,
 				IsBuy = isBuy,
+				Owner = owner,
 				ArrowY = arrowY,
 				TextY = textY,
 				Candidate1 = cand1,
@@ -233,7 +222,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			if (!replay)
 				PlayAlertSound();
-			Print(string.Format("[Kat34Scalper][A1][DRAW]{3} {0} signal @ bar {1} — entry {2:F5}, SL {4:F5}, TP {5:F5}", isBuy ? "BUY" : "SELL", bar, entryPrice, replay ? "[replay]" : "", slPrice, tpPrice));
+			Print(string.Format("[Kat34Scalper][{6}][DRAW]{3} {0} signal @ bar {1} — entry {2:F5}, SL {4:F5}, TP {5:F5}", isBuy ? "BUY" : "SELL", bar, entryPrice, replay ? "[replay]" : "", slPrice, tpPrice, owner ?? "A1"));
 		}
 
 		// Removes every draw object whose tag starts with the given prefix (data thread only).
@@ -261,13 +250,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 		}
 
-		// A1 switched OFF: drop the signal records (entry/SL/TP lines) + every A1 stage marker.
+		// A1 switched OFF: drop A1-owned signal records + A1 stage markers + A1's own K34S_A1_* drawings only.
+		// Ownership contract: each signal uses K34S_<OWNER>_<B/S>_ prefix (A1 default).
 		private void ClearA1Drawings()
 		{
-			signalRecords.Clear();
+			signalRecords.RemoveAll(r => (r.Owner ?? "A1") == "A1");
 			RemoveModuleDrawings("K34S_A1ST_");
-			RemoveModuleDrawings("K34S_B_");
-			RemoveModuleDrawings("K34S_S_");
+			RemoveModuleDrawings("K34S_A1_");
 		}
 
 		// Called from the data thread through TriggerCustomEvent from HUD clicks.
@@ -300,21 +289,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 		}
 
-		// Applies the HUD arrow/label toggles to already-drawn signals.
-		// Called from the data thread through TriggerCustomEvent from HUD clicks.
-		private void ApplyDrawMode(int bits)
-		{
-			try
-			{
-				foreach (KatSignalRecord record in signalRecords)
-					RenderSignal(record);
-				ForceRefresh();
-			}
-			catch (Exception ex)
-			{
-				Print(string.Format("[Kat34Scalper] Draw mode error: {0}", ex.Message));
-			}
-		}
+		// Arrow/Text feature removed. No toggle apply needed. Lines always render.
 		#endregion
 
 		#region HUD Panel (sections titled by module: SIGNAL / FILTER / BOT / DRAW)
@@ -639,32 +614,26 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			secSignal.Children.Add(sRow2);
 			mainPanel.Children.Add(CreateSectionCard(secSignal, 6));
 
-			// --- FILTER module: A0 fan gate, MTF, ADX, Volume, Time window ---
+			// --- FILTER module: MTF, ADX, Volume, Time window (A0 fan gate removed) ---
 			mainPanel.Children.Add(CreateModuleTitle("FILTER"));
 			var secFilter = new StackPanel();
 			Grid fRow1 = CreateTwoColGrid();
-			Button tFan = CreateFilterToggle("A0 Fan", () => FanFilterEnabled, v => FanFilterEnabled = v);
-			Grid.SetColumn(tFan, 0);
-			fRow1.Children.Add(tFan);
 			Button tMtf = CreateFilterToggle("MTF", () => cachedMtf, v => cachedMtf = v);
-			Grid.SetColumn(tMtf, 2);
+			Grid.SetColumn(tMtf, 0);
 			fRow1.Children.Add(tMtf);
 			Button tAdx = CreateFilterToggle("ADX", () => cachedAdx, v => cachedAdx = v);
+			Grid.SetColumn(tAdx, 2);
+			fRow1.Children.Add(tAdx);
+			Button tVol = CreateFilterToggle("Volume", () => cachedVol, v => cachedVol = v);
 			Grid fRow2 = CreateTwoColGrid();
 			fRow2.Margin = new Thickness(0);
-			Grid.SetColumn(tAdx, 0);
-			fRow2.Children.Add(tAdx);
-			Button tVol = CreateFilterToggle("Volume", () => cachedVol, v => cachedVol = v);
-			Button tTime = CreateFilterToggle("Time window", () => cachedTime, v => cachedTime = v);
-			Grid.SetColumn(tVol, 2);
+			Grid.SetColumn(tVol, 0);
 			fRow2.Children.Add(tVol);
-			Grid fRow3 = CreateTwoColGrid();
-			fRow3.Margin = new Thickness(0);
-			Grid.SetColumn(tTime, 0);
-			fRow3.Children.Add(tTime);
+			Button tTime = CreateFilterToggle("Time window", () => cachedTime, v => cachedTime = v);
+			Grid.SetColumn(tTime, 2);
+			fRow2.Children.Add(tTime);
 			secFilter.Children.Add(fRow1);
 			secFilter.Children.Add(fRow2);
-			secFilter.Children.Add(fRow3);
 			mainPanel.Children.Add(CreateSectionCard(secFilter, 6));
 
 			// --- BOT module: account, ATM template, BOT on/off ---
@@ -682,6 +651,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (accCombo.Items[i].ToString().Equals(cachedBotAccountName, StringComparison.OrdinalIgnoreCase))
 					accCombo.SelectedIndex = i;
 			if (accCombo.SelectedIndex < 0 && accCombo.Items.Count > 0) accCombo.SelectedIndex = 0;
+			// Default to SIM101 if present (per user rule)
+			int simIdx = -1;
+			for (int i = 0; i < accCombo.Items.Count; i++)
+				if (accCombo.Items[i].ToString().Equals("SIM101", StringComparison.OrdinalIgnoreCase)) { simIdx = i; break; }
+			if (simIdx >= 0) accCombo.SelectedIndex = simIdx;
+			else if (accCombo.SelectedIndex < 0 && accCombo.Items.Count > 0) accCombo.SelectedIndex = 0;
 			if (accCombo.SelectedItem != null)
 			{
 				cachedBotAccountName = accCombo.SelectedItem.ToString();
@@ -714,7 +689,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			for (int i = 0; i < atmCombo.Items.Count; i++)
 				if (atmCombo.Items[i].ToString().Equals(cachedBotAtm, StringComparison.OrdinalIgnoreCase))
 					atmCombo.SelectedIndex = i;
-			if (atmCombo.SelectedIndex < 0) atmCombo.SelectedIndex = 0;
+			// Force default mnq 1ct template display if present (per user rule)
+			const string mnq1ct = "mnq. 1ct. 15-be20-35move15-50triggertrail5step1";
+			int mnqIdx = -1;
+			for (int i = 0; i < atmCombo.Items.Count; i++)
+				if (atmCombo.Items[i].ToString().Equals(mnq1ct, StringComparison.OrdinalIgnoreCase)) { mnqIdx = i; break; }
+			if (mnqIdx >= 0) atmCombo.SelectedIndex = mnqIdx;
+			else if (atmCombo.SelectedIndex < 0) atmCombo.SelectedIndex = 0;
 			if (atmCombo.SelectedItem != null)
 			{
 				cachedBotAtm = atmCombo.SelectedItem.ToString();
@@ -752,41 +733,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			secBot.Children.Add(btnBot);
 			mainPanel.Children.Add(CreateSectionCard(secBot, 6));
 
-			// --- DRAW module: arrow/label display + clear drawings ---
+			// --- DRAW module: Clear removes all drawings from this HUD (signals + A0 + A1 stages) ---
 			mainPanel.Children.Add(CreateModuleTitle("DRAW"));
 			var secDraw = new StackPanel();
-			Grid dRow = CreateTwoColGrid();
-			Button btnArrows = CreateHudButton(cachedShowArrows ? "Arrow: ON" : "Arrow: OFF",
-				cachedShowArrows ? hudOnBrush : hudOffBrush, null);
-			btnArrows.Foreground = cachedShowArrows ? Brushes.White : Brushes.LightGray;
-			btnArrows.Click += (s, e) =>
-			{
-				cachedShowArrows = !cachedShowArrows;
-				ShowArrows = cachedShowArrows;
-				btnArrows.Content = cachedShowArrows ? "Arrow: ON" : "Arrow: OFF";
-				btnArrows.Background = cachedShowArrows ? hudOnBrush : hudOffBrush;
-				btnArrows.Foreground = cachedShowArrows ? Brushes.White : Brushes.LightGray;
-				TriggerCustomEvent(o => ApplyDrawMode(1), null);
-			};
-			Grid.SetColumn(btnArrows, 0);
-			dRow.Children.Add(btnArrows);
-
-			Button btnLabels = CreateHudButton(cachedShowLabels ? "Text: ON" : "Text: OFF",
-				cachedShowLabels ? hudOnBrush : hudOffBrush, null);
-			btnLabels.Foreground = cachedShowLabels ? Brushes.White : Brushes.LightGray;
-			btnLabels.Click += (s, e) =>
-			{
-				cachedShowLabels = !cachedShowLabels;
-				ShowLabels = cachedShowLabels;
-				btnLabels.Content = cachedShowLabels ? "Text: ON" : "Text: OFF";
-				btnLabels.Background = cachedShowLabels ? hudOnBrush : hudOffBrush;
-				btnLabels.Foreground = cachedShowLabels ? Brushes.White : Brushes.LightGray;
-				TriggerCustomEvent(o => ApplyDrawMode(2), null);
-			};
-			Grid.SetColumn(btnLabels, 2);
-			dRow.Children.Add(btnLabels);
-			secDraw.Children.Add(dRow);
-
 			Button btnClear = CreateHudButton("Clear", new SolidColorBrush(Color.FromRgb(20, 20, 20)),
 				(s, e) => TriggerCustomEvent(o => ClearOldSignalDrawings(), null));
 			secDraw.Children.Add(btnClear);
