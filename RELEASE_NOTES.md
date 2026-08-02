@@ -1,3 +1,8 @@
+# Release Notes — v0.35 (2026-08-02)
+
+- **A2 missing Entry/SL/TP lines fixed**: `RenderSignal` caps line rendering at `Line Length` (7) bars of age, but the A2 label draws permanently — so any A2 pending entry older than 7 bars (or replayed from the History Days backfill) showed `Buy A2` text with no lines. New `KatSignalRecord.KeepAlive` flag: A2 sets it on NewEntry and clears it on Filled; while set, the entry/SL/TP lines render from the entry candle to the current bar regardless of age. Cancel removes the setup outright; filled setups fade normally.
+- Verification: 47/47 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.34 (2026-08-02)
 
 - **New signal sub-module A2 (34+8+Bounce)**: pending stop entry on an EMA-34 bounce inside a stacked trend. BUY: EMA 8 above/touching EMA 34 (no cross down) + EMA 34 > 89 > 144 > 200 — every condition individually toggleable in the new settings group `3.5 Signal A2 — 34+8+Bounce`; SELL mirrored. Price pulls back, touches EMA 34 (wick) and closes above it → pending stop LONG at the touch candle's high (+ Entry Offset); later touch candles with lower highs migrate the entry down; a close below EMA 34 (or trend loss) cancels it; reaching the trigger marks it filled. No stage markers — entry/SL/TP lines + `Buy A2`/`Sell A2` label at the entry candle. No filters gate A2 yet.

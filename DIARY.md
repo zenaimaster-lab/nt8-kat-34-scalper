@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.35] — 2026-08-02
+- **Fix — A2 Entry/SL/TP lines invisible**: root cause = `RenderSignal` only draws lines while `age <= Line Length` (7 bars); the A2 text label has no age gate. Pending A2 entries live far longer than 7 bars (and backfill-replayed setups start old), so the chart showed `Buy A2` text with zero lines. New `KatSignalRecord.KeepAlive`: A2 NewEntry sets it, Filled clears it; `RenderSignal` skips the age cap while set → lines render from the entry candle to the current bar for the whole life of the pending entry. Cancel still removes lines + label immediately; filled setups fade per `Line Length`.
+- **Validation**: 47/47 xunit; CompileCheck 0 errors; NT8 recompile via Deploy-NT8.ps1.
+- **Graphify entity mapping**: `KatSignalRecord.KeepAlive`, `Kat34Scalper.RenderSignal` (KeepAlive age-cap bypass), `Kat34Scalper.A2HandleAction` (KeepAlive set/clear).
+
 ### [v0.34] — 2026-08-02
 - **Signal sub-module A2 (34+8+Bounce) — new independent signal**: pending stop entry on an EMA-34 bounce inside a stacked trend (BUY 34+++: `ema8 >= ema34` touch-allowed + `ema34 > ema89 > ema144 > ema200`; SELL mirrored; each condition a separate toggle in new group `3.5 Signal A2 — 34+8+Bounce`). Setup: pullback TOUCHES ema34 (wick) and closes on the trend side → pending stop at the touch candle's extreme ± `A2 Entry Offset` (buy: high + offset); later touch with a better extreme MIGRATES the entry (buy: lower high → move down); a higher high means the stop already filled (Filled check runs first: high >= RefExtreme + offset); close beyond ema34 or trend loss CANCELS the entry. Touch candle closing beyond ema34 never places an entry. New fixed `ema8` series (fanEmas starts at 9); ema34/89/144/200 read from `fanEmas[0][2/4/5/6]` so A2 ignores A1's configurable periods. Warmup = 200 bars.
 - **No stage markers per user spec** (single-phase signal): drawings = entry/SL/TP lines (shared pipeline) + `Buy A2` below the entry candle (Buy Text Color) / `Sell A2` above (Sell Text Color), tag `K34S_A2_TX_<B/S>_<bar>`; migration moves lines + label to the new candle; cancel removes them; fill lets lines fade per `Line Length`. Ownership prefix `K34S_A2_` + records owner `A2`; OFF removes only its own. No filters gate A2 yet (higher-TF filters deferred to the Filter section).

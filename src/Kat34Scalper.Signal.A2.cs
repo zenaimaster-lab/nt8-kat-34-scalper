@@ -126,6 +126,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				record = DrawSignal(isBuy, bar, high, low, s.RefExtreme, s.RefExtreme,
 					A2EntryOffsetTicks, A2StopDistanceTicks, A2TargetDistanceTicks, replay, "A2");
+				record.KeepAlive = true; // pending entry — lines must not fade after Line Length bars
 				textTag = DrawA2Text(isBuy, ago, high, low);
 				if (!replay) TrySubmitBotEntry(isBuy, s.RefExtreme, A2EntryOffsetTicks, "A2");
 			}
@@ -148,8 +149,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (textTag != null) { RemoveDrawObject(textTag); textTag = null; }
 				if (!replay) CancelA2BotEntry(isBuy, "A2 entry cancelled (close beyond ema34 / trend lost)");
 			}
-			else // Filled — setup done; drawing stays and fades per Line Length, label stays on the candle
+			else // Filled — setup done; drawing fades per Line Length from here, label stays on the candle
 			{
+				if (record != null) record.KeepAlive = false;
 				record = null;
 				textTag = null;
 			}

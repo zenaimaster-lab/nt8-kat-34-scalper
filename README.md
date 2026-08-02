@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.34` (Released: `2026-08-02`)
+**Current Version**: `v0.35` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -52,7 +52,7 @@ Every signal sub-module is **independent and default OFF**; its stages are speci
 ### A2 Signal (34+8+Bounce — shared by Sell and Buy, mirrored)
 - **Context (trend stack)**: BUY 34+++ = EMA 8 above/touching EMA 34 (no cross down) + EMA 34 > EMA 89 > EMA 144 > EMA 200 — **each condition individually toggleable** in settings. SELL mirrors. Trend loss cancels the pending entry.
 - **Setup**: price runs above EMA 34, pulls back and **touches** it (wick low ≤ EMA 34) while **closing above** → pending stop LONG at the touch candle's **high (wick included)** + `Entry Offset`. A later touch candle with a **lower high migrates the entry down** (a higher high means the stop already filled). A **close below EMA 34** cancels the entry — a touch candle must close above EMA 34 to place the pending stop Buy at all.
-- **No stage markers** (single-phase setup): drawings are the entry/SL/TP lines plus a `Buy A2` label below the entry candle (Buy Text Color) / `Sell A2` above (Sell Text Color). Cancel removes the setup's lines + label; fill leaves them to fade per `Line Length`.
+- **No stage markers** (single-phase setup): drawings are the entry/SL/TP lines plus a `Buy A2` label below the entry candle (Buy Text Color) / `Sell A2` above (Sell Text Color). Lines stay rendered while the entry is pending (`KeepAlive` — no `Line Length` fade); cancel removes lines + label; fill lets them fade per `Line Length`.
 - **Filters**: none yet — A2 computes on the chart's own timeframe only; higher-TF filters will plug into the Filter section later.
 
 ## Bot (semi-auto)

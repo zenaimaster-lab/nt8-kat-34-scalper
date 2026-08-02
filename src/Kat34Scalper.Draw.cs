@@ -43,6 +43,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			public double Sl1Price;
 			public double Sl2Price;
 			public bool DrawLogged;
+			public bool KeepAlive; // A2 pending entry: lines render while the setup is alive, ignoring the Line Length fade
 		}
 		private readonly List<KatSignalRecord> signalRecords = new List<KatSignalRecord>();
 		private bool versionDrawn;
@@ -99,7 +100,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			int width = SafeLineWidth();
 
 			// Arrows + BUY/SELL text removed. Only lines + ATM triggers (BE/SL1/SL2) render.
-			if (age <= lineLength)
+			// KeepAlive (A2 pending entry): no age cap — the lines live until Cancel/Filled.
+			if (age <= lineLength || record.KeepAlive)
 			{
 				if (record.Candidate1 != record.Candidate2)
 				{
