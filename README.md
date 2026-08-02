@@ -1,8 +1,21 @@
 # NT8 Kat8934 — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.18` (Released: `2026-08-02`)
+**Current Version**: `v0.19` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
+
+## Module structure (partial classes)
+
+| File | Module | Owns |
+|---|---|---|
+| `Kat8934.cs` | **Main** | lifecycle (`OnStateChange`), settings (NinjaScript properties), per-bar orchestration |
+| `src/Kat8934Logic.cs` | **Pure logic** | signal state machines + filter math + ATM parser — zero NT8 deps, xunit-tested |
+| `src/Kat8934.Signal.cs` | **Signal** | signal sub-modules: **A0** (EMA-ribbon fan) and **A1** (89-34 pullback); future signals (A2, A3…) plug in as a new region |
+| `src/Kat8934.Filter.cs` | **Filter** | gates: fan direction, MTF (3m/5m/15m), ADX, Volume, Time window; future filters (MACD, RSI…) plug in here |
+| `src/Kat8934.Bot.cs` | **Bot** | signal → order conversion (stop on valid side, limit when price ran past), ATM brackets, migration, trend-flip cancel |
+| `src/Kat8934.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, arrows, labels, version label, alert sound, HUD (sections titled SIGNAL / FILTER / BOT / DRAW) |
+
+Per bar the pipeline runs: **Signal** (A0) → **Filter** (gates) → **Signal** (A1) → fires **Draw** + **Bot**.
 
 ## Signals
 
@@ -43,10 +56,11 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 Parameters group: `Show Version Label` — draws `Kat8934 vX.XX (date) [chart timeframe]` top-left on the chart (updates on every F5 recompile). All signal math runs on the primary series of the chart the indicator is added to — the label proves which timeframe that is (e.g. `[30 Second]`).
 
 ## HUD
-TradeManager-style panel (same colors, sizes and structure): dark navy card `Argb(240,20,24,33)` on a draggable canvas (drag anywhere outside the buttons, clamped so it can't leave the chart), `⚡ KAT 8934 vX.XX` steel-blue header, and a status line (5 s auto-clear) that mirrors bot events — submits, migrations, cancels, fills.
-- **Section 1 — Account & ATM**: `Acc:` row (account dropdown) + ATM template dropdown (sorted, `None` = bare stop order).
-- **Section 2 — Filters**: `A0 fan | MTF`, `ADX | Volume`, `Time window` toggles — blue ON / gray OFF (LightGray text), effective from the next bar.
-- **Section 3 — Bot & Display**: `⚡ BOT: ON/OFF` (default OFF; OFF cancels the pending entry immediately), `Arrow | Text` drawing toggles, disabled `A2… | A3…` placeholders for future signals, dark `Clear` button.
+TradeManager-style panel (same colors, sizes and structure): dark navy card `Argb(240,20,24,33)` on a draggable canvas (drag anywhere outside the buttons, clamped so it can't leave the chart), `⚡ KAT 8934 vX.XX` steel-blue header, and a status line (5 s auto-clear) that mirrors bot events — submits, migrations, cancels, fills. Each section carries a **module title** naming the module it controls:
+- **SIGNAL**: `A0 fan` + `A1 89-34` sub-module toggles, disabled `A2… | A3…` placeholders for future signal sub-modules.
+- **FILTER**: `MTF | ADX`, `Volume | Time window` toggles — blue ON / gray OFF, effective from the next bar.
+- **BOT**: `Acc:` row (account dropdown), ATM template dropdown (sorted, `None` = bare stop order), `⚡ BOT: ON/OFF` (default OFF; OFF cancels the pending entry immediately).
+- **DRAW**: `Arrow | Text` drawing toggles, dark `Clear` button.
 
 ## Installation in NinjaTrader 8
 

@@ -10,10 +10,9 @@ $repoRoot   = Split-Path -Parent $PSScriptRoot
 $indicators = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\Indicators'
 $customDll  = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\NinjaTrader.Custom.dll'
 
-$files = @(
-    'Kat8934.cs',
-    'src\Kat8934Logic.cs'
-)
+# Main file + every module under src\ (Logic, Signal, Filter, Bot, Draw, ...).
+$files = @('Kat8934.cs') + (Get-ChildItem (Join-Path $repoRoot 'src') -Filter '*.cs' |
+    ForEach-Object { 'src\' + $_.Name })
 
 $deployTime = Get-Date
 foreach ($f in $files) {

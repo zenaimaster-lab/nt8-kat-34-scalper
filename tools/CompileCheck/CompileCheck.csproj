@@ -22,7 +22,7 @@
 
   <ItemGroup>
     <Compile Include="..\..\Kat8934.cs" />
-    <Compile Include="..\..\src\Kat8934Logic.cs" />
+    <Compile Include="..\..\src\*.cs" />
   </ItemGroup>
 
   <ItemGroup>

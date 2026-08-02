@@ -44,8 +44,12 @@ On every code change, BEFORE closing session:
 4. **Update Graphify**: run `graphify update .`
 5. **Update Diary**: add entry with timestamp, changes summary, Graphify entity mapping.
 6. **Deploy NT8 (MANDATORY FULL SYNC)**: copy ALL source `.cs` files (`Kat8934.cs` AND `src/*.cs`) to `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\` with force overwrite (`scripts\Deploy-NT8.ps1` does this + verifies recompile):
-   - `Kat8934.cs`
-   - `src\Kat8934Logic.cs`
+   - `Kat8934.cs` (main: lifecycle, settings, orchestration)
+   - `src\Kat8934Logic.cs` (pure logic, xunit-tested)
+   - `src\Kat8934.Signal.cs` (Signal module: A0 fan + A1 89-34 sub-modules)
+   - `src\Kat8934.Filter.cs` (Filter module: MTF, ADX, Volume, Time)
+   - `src\Kat8934.Bot.cs` (Bot module: order ops, stop/limit, ATM)
+   - `src\Kat8934.Draw.cs` (Draw module: lines/arrows/text + HUD)
 7. **Git sync**:
    - `git add .`
    - `git commit -m "vX.XX (YYYY-MM-DD): Description"`
@@ -59,4 +63,4 @@ On every code change, BEFORE closing session:
 ## Version Tracking
 - Code versions: Kat8934.cs VERSION constant
 - Doc versions: README.md, DIARY.md
-- **Current: v0.10 (2026-08-01)**
+- **Current: v0.19 (2026-08-02)**
