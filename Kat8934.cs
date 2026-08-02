@@ -1,6 +1,6 @@
 /*
  * Kat8934.cs
- * Version: 0.15 (2026-08-01)
+ * Version: 0.16 (2026-08-01)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy) with entry, SL, TP dash lines.
  * A0 EMA-ribbon fan filter (9..200) with MTF (3m/5m/15m), ADX/volume and time-window gates, alert sound.
  */
@@ -82,7 +82,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.15";
+		public const string VERSION = "0.16";
 		public const string RELEASE_DATE = "2026-08-01";
 
 		private EMA fastEma;
@@ -101,7 +101,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		// 1. Filters (A0 fan, MTF, market, time)
 		private static readonly int[] FanPeriods = { 9, 21, 34, 55, 89, 144, 200 };
-		private EMA[][] fanEmas; // [series index][period index] — series 0=primary, 1=3m, 2=5m, 3=15m
+		private EMA[][] fanEmas; // [BarsArray index][period index] — 0=primary; MTF indexes in bip3m/bip5m/bip15m (-1 = series not added)
 		private ADX adxInd;
 		private SMA volSmaInd;
 		private TimeSpan timeStart;
@@ -123,7 +123,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private bool pendingIsBuy;
 		private double pendingBestRef;   // best extreme used for migration (sell: highest qualifying low / buy: lowest high)
 		private double pendingMigrateRef; // better extreme found; new order placed once the cancelled one is terminal
-		private bool pendingMigrate;
+		private volatile bool pendingMigrate;
 		private int bip3m = -1;  // BarsArray index of the 3m series (-1 = not added)
 		private int bip5m = -1;
 		private int bip15m = -1;
@@ -536,7 +536,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				foreach (IDrawingTool tool in DrawObjects)
 				{
 					string name = tool.Name;
-					if (name != null && (name.StartsWith("K8934_S_") || name.StartsWith("K8934_B_")))
+					if (name != null && (name.StartsWith("K8934_S_") || name.StartsWith("K8934_B_") || name.StartsWith("K8934_A0_")))
 						doomed.Add(name);
 				}
 				foreach (string tag in doomed)
@@ -1258,7 +1258,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 	[NinjaScriptProperty]
 	[Display(Name = "Order Quantity", Order = 2, GroupName = "4. Bot")]
-	public int BotOrderQuantity { get; set; }
+	public int BotOrderQuantity
+	{
+		get { return botOrderQuantity; }
+		set { botOrderQuantity = Math.Max(1, value); } // CreateOrder fails on 0/negative
+	}
+	private int botOrderQuantity;
 
 	[NinjaScriptProperty]
 	[Display(Name = "ATM Template", Order = 3, GroupName = "4. Bot",
