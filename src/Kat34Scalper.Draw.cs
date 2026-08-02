@@ -173,7 +173,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 		}
 
-		private void DrawSignal(bool isBuy, int bar, double high, double low, double c1, double c2, int offsetTicks, int stopTicks, int targetTicks)
+		// replay = true during a History Days backfill pass: same drawing, no alert sound, no bot order.
+		private void DrawSignal(bool isBuy, int bar, double high, double low, double c1, double c2, int offsetTicks, int stopTicks, int targetTicks, bool replay = false)
 		{
 			double tick = TickSize;
 			double entryPrice;
@@ -230,8 +231,43 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			signalRecords.Add(record);
 			RenderSignal(record);
 
-			PlayAlertSound();
-			Print(string.Format("[Kat34Scalper][A1][DRAW] {0} signal @ bar {1} — entry {2:F5}, SL {3:F5}, TP {4:F5}", isBuy ? "BUY" : "SELL", bar, entryPrice, slPrice, tpPrice));
+			if (!replay)
+				PlayAlertSound();
+			Print(string.Format("[Kat34Scalper][A1][DRAW]{3} {0} signal @ bar {1} — entry {2:F5}, SL {4:F5}, TP {5:F5}", isBuy ? "BUY" : "SELL", bar, entryPrice, replay ? "[replay]" : "", slPrice, tpPrice));
+		}
+
+		// Removes every draw object whose tag starts with the given prefix (data thread only).
+		// Used by the signal sub-modules when they are switched OFF (independence: only their own tags).
+		private void RemoveModuleDrawings(string prefix)
+		{
+			try
+			{
+				var doomed = new List<string>();
+				foreach (IDrawingTool tool in DrawObjects)
+				{
+					string name = tool.Name;
+					if (name != null && name.StartsWith(prefix, StringComparison.Ordinal))
+						doomed.Add(name);
+				}
+				foreach (string tag in doomed)
+					RemoveDrawObject(tag);
+				if (doomed.Count > 0)
+					Print(string.Format("[Kat34Scalper] Removed {0} drawing(s) with prefix {1}.", doomed.Count, prefix));
+				ForceRefresh();
+			}
+			catch (Exception ex)
+			{
+				Print(string.Format("[Kat34Scalper] Remove module drawings error ({0}): {1}", prefix, ex.Message));
+			}
+		}
+
+		// A1 switched OFF: drop the signal records (entry/SL/TP lines) + every A1 stage marker.
+		private void ClearA1Drawings()
+		{
+			signalRecords.Clear();
+			RemoveModuleDrawings("K34S_A1ST_");
+			RemoveModuleDrawings("K34S_B_");
+			RemoveModuleDrawings("K34S_S_");
 		}
 
 		// Called from the data thread through TriggerCustomEvent from HUD clicks.
@@ -577,14 +613,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			};
 			mainPanel.Children.Add(hudStatusText);
 
-			// --- SIGNAL module: sub-module toggles (A0 fan, A1 89-34) + future signal slots ---
+			// --- SIGNAL module: independent sub-module toggles (A0 fan, A1 89-34) + future signal slots ---
+			// ON backfills the module's History Days window immediately; OFF removes only that module's drawings.
 			mainPanel.Children.Add(CreateModuleTitle("SIGNAL"));
 			var secSignal = new StackPanel();
 			Grid sRow = CreateTwoColGrid();
-			Button tA0 = CreateFilterToggle("A0 fan", () => cachedA0, v => cachedA0 = v);
+			Button tA0 = CreateFilterToggle("A0 fan", () => cachedA0, v => SetA0Signal(v));
 			Grid.SetColumn(tA0, 0);
 			sRow.Children.Add(tA0);
-			Button tA1 = CreateFilterToggle("A1 89-34", () => cachedA1, v => { cachedA1 = v; SignalEnabled = v; });
+			Button tA1 = CreateFilterToggle("A1 89-34", () => cachedA1, v => SetA1Signal(v));
 			Grid.SetColumn(tA1, 2);
 			sRow.Children.Add(tA1);
 			secSignal.Children.Add(sRow);

@@ -1,15 +1,19 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.31 (2026-08-02)
+ * Version: 0.32 (2026-08-02)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Module layout (partial classes):
- *   Kat34Scalper.cs            — main: state, OnStateChange, OnBarUpdate orchestration, settings
- *   src/Kat34ScalperLogic.cs   — pure signal/filter math + ATM parser (zero NT8 deps, xunit-tested)
- *   src/Kat34Scalper.Signal.cs — Signal module: sub-module A0 (EMA-ribbon fan) + sub-module A1 (89-34 pullback)
- *   src/Kat34Scalper.Filter.cs — Filter module: A0 fan gate, MTF, ADX, Volume, Time window gates
- *   src/Kat34Scalper.Bot.cs    — Bot module: signal -> order (stop/limit conversion), migration, ATM brackets
- *   src/Kat34Scalper.Draw.cs   — Draw module: entry/SL/TP/trigger lines, arrows, labels, HUD (module-titled sections)
+ *   Kat34Scalper.cs               — main: state, OnStateChange, OnBarUpdate orchestration, settings
+ *   src/Kat34ScalperLogic.cs      — pure signal/filter math + ATM parser (zero NT8 deps, xunit-tested)
+ *   src/Kat34Scalper.Signal.cs    — Signal module shared helpers (backfill window, mode conversion)
+ *   src/Kat34Scalper.Signal.A0.cs — Signal sub-module A0: EMA-ribbon fan (independent)
+ *   src/Kat34Scalper.Signal.A1.cs — Signal sub-module A1: 89-34 pullback (independent)
+ *   src/Kat34Scalper.Filter.cs    — Filter module: A0 fan gate, MTF, ADX, Volume, Time window gates
+ *   src/Kat34Scalper.Bot.cs       — Bot module: signal -> order (stop/limit conversion), migration, ATM brackets
+ *   src/Kat34Scalper.Draw.cs      — Draw module: entry/SL/TP/trigger lines, arrows, labels, HUD (module-titled sections)
+ *
+ * Signal stages are specified per signal in docs/SIGNALS.md (A0, A1-arm/pull/pull-T/U, ...).
  *
  * The version label shows the chart timeframe it computes on (always the primary series).
  */
@@ -87,7 +91,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.31";
+		public const string VERSION = "0.32";
 		public const string RELEASE_DATE = "2026-08-02";
 
 		// Indicator series (primary chart TF + optional MTF BarsArrays)
@@ -124,7 +128,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				// Parameters
 				ShowVersion					= true;
 
-				// 1. Filters defaults
+				// 1. Filters defaults — every gate OFF; toggles boot OFF on every load (session-only)
 				FanFilterEnabled			= false;
 				FanMinSpreadTicks			= 20;
 				FanSpreadLookback			= 5;
@@ -139,17 +143,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				TimeFilterEnd				= "17:00";
 				AlertSound					= "Alert1.wav";
 
-				// 4. Bot defaults
-				BotEnabled					= false;
-				BotOrderQuantity			= 1;
-				// Default ATM = MNQ 1ct bracket (SL 60 / TP 120 / BE +2 @80 / trail 140->200).
-				// Entry/SL/TP/BE/trail lines on every signal come from this template; when the file
-				// is missing HasAtmTemplate fails and DrawSignal falls back to the settings distances.
-				BotAtmTemplate				= "mnq. 1ct. 15-be20-35move15-50triggertrail5step1";
-				BotAccountName				= "";
+				// 2. Signal A0 defaults — OFF; enabling computes + draws the fan over History Days
+				A0Enabled					= false;
+				A0HistoryDays				= 3;
 
-				// 2. Signal defaults (Sell and Buy share the same mirrored mechanism)
-				SignalEnabled				= true;
+				// 3. Signal A1 defaults — OFF (Sell and Buy share the same mirrored mechanism)
+				A1Enabled					= false;
+				A1HistoryDays				= 3;
 				EmaFastPeriod				= 34;
 				EmaSlowPeriod				= 89;
 				MaxSequenceBars				= 30;
@@ -158,7 +158,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				StopDistanceTicks			= 60;
 				TargetDistanceTicks			= 120;
 
-				// 3. Lines & Text defaults
+				// 5. Bot defaults
+				BotEnabled					= false;
+				BotOrderQuantity			= 1;
+				// Default ATM = MNQ 1ct bracket (SL 60 / TP 120 / BE +2 @80 / trail 140->200).
+				// Entry/SL/TP/BE/trail lines on every signal come from this template; when the file
+				// is missing HasAtmTemplate fails and DrawSignal falls back to the settings distances.
+				BotAtmTemplate				= "mnq. 1ct. 15-be20-35move15-50triggertrail5step1";
+				BotAccountName				= "Sim101";
+
+				// 4. Lines & Text defaults
 				LineLengthBars				= 7;
 				LineWidth					= 2;
 				ArrowOffsetTicks			= 3;
@@ -206,11 +215,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 				Print(string.Format("[Kat34Scalper] v{0} ({1}) loaded on {2} {3} — all signals compute on THIS series.",
 					VERSION, RELEASE_DATE, Instrument.MasterInstrument.Name, ChartTimeframe()));
-				Print(string.Format("[Kat34Scalper][DIAG] SignalEnabled={0}, FanFilterEnabled={1}, TriggerMode={2}, MaxSequenceBars={3}, LineLengthBars={4}, ShowArrows={5}, ShowLabels={6}",
-					SignalEnabled, FanFilterEnabled, TriggerMode, MaxSequenceBars, LineLengthBars, ShowArrows, ShowLabels));
+				Print(string.Format("[Kat34Scalper][DIAG] A0Enabled={0}, A1Enabled={1}, FanFilterEnabled={2}, TriggerMode={3}, MaxSequenceBars={4}, LineLengthBars={5}, ShowArrows={6}, ShowLabels={7}",
+					A0Enabled, A1Enabled, FanFilterEnabled, TriggerMode, MaxSequenceBars, LineLengthBars, ShowArrows, ShowLabels));
 				cachedShowArrows = ShowArrows;
 				cachedShowLabels = ShowLabels;
-				cachedA1 = SignalEnabled;
+				cachedA0 = A0Enabled;
+				cachedA1 = A1Enabled;
+				a0BackfillPending = A0Enabled;   // enabled at load -> draw the History Days window once
+				a1BackfillPending = A1Enabled;
 				cachedBotAtm = BotAtmTemplate ?? "";
 				cachedBotAccountName = BotAccountName ?? "";
 
@@ -237,14 +249,19 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			ClearLegacySignalDrawings();
 			RefreshSignalDrawings();
 
+			// Backfill once per enable, at the last available bar (end of history or live bar).
+			if (State == State.Realtime || CurrentBars[0] >= BarsArray[0].Count - 1)
+				FlushBackfill();
+			if (State != State.Realtime) return; // history: only the N-day backfill window draws
+
 			double high = Highs[0][0];
 			double low = Lows[0][0];
 			double close = Closes[0][0];
 
-			int a0Dir = EvaluateA0Fan();                           // Signal module — sub-module A0 (EMA-ribbon fan)
+			int a0Dir = EvaluateA0Fan();                           // Signal sub-module A0 (EMA-ribbon fan)
 			bool sellAllowed, buyAllowed;
 			PassFilters(a0Dir, out sellAllowed, out buyAllowed);   // Filter module (fan gate, MTF, ADX, volume, time)
-			EvaluateA1(high, low, close, sellAllowed, buyAllowed); // Signal module — sub-module A1 (89-34 pullback)
+			EvaluateA1(high, low, close, sellAllowed, buyAllowed); // Signal sub-module A1 (89-34 pullback)
 			ManageBotEntry(high, low, close);                      // Bot module (pending entry lifecycle)
 		}
 		#endregion
@@ -255,9 +272,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		public bool ShowVersion { get; set; }
 
 		// --- 1. Filters (A0 fan gate for A1, MTF, market, time) ---
-		[NinjaScriptProperty]
+		// No [NinjaScriptProperty] on purpose: the toggle is session-only and boots OFF every
+		// load (saved templates used to resurrect it ON). HUD toggle still works for the session.
 		[Display(Name = "A0 Fan Filter Enabled", Order = 1, GroupName = "1. Filters",
-			Description = "Gates A1 only: A1 signals need the 9/21/34/55/89/144/200 EMA ribbon fanned out in the signal direction. Does not enable or disable the A0 fan signal marker.")]
+			Description = "Gates A1 only: A1 signals need the 9/21/34/55/89/144/200 EMA ribbon fanned out in the signal direction. Session-only — boots OFF on every load.")]
 		public bool FanFilterEnabled { get; set; }
 
 		[NinjaScriptProperty]
@@ -319,52 +337,69 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[TypeConverter(typeof(Kat34ScalperSoundConverter))]
 		public string AlertSound { get; set; }
 
-		// --- 2. Signal (Sell and Buy share the same mirrored mechanism) ---
+		// --- 2. Signal A0 — EMA Fan (docs/SIGNALS.md) ---
 		[NinjaScriptProperty]
-		[Display(Name = "Enabled", Order = 1, GroupName = "2. Signal")]
-		public bool SignalEnabled { get; set; }
+		[Display(Name = "Enabled", Order = 1, GroupName = "2. Signal A0 — EMA Fan",
+			Description = "Default OFF. When switched ON the fan markers are computed and drawn over History Days immediately.")]
+		public bool A0Enabled { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Fast EMA Period", Order = 2, GroupName = "2. Signal")]
+		[Display(Name = "History Days", Order = 2, GroupName = "2. Signal A0 — EMA Fan",
+			Description = "How many days back the fan markers are computed and drawn when A0 is switched ON.")]
+		public int A0HistoryDays { get; set; }
+
+		// --- 3. Signal A1 — 89/34 Pullback (docs/SIGNALS.md; Sell and Buy share the same mirrored mechanism) ---
+		[NinjaScriptProperty]
+		[Display(Name = "Enabled", Order = 1, GroupName = "3. Signal A1 — 89/34 Pullback",
+			Description = "Default OFF. When switched ON the A1 stages (A1-arm/pull/pull-T/U) and signals are computed and drawn over History Days immediately.")]
+		public bool A1Enabled { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "History Days", Order = 2, GroupName = "3. Signal A1 — 89/34 Pullback",
+			Description = "How many days back the A1 stage markers and signals are computed and drawn when A1 is switched ON.")]
+		public int A1HistoryDays { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Fast EMA Period", Order = 3, GroupName = "3. Signal A1 — 89/34 Pullback")]
 		public int EmaFastPeriod { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Slow EMA Period", Order = 3, GroupName = "2. Signal")]
+		[Display(Name = "Slow EMA Period", Order = 4, GroupName = "3. Signal A1 — 89/34 Pullback")]
 		public int EmaSlowPeriod { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Max Sequence Bars", Order = 4, GroupName = "2. Signal",
+		[Display(Name = "Max Sequence Bars", Order = 5, GroupName = "3. Signal A1 — 89/34 Pullback",
 			Description = "The whole sequence — pullback cross through the fast EMA, slow-EMA touch, U-turn close back through the fast EMA (and the retest trigger) — must complete within this many bars, otherwise the setup expires.")]
 		public int MaxSequenceBars { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Trigger Mode", Order = 5, GroupName = "2. Signal",
+		[Display(Name = "Trigger Mode", Order = 6, GroupName = "3. Signal A1 — 89/34 Pullback",
 			Description = "Retest Bounce: Sell fires when price closes back above the fast EMA after the U-turn close below it (Buy mirrored). Breakdown: fire immediately on the U-turn close.")]
 		public Kat34ScalperTriggerMode TriggerMode { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Entry Offset (ticks)", Order = 6, GroupName = "2. Signal",
+		[Display(Name = "Entry Offset (ticks)", Order = 7, GroupName = "3. Signal A1 — 89/34 Pullback",
 			Description = "Sell entry below the signal low / Buy entry above the signal high.")]
 		public int EntryOffsetTicks { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Stop Distance (ticks)", Order = 7, GroupName = "2. Signal",
+		[Display(Name = "Stop Distance (ticks)", Order = 8, GroupName = "3. Signal A1 — 89/34 Pullback",
 			Description = "Fallback when the selected ATM template defines no StopLoss.")]
 		public int StopDistanceTicks { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Target Distance (ticks)", Order = 8, GroupName = "2. Signal",
+		[Display(Name = "Target Distance (ticks)", Order = 9, GroupName = "3. Signal A1 — 89/34 Pullback",
 			Description = "Fallback when the selected ATM template defines no Target.")]
 		public int TargetDistanceTicks { get; set; }
 
-		// --- 4. Bot (semi-auto — trades only while the HUD BOT button is ON) ---
+		// --- 5. Bot (semi-auto — trades only while the HUD BOT button is ON) ---
 		[NinjaScriptProperty]
-		[Display(Name = "Bot Enabled", Order = 1, GroupName = "4. Bot",
+		[Display(Name = "Bot Enabled", Order = 1, GroupName = "5. Bot",
 			Description = "Master switch. The bot still trades only while the HUD BOT button is ON.")]
 		public bool BotEnabled { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Order Quantity", Order = 2, GroupName = "4. Bot")]
+		[Display(Name = "Order Quantity", Order = 2, GroupName = "5. Bot")]
 		public int BotOrderQuantity
 		{
 			get { return botOrderQuantity; }
@@ -373,33 +408,33 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private int botOrderQuantity;
 
 		[NinjaScriptProperty]
-		[Display(Name = "ATM Template", Order = 3, GroupName = "4. Bot",
-			Description = "ATM strategy managing the entry (brackets). 'None' submits a bare stop order.")]
+		[Display(Name = "ATM Template", Order = 3, GroupName = "5. Bot",
+			Description = "ATM strategy managing the entry (brackets). 'None' submits a bare stop order. Default: mnq 1ct bracket.")]
 		[TypeConverter(typeof(Kat34ScalperAtmTemplateConverter))]
 		public string BotAtmTemplate { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Account Name", Order = 4, GroupName = "4. Bot",
-			Description = "Account the bot trades on (also selectable on the HUD).")]
+		[Display(Name = "Account Name", Order = 4, GroupName = "5. Bot",
+			Description = "Account the bot trades on (also selectable on the HUD). Default: Sim101.")]
 		public string BotAccountName { get; set; }
 
-		// --- 3. Lines & Text ---
+		// --- 4. Lines & Text ---
 		[NinjaScriptProperty]
-		[Display(Name = "Line Length (bars)", Order = 1, GroupName = "3. Lines & Text",
+		[Display(Name = "Line Length (bars)", Order = 1, GroupName = "4. Lines & Text",
 			Description = "Entry, SL and TP lines extend this many bars forward from the signal candle.")]
 		public int LineLengthBars { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Line Width (px)", Order = 2, GroupName = "3. Lines & Text")]
+		[Display(Name = "Line Width (px)", Order = 2, GroupName = "4. Lines & Text")]
 		public int LineWidth { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Arrow Offset (ticks from candle)", Order = 3, GroupName = "3. Lines & Text",
+		[Display(Name = "Arrow Offset (ticks from candle)", Order = 3, GroupName = "4. Lines & Text",
 			Description = "Distance between the signal candle and the arrow.")]
 		public int ArrowOffsetTicks { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Sell Entry Line Color", Order = 4, GroupName = "3. Lines & Text",
+		[Display(Name = "Sell Entry Line Color", Order = 4, GroupName = "4. Lines & Text",
 			Description = "Sell entry line (solid).")]
 		[XmlIgnore]
 		public Color SellEntryLineColor { get; set; }
@@ -412,7 +447,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		[NinjaScriptProperty]
-		[Display(Name = "Buy Entry Line Color", Order = 5, GroupName = "3. Lines & Text",
+		[Display(Name = "Buy Entry Line Color", Order = 5, GroupName = "4. Lines & Text",
 			Description = "Buy entry line (solid).")]
 		[XmlIgnore]
 		public Color BuyEntryLineColor { get; set; }
@@ -425,7 +460,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		[NinjaScriptProperty]
-		[Display(Name = "SL Line Color", Order = 6, GroupName = "3. Lines & Text")]
+		[Display(Name = "SL Line Color", Order = 6, GroupName = "4. Lines & Text")]
 		[XmlIgnore]
 		public Color SLLineColor { get; set; }
 
@@ -437,7 +472,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		[NinjaScriptProperty]
-		[Display(Name = "TP Line Color", Order = 7, GroupName = "3. Lines & Text")]
+		[Display(Name = "TP Line Color", Order = 7, GroupName = "4. Lines & Text")]
 		[XmlIgnore]
 		public Color TPLineColor { get; set; }
 
@@ -449,7 +484,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		[NinjaScriptProperty]
-		[Display(Name = "Sell Text Color", Order = 8, GroupName = "3. Lines & Text",
+		[Display(Name = "Sell Text Color", Order = 8, GroupName = "4. Lines & Text",
 			Description = "SELL label color.")]
 		[XmlIgnore]
 		public Color SellTextColor { get; set; }
@@ -462,7 +497,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		[NinjaScriptProperty]
-		[Display(Name = "Buy Text Color", Order = 9, GroupName = "3. Lines & Text",
+		[Display(Name = "Buy Text Color", Order = 9, GroupName = "4. Lines & Text",
 			Description = "BUY label color.")]
 		[XmlIgnore]
 		public Color BuyTextColor { get; set; }
@@ -475,12 +510,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		[NinjaScriptProperty]
-		[Display(Name = "Show Arrows", Order = 10, GroupName = "3. Lines & Text",
+		[Display(Name = "Show Arrows", Order = 10, GroupName = "4. Lines & Text",
 			Description = "Draw the up/down arrow near the signal candle.")]
 		public bool ShowArrows { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Show Buy/Sell Labels", Order = 11, GroupName = "3. Lines & Text",
+		[Display(Name = "Show Buy/Sell Labels", Order = 11, GroupName = "4. Lines & Text",
 			Description = "Draw the BUY/SELL text at the signal candle (default off).")]
 		public bool ShowLabels { get; set; }
 

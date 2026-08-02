@@ -1,17 +1,15 @@
 /*
- * Kat34Scalper.Signal.cs — Signal module (partial class Kat34Scalper).
- * Owns every signal sub-module; each sub-module evaluates its own state and fires
- * Draw + Bot on a trigger. New signals (A2, A3, ...) plug in as a new region here.
- *   A0 — EMA-ribbon fan (9/21/34/55/89/144/200): independent triangle marker + alert.
- *   A1 — 89-34 pullback: arm beyond ema34 -> close-basis cross -> ema89 touch -> U-turn close.
+ * Kat34Scalper.Signal.cs — Signal module shared helpers (partial class Kat34Scalper).
+ * Each signal sub-module is independent and lives in its own file:
+ *   src/Kat34Scalper.Signal.A0.cs — A0: EMA-ribbon fan (default OFF, backfill History Days)
+ *   src/Kat34Scalper.Signal.A1.cs — A1: 89-34 pullback (default OFF, backfill History Days)
+ * Stage names per signal are specified in docs/SIGNALS.md.
+ * New signals (A2, A3, ...) plug in as a new Kat34Scalper.Signal.AX.cs file.
  */
 
 #region Using declarations
 using System;
-using System.Windows.Media;
-using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
-using NinjaTrader.NinjaScript.DrawingTools;
 using Kat34Scalper;
 #endregion
 
@@ -22,12 +20,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	// (CS0111/CS0102/CS0121/CS0229). Only Kat34Scalper.cs carries the base spec.
 	public partial class Kat34Scalper
 	{
-		// --- Signal module state ---
-		private volatile bool cachedA0 = false;  // HUD toggle: A0 sub-module on/off (default OFF)
-		private volatile bool cachedA1 = true;   // HUD toggle: A1 sub-module on/off
-		private bool a0Alerted;                  // A0 alert already fired for the current fan episode
-		private readonly KatA1State sellState = new KatA1State(); // A1 sell-side sequence
-		private readonly KatA1State buyState = new KatA1State();  // A1 buy-side sequence
+		// --- Shared signal-module diagnostics (written by Filter.PassFilters, read by A1 prints) ---
 		private bool diagnosticGateInitialized;
 		private int diagnosticA0Dir;
 		private bool diagnosticSellAllowed;
@@ -38,123 +31,32 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			return mode == Kat34ScalperTriggerMode.Breakdown ? KatTriggerMode.Breakdown : KatTriggerMode.RetestBounce;
 		}
 
-		#region Sub-module A0 — EMA-ribbon fan signal
-		// Returns the current primary fan direction (-1 sell / 0 none / +1 buy).
-		// Signal rendering is controlled by cachedA0; returned direction remains available to A1 filters.
-		private int EvaluateA0Fan()
+		// Furthest barsAgo still inside the "last N days" window measured from the current bar.
+		private int FindHistoryStartBarsAgo(int days)
 		{
-			if (fanEmas == null || CurrentBars[0] < FanPeriods[FanPeriods.Length - 1] + FanSpreadLookback) return 0;
-
-			int dir = SeriesFanDirection(0);
-			if (dir != 0 && cachedA0 && !a0Alerted)
-			{
-				a0Alerted = true;
-				PlayAlertSound();
-				double y = dir > 0 ? Lows[0][0] - ArrowOffsetTicks * TickSize : Highs[0][0] + ArrowOffsetTicks * TickSize;
-				if (dir > 0)
-					Draw.TriangleUp(this, "K34S_A0_" + CurrentBar, false, 0, y, Brushes.DodgerBlue);
-				else
-					Draw.TriangleDown(this, "K34S_A0_" + CurrentBar, false, 0, y, Brushes.OrangeRed);
-				Print(string.Format("[Kat34Scalper] A0 {0} fan @ bar {1}", dir > 0 ? "BUY" : "SELL", CurrentBar));
-			}
-			else if (dir == 0 || !cachedA0)
-			{
-				a0Alerted = false; // fan collapsed or A0 signal disabled — re-arm on next enabled episode
-			}
-			return dir;
-		}
-		#endregion
-
-		#region Sub-module A1 — 89-34 pullback signal (Sell / Buy mirrored)
-		private void EvaluateA1(double high, double low, double close, bool sellAllowed, bool buyAllowed)
-		{
-			if (!cachedA1 || !SignalEnabled || fastEma == null || slowEma == null) return;
-			if (CurrentBars[0] < Math.Max(EmaFastPeriod, EmaSlowPeriod)) return;
-
-			double fast = fastEma[0];
-			double slow = slowEma[0];
-			KatTriggerMode mode = ToLogicMode(TriggerMode);
-			int sellPhaseBefore = sellState.Phase;
-			int buyPhaseBefore = buyState.Phase;
-			bool sellTouchedBefore = sellState.Touched89;
-			bool buyTouchedBefore = buyState.Touched89;
-			KatSignalKind? sellSignal = null;
-			KatSignalKind? buySignal = null;
-
-			// Advance both state machines on every primary bar while their 34/89 trend is valid.
-			// The A0/fan and other filters gate signal emission, not setup progression; otherwise
-			// a normal pullback that collapses the ribbon freezes before it can reach the U-turn.
-			sellSignal = Kat34ScalperLogic.Update(KatSignalKind.Sell, mode, MaxSequenceBars,
-				fast < slow, high, low, close, fast, slow, sellState);
-			buySignal = Kat34ScalperLogic.Update(KatSignalKind.Buy, mode, MaxSequenceBars,
-				fast > slow, high, low, close, fast, slow, buyState);
-
-			if (sellSignal == KatSignalKind.Sell)
-			{
-				if (sellAllowed)
-				{
-					DrawSignal(false, CurrentBar, high, low, sellState.C1, sellState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
-					TrySubmitBotEntry(false, sellState.C2);
-				}
-				else
-					Print(string.Format("[Kat34Scalper][A1] bar {0} SELL result suppressed by filters; A0={1}, allowed={2}",
-						CurrentBar, diagnosticA0Dir, sellAllowed));
-			}
-			if (buySignal == KatSignalKind.Buy)
-			{
-				if (buyAllowed)
-				{
-					DrawSignal(true, CurrentBar, high, low, buyState.C1, buyState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
-					TrySubmitBotEntry(true, buyState.C2);
-				}
-				else
-					Print(string.Format("[Kat34Scalper][A1] bar {0} BUY result suppressed by filters; A0={1}, allowed={2}",
-						CurrentBar, diagnosticA0Dir, buyAllowed));
-			}
-
-			// Phase-transition milestones (arm / pull / U-turn) + touch milestone - persistent
-			// per-bar markers so A1 setup progression is visible on chart history, not just live.
-			if (sellState.Phase != sellPhaseBefore)
-			{
-				DrawA1PhaseMarker(false, CurrentBar, high, low, sellState.Phase, sellState.Touched89);
-				Print(string.Format("[Kat34Scalper][A1] bar {0} SELL phase {1}->{2}, allowed={3}, trend={4}, close={5:F5}, ema34={6:F5}, ema89={7:F5}",
-					CurrentBar, sellPhaseBefore, sellState.Phase, sellAllowed, fast < slow, close, fast, slow));
-			}
-			if (buyState.Phase != buyPhaseBefore)
-			{
-				DrawA1PhaseMarker(true, CurrentBar, high, low, buyState.Phase, buyState.Touched89);
-				Print(string.Format("[Kat34Scalper][A1] bar {0} BUY phase {1}->{2}, allowed={3}, trend={4}, close={5:F5}, ema34={6:F5}, ema89={7:F5}",
-					CurrentBar, buyPhaseBefore, buyState.Phase, buyAllowed, fast > slow, close, fast, slow));
-			}
-			// Touch milestone - pullback reached ema89 (happens inside phase 2, not a phase change).
-			if (!sellTouchedBefore && sellState.Touched89 && sellState.Phase == 2)
-				DrawA1PhaseMarker(false, CurrentBar, high, low, 2, true);
-			if (!buyTouchedBefore && buyState.Touched89 && buyState.Phase == 2)
-				DrawA1PhaseMarker(true, CurrentBar, high, low, 2, true);
-
-			if (sellSignal.HasValue || buySignal.HasValue)
-				Print(string.Format("[Kat34Scalper][A1] bar {0} result sell={1}, buy={2}, mode={3}",
-					CurrentBar, sellSignal.HasValue ? sellSignal.Value.ToString() : "none",
-					buySignal.HasValue ? buySignal.Value.ToString() : "none", mode));
+			if (days < 1) days = 1;
+			DateTime cutoff = Times[0][0].Subtract(TimeSpan.FromDays(days));
+			int max = CurrentBars[0];
+			int ago = 0;
+			while (ago < max && Times[0][ago] >= cutoff) ago++;
+			return ago > 0 ? ago - 1 : 0;
 		}
 
-		// Persistent per-bar milestone marker drawn at the bar where an A1 phase changes or ema89
-		// is first touched. Unique tag per bar so each milestone survives on chart history.
-		// Label: A1-arm (phase 1) / A1-pull (phase 2, no touch yet) / A1-pull-T (phase 2, touched)
-		// / A1-U (phase 3 - retest wait, RetestBounce mode only). Buy below the low, sell above the high.
-		private void DrawA1PhaseMarker(bool isBuy, int bar, double high, double low, int phase, bool touched)
+		// Runs each sub-module's one-shot backfill when it was enabled (load or HUD toggle).
+		// Called from OnBarUpdate at the last available bar and from HUD clicks via TriggerCustomEvent.
+		private void FlushBackfill()
 		{
-			if (!cachedA1) return;
-			string label;
-			if (phase == 1) label = "A1-arm";
-			else if (phase == 2) label = touched ? "A1-pull-T" : "A1-pull";
-			else if (phase == 3) label = "A1-U";
-			else return;
-			string tag = "K34S_A1ST_" + (isBuy ? "B" : "S") + "_" + bar;
-			double y = isBuy ? low - ArrowOffsetTicks * TickSize : high + ArrowOffsetTicks * TickSize;
-			Brush brush = isBuy ? Brushes.DodgerBlue : Brushes.OrangeRed;
-			Draw.Text(this, tag, label, 0, y, brush);
+			if (CurrentBars == null || CurrentBars.Length == 0 || CurrentBars[0] < 1) return;
+			if (a0BackfillPending)
+			{
+				a0BackfillPending = false;
+				if (fanEmas != null) BackfillA0();
+			}
+			if (a1BackfillPending)
+			{
+				a1BackfillPending = false;
+				if (fastEma != null && slowEma != null) BackfillA1();
+			}
 		}
-		#endregion
 	}
 }

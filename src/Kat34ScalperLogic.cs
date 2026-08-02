@@ -42,6 +42,17 @@ namespace Kat34Scalper
 			C1 = 0;
 			C2 = 0;
 		}
+
+		// Backfill handoff: a replayed temp state replaces the live state so realtime
+		// evaluation continues the in-flight sequence instead of re-arming from idle.
+		public void CopyFrom(KatA1State other)
+		{
+			Phase = other.Phase;
+			Touched89 = other.Touched89;
+			SeqBars = other.SeqBars;
+			C1 = other.C1;
+			C2 = other.C2;
+		}
 	}
 
 	public static class Kat34ScalperLogic
