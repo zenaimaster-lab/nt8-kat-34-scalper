@@ -1,6 +1,6 @@
 /*
  * Kat8934.cs
- * Version: 0.17 (2026-08-02)
+ * Version: 0.18 (2026-08-02)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy): pullback from beyond ema34,
  * ema89 touch, U-turn close back through ema34, all within Max Sequence Bars.
  * Entry/SL/TP lines + ATM trailing-SL trigger lines (BE/SL1/SL2, KatTradeManager style).
@@ -85,7 +85,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.17";
+		public const string VERSION = "0.18";
 		public const string RELEASE_DATE = "2026-08-02";
 
 		private EMA fastEma;
@@ -120,6 +120,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private volatile string cachedBotAccountName = "";
 		private Order pendingOrder;
 		private bool pendingIsBuy;
+		private double pendingEntryPrice; // last submitted entry price (limit OR stop — Order.StopPrice is 0 on limits)
 		private double pendingBestRef;   // best extreme used for migration (sell: highest qualifying low / buy: lowest high)
 		private double pendingMigrateRef; // better extreme found; new order placed once the cancelled one is terminal
 		private volatile bool pendingMigrate;
@@ -340,20 +341,23 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Print("[Kat8934] BOT: no account selected — pick one on the HUD or in settings.");
 			return;
 		}
-		double stopPrice = isBuy
+		double entryPrice = isBuy
 			? refExtreme + EntryOffsetTicks * TickSize
 			: refExtreme - EntryOffsetTicks * TickSize;
+		// Price already past the trigger -> a stop would sit on the wrong side and be rejected; use a limit.
+		bool useStop = Kat8934Logic.UseStopOrder(isBuy, entryPrice, Closes[0][0]);
 		try
 		{
 			// ATM contract: the entry order name MUST be "Entry" (see KatTradeManager).
 			Order order = acc.CreateOrder(Instrument,
 				isBuy ? OrderAction.Buy : OrderAction.Sell,
-				OrderType.StopMarket, OrderEntry.Manual, TimeInForce.Gtc,
-				BotOrderQuantity, 0, stopPrice, "", "Entry", NinjaTrader.Core.Globals.MaxDate, null);
+				useStop ? OrderType.StopMarket : OrderType.Limit, OrderEntry.Manual, TimeInForce.Gtc,
+				BotOrderQuantity, useStop ? 0 : entryPrice, useStop ? entryPrice : 0, "", "Entry", NinjaTrader.Core.Globals.MaxDate, null);
 
 			pendingOrder = order;
 			pendingIsBuy = isBuy;
 			pendingBestRef = refExtreme;
+			pendingEntryPrice = entryPrice;
 
 			string tpl = cachedBotAtm;
 			if (HasAtmTemplate(tpl))
@@ -364,9 +368,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					Print(string.Format("[Kat8934] BOT: ATM template '{0}' not found — bare stop order.", tpl));
 				acc.Submit(new[] { order });
 			}
-			Print(string.Format("[Kat8934] BOT: {0} stop @ {1:F5} submitted (account {2}, ATM {3}).",
-				isBuy ? "BUY" : "SELL", stopPrice, acc.Name, HasAtmTemplate(tpl) ? tpl : "none"));
-			ShowHudStatus(string.Format("BOT: {0} stop @ {1:F2} ({2})", isBuy ? "BUY" : "SELL", stopPrice, HasAtmTemplate(tpl) ? tpl : "no ATM"), Brushes.LightGreen);
+			Print(string.Format("[Kat8934] BOT: {0} {1} @ {2:F5} submitted (account {3}, ATM {4}).",
+				isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, acc.Name, HasAtmTemplate(tpl) ? tpl : "none"));
+			ShowHudStatus(string.Format("BOT: {0} {1} @ {2:F2} ({3})", isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, HasAtmTemplate(tpl) ? tpl : "no ATM"), Brushes.LightGreen);
 		}
 		catch (Exception ex)
 		{
@@ -395,9 +399,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		OrderState state = pendingOrder.OrderState;
 		if (state == OrderState.Filled || state == OrderState.Cancelled || state == OrderState.Rejected)
 		{
-			Print(string.Format("[Kat8934] BOT: entry order {0} @ {1:F5}.", state, pendingOrder.StopPrice));
+			Print(string.Format("[Kat8934] BOT: entry order {0} @ {1:F5}.", state, pendingEntryPrice));
 			if (state == OrderState.Filled)
-				ShowHudStatus(string.Format("BOT: entry FILLED @ {0:F2} — ATM manages brackets", pendingOrder.StopPrice), Brushes.LightGreen);
+				ShowHudStatus(string.Format("BOT: entry FILLED @ {0:F2} — ATM manages brackets", pendingEntryPrice), Brushes.LightGreen);
 			pendingOrder = null;
 			return; // filled: ATM owns the brackets from here
 		}

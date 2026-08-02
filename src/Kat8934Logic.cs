@@ -83,6 +83,16 @@ namespace Kat8934
 			return Math.Max(c1, c2) - offsetTicks * tickSize;
 		}
 
+		/// <summary>
+		/// Bot entry order type: a stop entry is only valid on the correct side of the market
+		/// (sell stop BELOW / buy stop ABOVE current price). Price already past the trigger → limit.
+		/// Same rule as KatTradeManager.DetermineOrderType.
+		/// </summary>
+		public static bool UseStopOrder(bool isBuy, double triggerPrice, double currentPrice)
+		{
+			return isBuy ? triggerPrice > currentPrice : triggerPrice < currentPrice;
+		}
+
 		/// <summary>Market filter: ADX strength + relative volume. volumeSma 0 disables the volume leg.</summary>
 		public static bool PassMarketFilter(double adx, double adxMin, double volume, double volumeSma, double volumeMult)
 		{

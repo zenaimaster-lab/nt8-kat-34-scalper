@@ -279,6 +279,21 @@ public class Kat8934LogicTests
 		Assert.True(Kat8934Logic.IsInTimeWindow(new TimeSpan(3, 0, 0), new TimeSpan(8, 0, 0), new TimeSpan(8, 0, 0)));
 	}
 
+	// --- Bot entry order type (stop only on the valid side of market, else limit) ---
+	[Fact]
+	public void BotEntry_SellStopBelowMarket_UsesStop_AboveMarket_UsesLimit()
+	{
+		Assert.True(Kat8934Logic.UseStopOrder(false, 99.5, 100.0));  // sell stop below current -> valid stop
+		Assert.False(Kat8934Logic.UseStopOrder(false, 100.5, 100.0)); // price ran past -> limit
+	}
+
+	[Fact]
+	public void BotEntry_BuyStopAboveMarket_UsesStop_BelowMarket_UsesLimit()
+	{
+		Assert.True(Kat8934Logic.UseStopOrder(true, 100.5, 100.0));  // buy stop above current -> valid stop
+		Assert.False(Kat8934Logic.UseStopOrder(true, 99.5, 100.0));   // price ran past -> limit
+	}
+
 	// --- EffectiveEntry ---
 	[Fact]
 	public void EffectiveEntry_Sell_TakesHigherStop()
