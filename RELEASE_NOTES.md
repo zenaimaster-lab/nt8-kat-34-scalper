@@ -1,3 +1,8 @@
+# Release Notes — v0.27 (2026-08-02)
+
+- **A1/draw runtime telemetry**: added low-noise NinjaScript Output markers for loaded configuration (`[DIAG]`), gate transitions (`[GATE]`), A1 phase/result transitions (`[A1]`), and draw record creation (`[DRAW]`). This separates “no A1 signal” from “draw object API failure” without logging every bar.
+- Verification: pending after NT8 reload; pure tests and CompileCheck run before deploy.
+
 # Release Notes — v0.26 (2026-08-02)
 
 - **Legacy workspace cleanup**: workspaces retaining the removed `Kat8934` indicator can leave persisted `K8934_*` triangles/arrows behind after migration. Kat34Scalper now removes those stale objects once on the first primary bar; HUD Clear also removes both legacy and current prefixes.

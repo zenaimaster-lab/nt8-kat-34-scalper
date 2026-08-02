@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.26 (2026-08-02)
+ * Version: 0.27 (2026-08-02)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Module layout (partial classes):
@@ -87,7 +87,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.26";
+		public const string VERSION = "0.27";
 		public const string RELEASE_DATE = "2026-08-02";
 
 		// Indicator series (primary chart TF + optional MTF BarsArrays)
@@ -206,6 +206,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 				Print(string.Format("[Kat34Scalper] v{0} ({1}) loaded on {2} {3} — all signals compute on THIS series.",
 					VERSION, RELEASE_DATE, Instrument.MasterInstrument.Name, ChartTimeframe()));
+				Print(string.Format("[Kat34Scalper][DIAG] SignalEnabled={0}, FanFilterEnabled={1}, TriggerMode={2}, MaxSequenceBars={3}, LineLengthBars={4}, ShowArrows={5}, ShowLabels={6}",
+					SignalEnabled, FanFilterEnabled, TriggerMode, MaxSequenceBars, LineLengthBars, ShowArrows, ShowLabels));
 				cachedShowArrows = ShowArrows;
 				cachedShowLabels = ShowLabels;
 				cachedA1 = SignalEnabled;

@@ -29,6 +29,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			bool pass = (fanOff || a0Dir != 0) && MtfPass(a0Dir) && MarketPass() && TimePass();
 			sellAllowed = pass && (fanOff || a0Dir < 0);
 			buyAllowed  = pass && (fanOff || a0Dir > 0);
+			if (!diagnosticGateInitialized || diagnosticA0Dir != a0Dir ||
+				diagnosticSellAllowed != sellAllowed || diagnosticBuyAllowed != buyAllowed)
+			{
+				diagnosticGateInitialized = true;
+				diagnosticA0Dir = a0Dir;
+				diagnosticSellAllowed = sellAllowed;
+				diagnosticBuyAllowed = buyAllowed;
+				Print(string.Format("[Kat34Scalper][GATE] bar {0} A0={1}, fanFilter={2}, cachedA0={3}, sellAllowed={4}, buyAllowed={5}, mtf={6}, adx={7}, vol={8}, time={9}",
+					CurrentBar, a0Dir, FanFilterEnabled, cachedA0, sellAllowed, buyAllowed, cachedMtf, cachedAdx, cachedVol, cachedTime));
+			}
 		}
 
 		// Ribbon direction of one BarsArray series (+1 buy fan / -1 sell fan / 0 none).

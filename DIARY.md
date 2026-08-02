@@ -19,6 +19,9 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.27] — 2026-08-02
+- **Runtime diagnosis**: NinjaScript Output/trace had no A1 signal or draw entries, so static inspection could not distinguish “A1 never fires” from “Draw API rejects object”. Added low-noise `[DIAG]`, `[GATE]`, `[A1]`, and `[DRAW]` prints for config, gate transitions, state-machine phase transitions, signal results, and stored draw records.
+- **Graphify entity mapping**: `Kat34Scalper.PassFilters`, `Kat34Scalper.EvaluateA1`, `Kat34Scalper.DrawSignal`, `Kat34Scalper.RenderSignal`, diagnostic state fields.
 ### [v0.26] — 2026-08-02
 - **Workspace migration cleanup**: NT8 workspace still contained failed-to-restore `Kat8934` instances and their persisted `K8934_*` draw objects. Kat34Scalper now removes stale legacy drawings once on the first primary bar and the HUD Clear action removes both `K34S_*` and `K8934_*` prefixes.
 - **Validation target**: distinguish current A1 drawings from stale pre-rename A0 markers before changing signal semantics.

@@ -28,6 +28,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private bool a0Alerted;                  // A0 alert already fired for the current fan episode
 		private readonly KatA1State sellState = new KatA1State(); // A1 sell-side sequence
 		private readonly KatA1State buyState = new KatA1State();  // A1 buy-side sequence
+		private bool diagnosticGateInitialized;
+		private int diagnosticA0Dir;
+		private bool diagnosticSellAllowed;
+		private bool diagnosticBuyAllowed;
 
 		private static KatTriggerMode ToLogicMode(Kat34ScalperTriggerMode mode)
 		{
@@ -71,19 +75,42 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double fast = fastEma[0];
 			double slow = slowEma[0];
 			KatTriggerMode mode = ToLogicMode(TriggerMode);
+			int sellPhaseBefore = sellState.Phase;
+			int buyPhaseBefore = buyState.Phase;
+			KatSignalKind? sellSignal = null;
+			KatSignalKind? buySignal = null;
 
-			if (sellAllowed && Kat34ScalperLogic.Update(KatSignalKind.Sell, mode, MaxSequenceBars,
-				fast < slow, high, low, close, fast, slow, sellState) == KatSignalKind.Sell)
+			if (sellAllowed)
 			{
-				DrawSignal(false, CurrentBar, high, low, sellState.C1, sellState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
-				TrySubmitBotEntry(false, sellState.C2);
+				sellSignal = Kat34ScalperLogic.Update(KatSignalKind.Sell, mode, MaxSequenceBars,
+					fast < slow, high, low, close, fast, slow, sellState);
+				if (sellSignal == KatSignalKind.Sell)
+				{
+					DrawSignal(false, CurrentBar, high, low, sellState.C1, sellState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
+					TrySubmitBotEntry(false, sellState.C2);
+				}
 			}
-			if (buyAllowed && Kat34ScalperLogic.Update(KatSignalKind.Buy, mode, MaxSequenceBars,
-				fast > slow, high, low, close, fast, slow, buyState) == KatSignalKind.Buy)
+			if (buyAllowed)
 			{
-				DrawSignal(true, CurrentBar, high, low, buyState.C1, buyState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
-				TrySubmitBotEntry(true, buyState.C2);
+				buySignal = Kat34ScalperLogic.Update(KatSignalKind.Buy, mode, MaxSequenceBars,
+					fast > slow, high, low, close, fast, slow, buyState);
+				if (buySignal == KatSignalKind.Buy)
+				{
+					DrawSignal(true, CurrentBar, high, low, buyState.C1, buyState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
+					TrySubmitBotEntry(true, buyState.C2);
+				}
 			}
+
+			if (sellState.Phase != sellPhaseBefore)
+				Print(string.Format("[Kat34Scalper][A1] bar {0} SELL phase {1}->{2}, allowed={3}, trend={4}, close={5:F5}, ema34={6:F5}, ema89={7:F5}",
+					CurrentBar, sellPhaseBefore, sellState.Phase, sellAllowed, fast < slow, close, fast, slow));
+			if (buyState.Phase != buyPhaseBefore)
+				Print(string.Format("[Kat34Scalper][A1] bar {0} BUY phase {1}->{2}, allowed={3}, trend={4}, close={5:F5}, ema34={6:F5}, ema89={7:F5}",
+					CurrentBar, buyPhaseBefore, buyState.Phase, buyAllowed, fast > slow, close, fast, slow));
+			if (sellSignal.HasValue || buySignal.HasValue)
+				Print(string.Format("[Kat34Scalper][A1] bar {0} result sell={1}, buy={2}, mode={3}",
+					CurrentBar, sellSignal.HasValue ? sellSignal.Value.ToString() : "none",
+					buySignal.HasValue ? buySignal.Value.ToString() : "none", mode));
 		}
 		#endregion
 	}

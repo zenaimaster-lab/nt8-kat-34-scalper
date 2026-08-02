@@ -41,6 +41,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			public double BePrice;
 			public double Sl1Price;
 			public double Sl2Price;
+			public bool DrawLogged;
 		}
 		private readonly List<KatSignalRecord> signalRecords = new List<KatSignalRecord>();
 		private bool versionDrawn;
@@ -133,6 +134,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (record.Sl2Price != 0)
 					Draw.Line(this, SignalTag(record, "SL2"), false, age, record.Sl2Price, 0, record.Sl2Price, Brushes.Magenta, DashStyleHelper.Dot, 1);
 			}
+			if (!record.DrawLogged)
+			{
+				record.DrawLogged = true;
+				Print(string.Format("[Kat34Scalper][DRAW] record bar={0}, side={1}, age={2}, entry={3:F5}, sl={4:F5}, tp={5:F5}, lineLength={6}, tags={7}_ENTRY/{7}_SL/{7}_TP",
+					record.Bar, record.IsBuy ? "BUY" : "SELL", age, record.EntryPrice, record.SlPrice, record.TpPrice,
+					lineLength, "K34S_" + (record.IsBuy ? "B" : "S") + "_"));
+			}
 		}
 
 		private void RefreshSignalDrawings()
@@ -223,7 +231,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			RenderSignal(record);
 
 			PlayAlertSound();
-			Print(string.Format("[Kat34Scalper] {0} signal @ bar {1} — entry {2:F5}, SL {3:F5}, TP {4:F5}", isBuy ? "BUY" : "SELL", bar, entryPrice, slPrice, tpPrice));
+			Print(string.Format("[Kat34Scalper][A1][DRAW] {0} signal @ bar {1} — entry {2:F5}, SL {3:F5}, TP {4:F5}", isBuy ? "BUY" : "SELL", bar, entryPrice, slPrice, tpPrice));
 		}
 
 		// Called from the data thread through TriggerCustomEvent from HUD clicks.
