@@ -1,4 +1,4 @@
-# Deploy-NT8.ps1 — copy ALL Kat8934 sources into NT8's Indicators folder with overwrite,
+# Deploy-NT8.ps1 — copy ALL Kat34Scalper sources into NT8's Indicators folder with overwrite,
 # then verify NT8's file watcher recompiled NinjaTrader.Custom.dll (timestamp newer than deploy).
 # Usage:  pwsh scripts/Deploy-NT8.ps1 [-TimeoutSeconds 60]
 param(
@@ -11,8 +11,15 @@ $indicators = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\Ind
 $customDll  = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\NinjaTrader.Custom.dll'
 
 # Main file + every module under src\ (Logic, Signal, Filter, Bot, Draw, ...).
-$files = @('Kat8934.cs') + (Get-ChildItem (Join-Path $repoRoot 'src') -Filter '*.cs' |
+$files = @('Kat34Scalper.cs') + (Get-ChildItem (Join-Path $repoRoot 'src') -Filter '*.cs' |
     ForEach-Object { 'src\' + $_.Name })
+
+# Legacy cleanup after the Kat8934 -> Kat34Scalper rename (v0.20): stale files would keep
+# the OLD indicator alive next to the new one inside NT8's single NinjaScript assembly.
+Get-ChildItem $indicators -Filter 'Kat8934*.cs' -ErrorAction SilentlyContinue | ForEach-Object {
+    Remove-Item $_.FullName -Force
+    Write-Host "removed legacy: $($_.Name)"
+}
 
 $deployTime = Get-Date
 foreach ($f in $files) {

@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\src\Kat8934Logic.cs" Link="Kat8934Logic.cs" />
+    <Compile Include="..\..\src\Kat34ScalperLogic.cs" Link="Kat34ScalperLogic.cs" />
   </ItemGroup>
 
 </Project>

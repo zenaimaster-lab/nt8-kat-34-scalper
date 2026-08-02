@@ -1,5 +1,5 @@
 /*
- * Kat8934.Filter.cs — Filter module (partial class Kat8934).
+ * Kat34Scalper.Filter.cs — Filter module (partial class Kat34Scalper).
  * Gates that decide whether a signal may fire on this bar. New filters (MACD, RSI, ...)
  * plug in as a new method here + one clause in PassFilters.
  *   Fan gate (uses A0 direction), MTF fan (3m/5m/15m), ADX, Volume, Time window.
@@ -8,12 +8,12 @@
 #region Using declarations
 using System;
 using NinjaTrader.NinjaScript;
-using Kat8934;
+using Kat34Scalper;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
-	public partial class Kat8934 : Indicator
+	public partial class Kat34Scalper : Indicator
 	{
 		// --- Filter module state (HUD toggles) ---
 		private volatile bool cachedMtf = true;
@@ -41,7 +41,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				now[p] = fanEmas[s][p][0];
 				prev[p] = fanEmas[s][p][FanSpreadLookback];
 			}
-			return Kat8934Logic.FanDirection(now, prev, FanMinSpreadTicks, TickSize);
+			return Kat34ScalperLogic.FanDirection(now, prev, FanMinSpreadTicks, TickSize);
 		}
 
 		private bool MtfPass(int dir)
@@ -58,13 +58,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double adxMin = cachedAdx ? AdxMin : 0;
 			double volSma = cachedVol && volSmaInd != null ? volSmaInd[0] : 0;
 			double adx = adxInd != null ? adxInd[0] : 0;
-			return Kat8934Logic.PassMarketFilter(adx, adxMin, Volumes[0][0], volSma, VolumeMinMult);
+			return Kat34ScalperLogic.PassMarketFilter(adx, adxMin, Volumes[0][0], volSma, VolumeMinMult);
 		}
 
 		private bool TimePass()
 		{
 			if (!cachedTime || timeWindowDisabled) return true;
-			return Kat8934Logic.IsInTimeWindow(Times[0][0].TimeOfDay, timeStart, timeEnd);
+			return Kat34ScalperLogic.IsInTimeWindow(Times[0][0].TimeOfDay, timeStart, timeEnd);
 		}
 	}
 }

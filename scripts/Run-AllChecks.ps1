@@ -5,7 +5,7 @@ $ErrorActionPreference = 'Continue'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
 Write-Host '=== 1/2: xunit suite ==='
-dotnet test (Join-Path $repoRoot 'tests\Kat8934.Tests') --nologo --verbosity quiet
+dotnet test (Join-Path $repoRoot 'tests\Kat34Scalper.Tests') --nologo --verbosity quiet
 $testsOk = ($LASTEXITCODE -eq 0)
 
 Write-Host '=== 2/2: CompileCheck (net48 gate) ==='

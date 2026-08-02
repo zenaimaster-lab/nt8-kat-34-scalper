@@ -1,15 +1,15 @@
 /*
- * Kat8934.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.19 (2026-08-02)
+ * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
+ * Version: 0.20 (2026-08-02)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Module layout (partial classes):
- *   Kat8934.cs            — main: state, OnStateChange, OnBarUpdate orchestration, settings
- *   src/Kat8934Logic.cs   — pure signal/filter math + ATM parser (zero NT8 deps, xunit-tested)
- *   src/Kat8934.Signal.cs — Signal module: sub-module A0 (EMA-ribbon fan) + sub-module A1 (89-34 pullback)
- *   src/Kat8934.Filter.cs — Filter module: MTF fan, ADX, Volume, Time window gates
- *   src/Kat8934.Bot.cs    — Bot module: signal -> order (stop/limit conversion), migration, ATM brackets
- *   src/Kat8934.Draw.cs   — Draw module: entry/SL/TP/trigger lines, arrows, labels, HUD (module-titled sections)
+ *   Kat34Scalper.cs            — main: state, OnStateChange, OnBarUpdate orchestration, settings
+ *   src/Kat34ScalperLogic.cs   — pure signal/filter math + ATM parser (zero NT8 deps, xunit-tested)
+ *   src/Kat34Scalper.Signal.cs — Signal module: sub-module A0 (EMA-ribbon fan) + sub-module A1 (89-34 pullback)
+ *   src/Kat34Scalper.Filter.cs — Filter module: MTF fan, ADX, Volume, Time window gates
+ *   src/Kat34Scalper.Bot.cs    — Bot module: signal -> order (stop/limit conversion), migration, ATM brackets
+ *   src/Kat34Scalper.Draw.cs   — Draw module: entry/SL/TP/trigger lines, arrows, labels, HUD (module-titled sections)
  *
  * The version label shows the chart timeframe it computes on (always the primary series).
  */
@@ -25,10 +25,10 @@ using System.Xml.Serialization;
 using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
-using Kat8934;
+using Kat34Scalper;
 #endregion
 
-public enum Kat8934TriggerMode
+public enum Kat34ScalperTriggerMode
 {
 	[Display(Name = "Retest Bounce")]
 	RetestBounce = 0,
@@ -37,7 +37,7 @@ public enum Kat8934TriggerMode
 }
 
 // Dropdown of the ATM strategy templates in NT8's templates\AtmStrategy folder (+ "None" = bare order).
-public class Kat8934AtmTemplateConverter : TypeConverter
+public class Kat34ScalperAtmTemplateConverter : TypeConverter
 {
 	public override bool GetStandardValuesSupported(ITypeDescriptorContext context) { return true; }
 	public override bool GetStandardValuesExclusive(ITypeDescriptorContext context) { return true; }
@@ -62,7 +62,7 @@ public class Kat8934AtmTemplateConverter : TypeConverter
 }
 
 // Dropdown of the .wav files in NT8's sounds folder (for the Alert Sound setting).
-public class Kat8934SoundConverter : TypeConverter
+public class Kat34ScalperSoundConverter : TypeConverter
 {
 	public override bool GetStandardValuesSupported(ITypeDescriptorContext context) { return true; }
 	public override bool GetStandardValuesExclusive(ITypeDescriptorContext context) { return true; }
@@ -84,10 +84,10 @@ public class Kat8934SoundConverter : TypeConverter
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
-	public partial class Kat8934 : Indicator
+	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.19";
+		public const string VERSION = "0.20";
 		public const string RELEASE_DATE = "2026-08-02";
 
 		// Indicator series (primary chart TF + optional MTF BarsArrays)
@@ -112,8 +112,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (State == State.SetDefaults)
 			{
-				Description					= @"Kat8934 v" + VERSION + @" — EMA 34/89 rejection signals (Sell/Buy) with entry, SL and TP dash lines.";
-				Name						= "Kat8934";
+				Description					= @"Kat34Scalper v" + VERSION + @" — EMA 34/89 rejection signals (Sell/Buy) with entry, SL and TP dash lines.";
+				Name						= "Kat34Scalper";
 				Calculate					= Calculate.OnBarClose;
 				IsOverlay					= true;
 				DisplayInDataBox			= false;
@@ -150,7 +150,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				EmaFastPeriod				= 34;
 				EmaSlowPeriod				= 89;
 				MaxSequenceBars				= 30;
-				TriggerMode					= Kat8934TriggerMode.RetestBounce;
+				TriggerMode					= Kat34ScalperTriggerMode.RetestBounce;
 				EntryOffsetTicks			= 1;
 				StopDistanceTicks			= 60;
 				TargetDistanceTicks			= 120;
@@ -199,9 +199,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (TimeSpan.TryParse(TimeFilterStart, out timeStart) && TimeSpan.TryParse(TimeFilterEnd, out timeEnd))
 					timeWindowDisabled = false;
 				else
-					Print(string.Format("[Kat8934] Bad time filter '{0}'-'{1}' — time window disabled.", TimeFilterStart, TimeFilterEnd));
+					Print(string.Format("[Kat34Scalper] Bad time filter '{0}'-'{1}' — time window disabled.", TimeFilterStart, TimeFilterEnd));
 
-				Print(string.Format("[Kat8934] v{0} ({1}) loaded on {2} {3} — all signals compute on THIS series.",
+				Print(string.Format("[Kat34Scalper] v{0} ({1}) loaded on {2} {3} — all signals compute on THIS series.",
 					VERSION, RELEASE_DATE, Instrument.MasterInstrument.Name, ChartTimeframe()));
 				cachedShowArrows = ShowArrows;
 				cachedShowLabels = ShowLabels;
@@ -309,7 +309,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[NinjaScriptProperty]
 		[Display(Name = "Alert Sound", Order = 13, GroupName = "1. Filters",
 			Description = "Sound played on A0 fan and A1 signals.")]
-		[TypeConverter(typeof(Kat8934SoundConverter))]
+		[TypeConverter(typeof(Kat34ScalperSoundConverter))]
 		public string AlertSound { get; set; }
 
 		// --- 2. Signal (Sell and Buy share the same mirrored mechanism) ---
@@ -333,7 +333,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[NinjaScriptProperty]
 		[Display(Name = "Trigger Mode", Order = 5, GroupName = "2. Signal",
 			Description = "Retest Bounce: Sell fires when price closes back above the fast EMA after the U-turn close below it (Buy mirrored). Breakdown: fire immediately on the U-turn close.")]
-		public Kat8934TriggerMode TriggerMode { get; set; }
+		public Kat34ScalperTriggerMode TriggerMode { get; set; }
 
 		[NinjaScriptProperty]
 		[Display(Name = "Entry Offset (ticks)", Order = 6, GroupName = "2. Signal",
@@ -368,7 +368,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[NinjaScriptProperty]
 		[Display(Name = "ATM Template", Order = 3, GroupName = "4. Bot",
 			Description = "ATM strategy managing the entry (brackets). 'None' submits a bare stop order.")]
-		[TypeConverter(typeof(Kat8934AtmTemplateConverter))]
+		[TypeConverter(typeof(Kat34ScalperAtmTemplateConverter))]
 		public string BotAtmTemplate { get; set; }
 
 		[NinjaScriptProperty]

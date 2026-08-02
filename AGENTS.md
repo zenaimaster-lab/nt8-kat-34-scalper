@@ -1,4 +1,4 @@
-# AGENTS.md — nt8-kat-8934
+# AGENTS.md — nt8-kat-34-scalper
 
 ## Caveman Mode — ULTRA
 - Respond terse like smart caveman. All technical substance, no fluff.
@@ -28,7 +28,7 @@
 - Respect .gitignore — excludes node_modules, venv, __pycache__, logs/, .git.
 
 ## Auto GitHub Connection
-- Remote: https://github.com/zenaimaster-lab/nt8-kat-8934.git (origin/main).
+- Remote: https://github.com/zenaimaster-lab/nt8-kat-34-scalper.git (origin/main).
 - All changes commit + push to origin main.
 - Use `gh` for PRs/issues if needed.
 
@@ -38,29 +38,29 @@ On every code change, BEFORE closing session:
 1. **Bump version** +0.01 from current (baseline v0.01).
 2. **Stamp date** in format YYYY-MM-DD.
 3. **Update all locations**:
-   - `Kat8934.cs`: header comment + `VERSION` + `RELEASE_DATE` constants
+   - `Kat34Scalper.cs`: header comment + `VERSION` + `RELEASE_DATE` constants
    - `README.md`: "Current Version" line
    - `DIARY.md`: new version history entry
 4. **Update Graphify**: run `graphify update .`
 5. **Update Diary**: add entry with timestamp, changes summary, Graphify entity mapping.
-6. **Deploy NT8 (MANDATORY FULL SYNC)**: copy ALL source `.cs` files (`Kat8934.cs` AND `src/*.cs`) to `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\` with force overwrite (`scripts\Deploy-NT8.ps1` does this + verifies recompile):
-   - `Kat8934.cs` (main: lifecycle, settings, orchestration)
-   - `src\Kat8934Logic.cs` (pure logic, xunit-tested)
-   - `src\Kat8934.Signal.cs` (Signal module: A0 fan + A1 89-34 sub-modules)
-   - `src\Kat8934.Filter.cs` (Filter module: MTF, ADX, Volume, Time)
-   - `src\Kat8934.Bot.cs` (Bot module: order ops, stop/limit, ATM)
-   - `src\Kat8934.Draw.cs` (Draw module: lines/arrows/text + HUD)
+6. **Deploy NT8 (MANDATORY FULL SYNC)**: copy ALL source `.cs` files (`Kat34Scalper.cs` AND `src/*.cs`) to `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\` with force overwrite (`scripts\Deploy-NT8.ps1` does this + verifies recompile):
+   - `Kat34Scalper.cs` (main: lifecycle, settings, orchestration)
+   - `src\Kat34ScalperLogic.cs` (pure logic, xunit-tested)
+   - `src\Kat34Scalper.Signal.cs` (Signal module: A0 fan + A1 89-34 sub-modules)
+   - `src\Kat34Scalper.Filter.cs` (Filter module: MTF, ADX, Volume, Time)
+   - `src\Kat34Scalper.Bot.cs` (Bot module: order ops, stop/limit, ATM)
+   - `src\Kat34Scalper.Draw.cs` (Draw module: lines/arrows/text + HUD)
 7. **Git sync**:
    - `git add .`
    - `git commit -m "vX.XX (YYYY-MM-DD): Description"`
    - `git push origin main`
 
 ## Verification Layers (run `pwsh scripts/Run-AllChecks.ps1`)
-1. xunit suite: `dotnet test tests\Kat8934.Tests` — pure logic `src\Kat8934Logic.cs`.
+1. xunit suite: `dotnet test tests\Kat34Scalper.Tests` — pure logic `src\Kat34ScalperLogic.cs`.
 2. Compile gate: `dotnet build tools\CompileCheck` — net48 + NT8 assemblies, mirrors NT8 Roslyn compile.
 3. Live NT8 recompile after deploy (Deploy-NT8.ps1 checks NinjaTrader.Custom.dll timestamp).
 
 ## Version Tracking
-- Code versions: Kat8934.cs VERSION constant
+- Code versions: Kat34Scalper.cs VERSION constant
 - Doc versions: README.md, DIARY.md
-- **Current: v0.19 (2026-08-02)**
+- **Current: v0.20 (2026-08-02)**

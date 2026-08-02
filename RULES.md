@@ -7,7 +7,7 @@ Whenever any changes are made to this repository, the following workflow MUST be
 ## 1. Version Bumping & Date Stamping
 - Incremental version bump of **+0.01** (Starting baseline: `v0.01`).
 - Embed version & current execution date (e.g., `v0.27 - 2026-07-25`) in:
-  - `Kat8934.cs` (Header comments, `VERSION` constant, `RELEASE_DATE` constant)
+  - `Kat34Scalper.cs` (Header comments, `VERSION` constant, `RELEASE_DATE` constant)
   - `README.md` (Current Version line)
   - `DIARY.md` (new version history entry)
 
@@ -19,9 +19,9 @@ Whenever any changes are made to this repository, the following workflow MUST be
 - Apply Karpathy Guidelines: surgical minimal diffs, zero unnecessary abstractions, clear success criteria.
 
 ## 3. NinjaTrader 8 Deployment (MANDATORY FULL SYNC HARD RULE)
-- MUST copy/deploy ALL source `.cs` files (`Kat8934.cs` + all `src/*.cs` files) directly to NinjaTrader 8 custom indicators directory with force overwrite on every code change to prevent stale file compilation mismatches:
-  - `Kat8934.cs` -> `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\Kat8934.cs`
-  - `src\Kat8934Logic.cs` -> `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\Kat8934Logic.cs`
+- MUST copy/deploy ALL source `.cs` files (`Kat34Scalper.cs` + all `src/*.cs` files) directly to NinjaTrader 8 custom indicators directory with force overwrite on every code change to prevent stale file compilation mismatches:
+  - `Kat34Scalper.cs` -> `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\Kat34Scalper.cs`
+  - `src\Kat34ScalperLogic.cs` -> `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\Kat34ScalperLogic.cs`
 - Compile gate: `dotnet build tools/CompileCheck` must succeed (net48 + NT8 assemblies, mirrors NT8's internal Roslyn compile).
 
 ## 4. Git & GitHub Synchronization

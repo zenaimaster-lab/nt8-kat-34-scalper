@@ -1,10 +1,10 @@
-/* Kat8934Logic.cs - pure signal state machine + ATM template parser, zero NT8 dependencies (unit-testable). */
+/* Kat34ScalperLogic.cs - pure signal state machine + ATM template parser, zero NT8 dependencies (unit-testable). */
 
 using System;
 using System.IO;
 using System.Xml;
 
-namespace Kat8934
+namespace Kat34Scalper
 {
 	public enum KatSignalKind
 	{
@@ -44,7 +44,7 @@ namespace Kat8934
 		}
 	}
 
-	public static class Kat8934Logic
+	public static class Kat34ScalperLogic
 	{
 		/// <summary>
 		/// A0 ribbon fan. emasNow/emasPrev ordered fastest to slowest (9,21,34,55,89,144,200).
@@ -248,7 +248,7 @@ namespace Kat8934
 	}
 
 	/// <summary>Parsed SL/TP and trailing-SL trigger levels (ticks) from an NT8 ATM strategy template.</summary>
-	public sealed class Kat8934AtmData
+	public sealed class Kat34ScalperAtmData
 	{
 		public int StopLoss;
 		public int Target;
@@ -260,14 +260,14 @@ namespace Kat8934
 	/// <summary>
 	/// Reads StopLoss/Target/AutoBreakEven/AutoTrail profit triggers from an ATM template .xml.
 	/// Any parse failure yields zeroed data (callers fall back to indicator settings).
-	/// Named Kat8934* on purpose: NT8 compiles every Custom indicator into ONE assembly —
+	/// Named Kat34Scalper* on purpose: NT8 compiles every Custom indicator into ONE assembly —
 	/// reusing KatTradeManager's type names would collide.
 	/// </summary>
-	public static class Kat8934AtmParser
+	public static class Kat34ScalperAtmParser
 	{
-		public static Kat8934AtmData ParseFile(string filePath)
+		public static Kat34ScalperAtmData ParseFile(string filePath)
 		{
-			if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return new Kat8934AtmData();
+			if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return new Kat34ScalperAtmData();
 			try
 			{
 				XmlDocument doc = new XmlDocument();
@@ -276,13 +276,13 @@ namespace Kat8934
 			}
 			catch
 			{
-				return new Kat8934AtmData();
+				return new Kat34ScalperAtmData();
 			}
 		}
 
-		public static Kat8934AtmData ParseXml(string xmlContent)
+		public static Kat34ScalperAtmData ParseXml(string xmlContent)
 		{
-			if (string.IsNullOrWhiteSpace(xmlContent)) return new Kat8934AtmData();
+			if (string.IsNullOrWhiteSpace(xmlContent)) return new Kat34ScalperAtmData();
 			try
 			{
 				XmlDocument doc = new XmlDocument();
@@ -291,13 +291,13 @@ namespace Kat8934
 			}
 			catch
 			{
-				return new Kat8934AtmData();
+				return new Kat34ScalperAtmData();
 			}
 		}
 
-		private static Kat8934AtmData ParseDocument(XmlDocument doc)
+		private static Kat34ScalperAtmData ParseDocument(XmlDocument doc)
 		{
-			Kat8934AtmData result = new Kat8934AtmData();
+			Kat34ScalperAtmData result = new Kat34ScalperAtmData();
 			if (doc == null) return result;
 
 			result.StopLoss = ReadInt(doc, "//AtmStrategy/Brackets/Bracket/StopLoss");

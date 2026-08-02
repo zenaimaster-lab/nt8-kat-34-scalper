@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Compile gate for the NinjaScript indicator sources (Kat8934.cs + src/Kat8934Logic.cs).
+    Compile gate for the NinjaScript indicator sources (Kat34Scalper.cs + src/Kat34ScalperLogic.cs).
     NT8 compiles these inside NinjaTrader with .NET Framework 4.8 Roslyn;
     this project reproduces that locally. Run:  dotnet build tools/CompileCheck
     Reference assemblies come from NuGet (no admin / no VS required).
@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\Kat8934.cs" />
+    <Compile Include="..\..\Kat34Scalper.cs" />
     <Compile Include="..\..\src\*.cs" />
   </ItemGroup>
 

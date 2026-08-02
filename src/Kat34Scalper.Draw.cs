@@ -1,5 +1,5 @@
 /*
- * Kat8934.Draw.cs — Draw module (partial class Kat8934).
+ * Kat34Scalper.Draw.cs — Draw module (partial class Kat34Scalper).
  * Everything visual: signal drawings (entry/SL/TP + ATM BE/SL1/SL2 trigger lines,
  * arrows, labels), the version/timeframe label, alert sounds, and the HUD panel.
  * HUD sections are titled by the module they control: SIGNAL / FILTER / BOT / DRAW.
@@ -17,12 +17,12 @@ using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
-using Kat8934;
+using Kat34Scalper;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
-	public partial class Kat8934 : Indicator
+	public partial class Kat34Scalper : Indicator
 	{
 		#region Signal Drawings (lines, arrows, labels, version label, alert)
 		private const int MAX_SIGNAL_RECORDS = 200;
@@ -48,7 +48,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private void DrawVersionLabel()
 		{
 			versionDrawn = true;
-			Draw.TextFixed(this, "K8934_version", string.Format("Kat8934 v{0} ({1}) [{2}]", VERSION, RELEASE_DATE, ChartTimeframe()), TextPosition.TopLeft);
+			Draw.TextFixed(this, "K34S_version", string.Format("Kat34Scalper v{0} ({1}) [{2}]", VERSION, RELEASE_DATE, ChartTimeframe()), TextPosition.TopLeft);
 		}
 
 		private void PlayAlertSound()
@@ -66,14 +66,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			// A1 dual entry: c1 = U-turn bar extreme, c2 = best later candidate (0 = none yet — fall back to the signal bar).
 			double ref1 = c1 != 0 ? c1 : (isBuy ? high : low);
 			double ref2 = c2 != 0 ? c2 : ref1;
-			entryPrice = Kat8934Logic.EffectiveEntry(isBuy, ref1, ref2, offsetTicks, tick);
+			entryPrice = Kat34ScalperLogic.EffectiveEntry(isBuy, ref1, ref2, offsetTicks, tick);
 			double cand1 = isBuy ? ref1 + offsetTicks * tick : ref1 - offsetTicks * tick;
 			double cand2 = isBuy ? ref2 + offsetTicks * tick : ref2 - offsetTicks * tick;
 			arrowY = isBuy ? low - ArrowOffsetTicks * tick : high + ArrowOffsetTicks * tick;
 
 			// TradeManager-style levels: SL/TP come from the selected ATM template when it defines them,
 			// otherwise from the indicator settings; BE/SL1/SL2 trailing-SL triggers exist only with an ATM.
-			Kat8934AtmData atm = GetAtmData();
+			Kat34ScalperAtmData atm = GetAtmData();
 			int slTicks = atm.StopLoss > 0 ? atm.StopLoss : stopTicks;
 			int tpTicks = atm.Target > 0 ? atm.Target : targetTicks;
 			double slPrice = isBuy ? entryPrice - slTicks * tick : entryPrice + slTicks * tick;
@@ -91,8 +91,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				string side = isBuy ? "B" : "S";
 				Brush faded = new SolidColorBrush(isBuy ? BuyEntryLineColor : SellEntryLineColor) { Opacity = 0.35 };
-				Draw.Line(this, "K8934_" + side + "_C1_" + bar, false, 0, cand1, endAgo, cand1, faded, DashStyleHelper.Dot, 1);
-				Draw.Line(this, "K8934_" + side + "_C2_" + bar, false, 0, cand2, endAgo, cand2, faded, DashStyleHelper.Dot, 1);
+				Draw.Line(this, "K34S_" + side + "_C1_" + bar, false, 0, cand1, endAgo, cand1, faded, DashStyleHelper.Dot, 1);
+				Draw.Line(this, "K34S_" + side + "_C2_" + bar, false, 0, cand2, endAgo, cand2, faded, DashStyleHelper.Dot, 1);
 			}
 
 			// barsAgo 0 = the signal candle at draw time.
@@ -102,31 +102,31 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				double arrowY2 = isBuy ? arrowY + tick : arrowY - tick;
 				if (isBuy)
 				{
-					Draw.ArrowUp(this, "K8934_B_ARROW_" + bar, false, 0, arrowY, Brushes.White);
-					Draw.ArrowUp(this, "K8934_B_ARROW_" + bar + "_2", false, 0, arrowY2, Brushes.White);
+					Draw.ArrowUp(this, "K34S_B_ARROW_" + bar, false, 0, arrowY, Brushes.White);
+					Draw.ArrowUp(this, "K34S_B_ARROW_" + bar + "_2", false, 0, arrowY2, Brushes.White);
 				}
 				else
 				{
-					Draw.ArrowDown(this, "K8934_S_ARROW_" + bar, false, 0, arrowY, Brushes.Black);
-					Draw.ArrowDown(this, "K8934_S_ARROW_" + bar + "_2", false, 0, arrowY2, Brushes.Black);
+					Draw.ArrowDown(this, "K34S_S_ARROW_" + bar, false, 0, arrowY, Brushes.Black);
+					Draw.ArrowDown(this, "K34S_S_ARROW_" + bar + "_2", false, 0, arrowY2, Brushes.Black);
 				}
 			}
 
 			if (isBuy)
 			{
-				Draw.Line(this, "K8934_B_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Solid, LineWidth);
-				Draw.Line(this, "K8934_B_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
-				Draw.Line(this, "K8934_B_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K34S_B_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Solid, LineWidth);
+				Draw.Line(this, "K34S_B_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K34S_B_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
 				if (cachedShowLabels)
-					Draw.Text(this, "K8934_B_TEXT_" + bar, "BUY", 0, textY, textBrush);
+					Draw.Text(this, "K34S_B_TEXT_" + bar, "BUY", 0, textY, textBrush);
 			}
 			else
 			{
-				Draw.Line(this, "K8934_S_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Solid, LineWidth);
-				Draw.Line(this, "K8934_S_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
-				Draw.Line(this, "K8934_S_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K34S_S_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Solid, LineWidth);
+				Draw.Line(this, "K34S_S_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
+				Draw.Line(this, "K34S_S_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
 				if (cachedShowLabels)
-					Draw.Text(this, "K8934_S_TEXT_" + bar, "SELL", 0, textY, textBrush);
+					Draw.Text(this, "K34S_S_TEXT_" + bar, "SELL", 0, textY, textBrush);
 			}
 
 			// Trailing-SL trigger lines from the ATM template — same style as KatTradeManager
@@ -136,17 +136,17 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (atm.BETrigger > 0)
 			{
 				double bePrice = entryPrice + dir * atm.BETrigger * tick;
-				Draw.Line(this, "K8934_" + sideTag + "_BE_" + bar, false, 0, bePrice, endAgo, bePrice, Brushes.DeepSkyBlue, DashStyleHelper.DashDot, 1);
+				Draw.Line(this, "K34S_" + sideTag + "_BE_" + bar, false, 0, bePrice, endAgo, bePrice, Brushes.DeepSkyBlue, DashStyleHelper.DashDot, 1);
 			}
 			if (atm.SL1Trigger > 0)
 			{
 				double sl1Price = entryPrice + dir * atm.SL1Trigger * tick;
-				Draw.Line(this, "K8934_" + sideTag + "_SL1_" + bar, false, 0, sl1Price, endAgo, sl1Price, Brushes.Orange, DashStyleHelper.Dot, 1);
+				Draw.Line(this, "K34S_" + sideTag + "_SL1_" + bar, false, 0, sl1Price, endAgo, sl1Price, Brushes.Orange, DashStyleHelper.Dot, 1);
 			}
 			if (atm.SL2Trigger > 0)
 			{
 				double sl2Price = entryPrice + dir * atm.SL2Trigger * tick;
-				Draw.Line(this, "K8934_" + sideTag + "_SL2_" + bar, false, 0, sl2Price, endAgo, sl2Price, Brushes.Magenta, DashStyleHelper.Dot, 1);
+				Draw.Line(this, "K34S_" + sideTag + "_SL2_" + bar, false, 0, sl2Price, endAgo, sl2Price, Brushes.Magenta, DashStyleHelper.Dot, 1);
 			}
 
 			if (signalRecords.Count >= MAX_SIGNAL_RECORDS)
@@ -161,7 +161,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			});
 
 			PlayAlertSound();
-			Print(string.Format("[Kat8934] {0} signal @ bar {1} — entry {2:F5}, SL {3:F5}, TP {4:F5}", isBuy ? "BUY" : "SELL", bar, entryPrice, slPrice, tpPrice));
+			Print(string.Format("[Kat34Scalper] {0} signal @ bar {1} — entry {2:F5}, SL {3:F5}, TP {4:F5}", isBuy ? "BUY" : "SELL", bar, entryPrice, slPrice, tpPrice));
 		}
 
 		// Called from the data thread (marshaled via Dispatcher.InvokeAsync from HUD clicks).
@@ -174,7 +174,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				foreach (IDrawingTool tool in DrawObjects)
 				{
 					string name = tool.Name;
-					if (name != null && (name.StartsWith("K8934_S_") || name.StartsWith("K8934_B_") || name.StartsWith("K8934_A0_")))
+					if (name != null && (name.StartsWith("K34S_S_") || name.StartsWith("K34S_B_") || name.StartsWith("K34S_A0_")))
 						doomed.Add(name);
 				}
 				foreach (string tag in doomed)
@@ -185,11 +185,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					DrawVersionLabel();
 				}
 				ForceRefresh();
-				Print(string.Format("[Kat8934] Cleared {0} old signal drawing(s).", doomed.Count));
+				Print(string.Format("[Kat34Scalper] Cleared {0} old signal drawing(s).", doomed.Count));
 			}
 			catch (Exception ex)
 			{
-				Print(string.Format("[Kat8934] Clear error: {0}", ex.Message));
+				Print(string.Format("[Kat34Scalper] Clear error: {0}", ex.Message));
 			}
 		}
 
@@ -209,13 +209,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 							int barsAgo = CurrentBars[0] - r.Bar;
 							if (r.IsBuy)
 							{
-								Draw.ArrowUp(this, "K8934_B_ARROW_" + r.Bar, false, barsAgo, r.ArrowY, Brushes.White);
-								Draw.ArrowUp(this, "K8934_B_ARROW_" + r.Bar + "_2", false, barsAgo, r.ArrowY2, Brushes.White);
+								Draw.ArrowUp(this, "K34S_B_ARROW_" + r.Bar, false, barsAgo, r.ArrowY, Brushes.White);
+								Draw.ArrowUp(this, "K34S_B_ARROW_" + r.Bar + "_2", false, barsAgo, r.ArrowY2, Brushes.White);
 							}
 							else
 							{
-								Draw.ArrowDown(this, "K8934_S_ARROW_" + r.Bar, false, barsAgo, r.ArrowY, Brushes.Black);
-								Draw.ArrowDown(this, "K8934_S_ARROW_" + r.Bar + "_2", false, barsAgo, r.ArrowY2, Brushes.Black);
+								Draw.ArrowDown(this, "K34S_S_ARROW_" + r.Bar, false, barsAgo, r.ArrowY, Brushes.Black);
+								Draw.ArrowDown(this, "K34S_S_ARROW_" + r.Bar + "_2", false, barsAgo, r.ArrowY2, Brushes.Black);
 							}
 						}
 					}
@@ -223,8 +223,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					{
 						foreach (KatSignalRecord r in signalRecords)
 						{
-							RemoveDrawObject(r.IsBuy ? "K8934_B_ARROW_" + r.Bar : "K8934_S_ARROW_" + r.Bar);
-							RemoveDrawObject(r.IsBuy ? "K8934_B_ARROW_" + r.Bar + "_2" : "K8934_S_ARROW_" + r.Bar + "_2");
+							RemoveDrawObject(r.IsBuy ? "K34S_B_ARROW_" + r.Bar : "K34S_S_ARROW_" + r.Bar);
+							RemoveDrawObject(r.IsBuy ? "K34S_B_ARROW_" + r.Bar + "_2" : "K34S_S_ARROW_" + r.Bar + "_2");
 						}
 					}
 				}
@@ -237,22 +237,22 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 						{
 							int barsAgo = CurrentBars[0] - r.Bar;
 							if (r.IsBuy)
-								Draw.Text(this, "K8934_B_TEXT_" + r.Bar, "BUY", barsAgo, r.TextY, new SolidColorBrush(BuyTextColor));
+								Draw.Text(this, "K34S_B_TEXT_" + r.Bar, "BUY", barsAgo, r.TextY, new SolidColorBrush(BuyTextColor));
 							else
-								Draw.Text(this, "K8934_S_TEXT_" + r.Bar, "SELL", barsAgo, r.TextY, new SolidColorBrush(SellTextColor));
+								Draw.Text(this, "K34S_S_TEXT_" + r.Bar, "SELL", barsAgo, r.TextY, new SolidColorBrush(SellTextColor));
 						}
 					}
 					else
 					{
 						foreach (KatSignalRecord r in signalRecords)
-							RemoveDrawObject(r.IsBuy ? "K8934_B_TEXT_" + r.Bar : "K8934_S_TEXT_" + r.Bar);
+							RemoveDrawObject(r.IsBuy ? "K34S_B_TEXT_" + r.Bar : "K34S_S_TEXT_" + r.Bar);
 					}
 				}
 				ForceRefresh();
 			}
 			catch (Exception ex)
 			{
-				Print(string.Format("[Kat8934] Draw mode error: {0}", ex.Message));
+				Print(string.Format("[Kat34Scalper] Draw mode error: {0}", ex.Message));
 			}
 		}
 		#endregion
@@ -507,7 +507,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			hudBorder = new Border
 			{
-				Tag = "Kat8934Panel",
+				Tag = "Kat34ScalperPanel",
 				Background = new SolidColorBrush(Color.FromArgb(240, 20, 24, 33)),
 				BorderBrush = new SolidColorBrush(Color.FromRgb(35, 42, 56)),
 				BorderThickness = new Thickness(1),
@@ -532,7 +532,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			mainPanel.Children.Add(new TextBlock
 			{
-				Text = string.Format("⚡ KAT 8934 v{0}", VERSION),
+				Text = string.Format("⚡ KAT 34 SCALPER v{0}", VERSION),
 				Foreground = new SolidColorBrush(Color.FromRgb(70, 130, 160)),
 				FontWeight = FontWeights.Bold,
 				FontSize = 12,

@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.20] — 2026-08-02
+- **Project renamed: Kat8934 → Kat 34 Scalper**. Every occurrence updated: class `Kat34Scalper` (namespace `NinjaTrader.NinjaScript.Indicators.KAT` — still the KAT folder in NT8), pure namespace `Kat34Scalper`, all types (`Kat34ScalperLogic`, `Kat34ScalperTriggerMode`, `Kat34ScalperAtmParser`, `Kat34ScalperAtmData`, converters), indicator `Name`, version label, HUD title (`⚡ KAT 34 SCALPER`), Print prefixes, draw-object tags (`K8934_*` → `K34S_*`), file names (`Kat34Scalper.cs`, `src/Kat34Scalper{Logic,.Signal,.Filter,.Bot,.Draw}.cs`, `tests/Kat34Scalper.Tests`), build/deploy scripts, README/AGENTS/RULES, local repo folder (`nt8-kat-34-scalper`) and the GitHub repo. DIARY/RELEASE_NOTES history entries keep the old name (historical record).
+- **NT8 migration**: `Deploy-NT8.ps1` now deletes legacy `Kat8934*.cs` from the Indicators folder (stale files would keep the old indicator alive next to the new one). NT8 sees `Kat34Scalper` as a NEW indicator — charts that had `Kat8934` must re-add it (old settings in saved workspaces do not carry over).
+- **Validation**: 33/33 xunit tests; CompileCheck 0 errors.
+- **Graphify entity mapping**: all `Kat34Scalper*` entities (rename of every `Kat8934*` node).
+
 ### [v0.19] — 2026-08-02
 - **Codebase split into 4 modules (partial classes, KatTradeManager pattern)**: the monolithic `Kat8934.cs` (~1450 lines) is now `Kat8934.cs` (main: lifecycle, settings, per-bar orchestration) + `src/Kat8934.Signal.cs` + `src/Kat8934.Filter.cs` + `src/Kat8934.Bot.cs` + `src/Kat8934.Draw.cs`; `src/Kat8934Logic.cs` stays the pure xunit-tested core. Zero logic changes — pure code motion, every method moved verbatim.
 - **Signal module sub-modules**: A0 (EMA-ribbon fan) and A1 (89-34 pullback) are explicit regions (`EvaluateA0Fan` / `EvaluateA1`); future signals plug in as a new region. Filter module isolates `PassFilters`/`MtfPass`/`MarketPass`/`TimePass` (MACD/RSI plug in later). Bot module owns order conversion (stop/limit), ATM levels, migration. Draw module owns all chart drawings + HUD.

@@ -1,5 +1,5 @@
 /*
- * Kat8934.Signal.cs — Signal module (partial class Kat8934).
+ * Kat34Scalper.Signal.cs — Signal module (partial class Kat34Scalper).
  * Owns every signal sub-module; each sub-module evaluates its own state and fires
  * Draw + Bot on a trigger. New signals (A2, A3, ...) plug in as a new region here.
  *   A0 — EMA-ribbon fan (9/21/34/55/89/144/200): triangle marker + alert, gates A1 direction.
@@ -12,12 +12,12 @@ using System.Windows.Media;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
-using Kat8934;
+using Kat34Scalper;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
-	public partial class Kat8934 : Indicator
+	public partial class Kat34Scalper : Indicator
 	{
 		// --- Signal module state ---
 		private volatile bool cachedA0 = true;   // HUD toggle: A0 sub-module on/off
@@ -26,9 +26,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private readonly KatA1State sellState = new KatA1State(); // A1 sell-side sequence
 		private readonly KatA1State buyState = new KatA1State();  // A1 buy-side sequence
 
-		private static KatTriggerMode ToLogicMode(Kat8934TriggerMode mode)
+		private static KatTriggerMode ToLogicMode(Kat34ScalperTriggerMode mode)
 		{
-			return mode == Kat8934TriggerMode.Breakdown ? KatTriggerMode.Breakdown : KatTriggerMode.RetestBounce;
+			return mode == Kat34ScalperTriggerMode.Breakdown ? KatTriggerMode.Breakdown : KatTriggerMode.RetestBounce;
 		}
 
 		#region Sub-module A0 — EMA-ribbon fan signal
@@ -46,10 +46,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				PlayAlertSound();
 				double y = dir > 0 ? Lows[0][0] - ArrowOffsetTicks * TickSize : Highs[0][0] + ArrowOffsetTicks * TickSize;
 				if (dir > 0)
-					Draw.TriangleUp(this, "K8934_A0_" + CurrentBar, false, 0, y, Brushes.DodgerBlue);
+					Draw.TriangleUp(this, "K34S_A0_" + CurrentBar, false, 0, y, Brushes.DodgerBlue);
 				else
-					Draw.TriangleDown(this, "K8934_A0_" + CurrentBar, false, 0, y, Brushes.OrangeRed);
-				Print(string.Format("[Kat8934] A0 {0} fan @ bar {1}", dir > 0 ? "BUY" : "SELL", CurrentBar));
+					Draw.TriangleDown(this, "K34S_A0_" + CurrentBar, false, 0, y, Brushes.OrangeRed);
+				Print(string.Format("[Kat34Scalper] A0 {0} fan @ bar {1}", dir > 0 ? "BUY" : "SELL", CurrentBar));
 			}
 			else if (dir == 0)
 			{
@@ -69,13 +69,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double slow = slowEma[0];
 			KatTriggerMode mode = ToLogicMode(TriggerMode);
 
-			if (sellAllowed && Kat8934Logic.Update(KatSignalKind.Sell, mode, MaxSequenceBars,
+			if (sellAllowed && Kat34ScalperLogic.Update(KatSignalKind.Sell, mode, MaxSequenceBars,
 				fast < slow, high, low, close, fast, slow, sellState) == KatSignalKind.Sell)
 			{
 				DrawSignal(false, CurrentBar, high, low, sellState.C1, sellState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
 				TrySubmitBotEntry(false, sellState.C2);
 			}
-			if (buyAllowed && Kat8934Logic.Update(KatSignalKind.Buy, mode, MaxSequenceBars,
+			if (buyAllowed && Kat34ScalperLogic.Update(KatSignalKind.Buy, mode, MaxSequenceBars,
 				fast > slow, high, low, close, fast, slow, buyState) == KatSignalKind.Buy)
 			{
 				DrawSignal(true, CurrentBar, high, low, buyState.C1, buyState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);

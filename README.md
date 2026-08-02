@@ -1,6 +1,6 @@
-# NT8 Kat8934 — EMA 34/89 Rejection Signal Indicator
+# NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.19` (Released: `2026-08-02`)
+**Current Version**: `v0.20` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -8,12 +8,12 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 
 | File | Module | Owns |
 |---|---|---|
-| `Kat8934.cs` | **Main** | lifecycle (`OnStateChange`), settings (NinjaScript properties), per-bar orchestration |
-| `src/Kat8934Logic.cs` | **Pure logic** | signal state machines + filter math + ATM parser — zero NT8 deps, xunit-tested |
-| `src/Kat8934.Signal.cs` | **Signal** | signal sub-modules: **A0** (EMA-ribbon fan) and **A1** (89-34 pullback); future signals (A2, A3…) plug in as a new region |
-| `src/Kat8934.Filter.cs` | **Filter** | gates: fan direction, MTF (3m/5m/15m), ADX, Volume, Time window; future filters (MACD, RSI…) plug in here |
-| `src/Kat8934.Bot.cs` | **Bot** | signal → order conversion (stop on valid side, limit when price ran past), ATM brackets, migration, trend-flip cancel |
-| `src/Kat8934.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, arrows, labels, version label, alert sound, HUD (sections titled SIGNAL / FILTER / BOT / DRAW) |
+| `Kat34Scalper.cs` | **Main** | lifecycle (`OnStateChange`), settings (NinjaScript properties), per-bar orchestration |
+| `src/Kat34ScalperLogic.cs` | **Pure logic** | signal state machines + filter math + ATM parser — zero NT8 deps, xunit-tested |
+| `src/Kat34Scalper.Signal.cs` | **Signal** | signal sub-modules: **A0** (EMA-ribbon fan) and **A1** (89-34 pullback); future signals (A2, A3…) plug in as a new region |
+| `src/Kat34Scalper.Filter.cs` | **Filter** | gates: fan direction, MTF (3m/5m/15m), ADX, Volume, Time window; future filters (MACD, RSI…) plug in here |
+| `src/Kat34Scalper.Bot.cs` | **Bot** | signal → order conversion (stop on valid side, limit when price ran past), ATM brackets, migration, trend-flip cancel |
+| `src/Kat34Scalper.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, arrows, labels, version label, alert sound, HUD (sections titled SIGNAL / FILTER / BOT / DRAW) |
 
 Per bar the pipeline runs: **Signal** (A0) → **Filter** (gates) → **Signal** (A1) → fires **Draw** + **Bot**.
 
@@ -53,10 +53,10 @@ Per bar the pipeline runs: **Signal** (A0) → **Filter** (gates) → **Signal**
 | 4. Bot | Bot Enabled (off), Order Quantity (1), ATM Template (dropdown of NT8 ATM templates + None), Account Name |
 | 3. Lines & Text | Line Length (7 bars), Line Width (2 px), Arrow Offset (3 ticks), Sell/Buy Entry Line Colors (solid), SL/TP Line Colors, Sell/Buy Text Colors, Show Arrows, Show Buy/Sell Labels (default off) |
 
-Parameters group: `Show Version Label` — draws `Kat8934 vX.XX (date) [chart timeframe]` top-left on the chart (updates on every F5 recompile). All signal math runs on the primary series of the chart the indicator is added to — the label proves which timeframe that is (e.g. `[30 Second]`).
+Parameters group: `Show Version Label` — draws `Kat34Scalper vX.XX (date) [chart timeframe]` top-left on the chart (updates on every F5 recompile). All signal math runs on the primary series of the chart the indicator is added to — the label proves which timeframe that is (e.g. `[30 Second]`).
 
 ## HUD
-TradeManager-style panel (same colors, sizes and structure): dark navy card `Argb(240,20,24,33)` on a draggable canvas (drag anywhere outside the buttons, clamped so it can't leave the chart), `⚡ KAT 8934 vX.XX` steel-blue header, and a status line (5 s auto-clear) that mirrors bot events — submits, migrations, cancels, fills. Each section carries a **module title** naming the module it controls:
+TradeManager-style panel (same colors, sizes and structure): dark navy card `Argb(240,20,24,33)` on a draggable canvas (drag anywhere outside the buttons, clamped so it can't leave the chart), `⚡ KAT 34 SCALPER vX.XX` steel-blue header, and a status line (5 s auto-clear) that mirrors bot events — submits, migrations, cancels, fills. Each section carries a **module title** naming the module it controls:
 - **SIGNAL**: `A0 fan` + `A1 89-34` sub-module toggles, disabled `A2… | A3…` placeholders for future signal sub-modules.
 - **FILTER**: `MTF | ADX`, `Volume | Time window` toggles — blue ON / gray OFF, effective from the next bar.
 - **BOT**: `Acc:` row (account dropdown), ATM template dropdown (sorted, `None` = bare stop order), `⚡ BOT: ON/OFF` (default OFF; OFF cancels the pending entry immediately).
@@ -66,9 +66,9 @@ TradeManager-style panel (same colors, sizes and structure): dark navy card `Arg
 
 1. Open **NinjaTrader 8**.
 2. Go to **Tools** -> **NinjaScript Editor**.
-3. Open or import `Kat8934.cs` under `Indicators`.
+3. Open or import `Kat34Scalper.cs` under `Indicators`.
 4. Press **F5** to Compile (chart indicators auto-reload with the new version label).
-5. Add `Kat8934` to any NT8 Chart.
+5. Add `Kat34Scalper` to any NT8 Chart.
 
 ## Development workflow
 - `pwsh scripts/Run-AllChecks.ps1` — xunit suite + net48 compile gate.

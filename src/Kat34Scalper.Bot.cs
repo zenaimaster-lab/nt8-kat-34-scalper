@@ -1,5 +1,5 @@
 /*
- * Kat8934.Bot.cs — Bot module (partial class Kat8934).
+ * Kat34Scalper.Bot.cs — Bot module (partial class Kat34Scalper).
  * Semi-auto: trades only while the HUD BOT button is ON and Bot Enabled is set.
  * Receives the signal's reference extreme, converts it to the right order type
  * (stop on the valid side of market, limit when price already ran past it),
@@ -13,12 +13,12 @@ using System.IO;
 using System.Windows.Media;
 using NinjaTrader.Cbi;
 using NinjaTrader.NinjaScript;
-using Kat8934;
+using Kat34Scalper;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
-	public partial class Kat8934 : Indicator
+	public partial class Kat34Scalper : Indicator
 	{
 		// --- Bot module state ---
 		private volatile bool cachedBotOn;
@@ -31,7 +31,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private double pendingMigrateRef; // better extreme found; new order placed once the cancelled one is terminal
 		private volatile bool pendingMigrate;
 		private string atmLevelsName = "\0"; // never matches a real template name — forces first parse
-		private Kat8934AtmData atmLevels;
+		private Kat34ScalperAtmData atmLevels;
 
 		private Account ResolveBotAccount()
 		{
@@ -51,15 +51,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		// Parses the selected ATM template once; re-parses only when the template name changes (HUD or settings).
 		// Draw module consumes the levels for the trigger lines.
-		private Kat8934AtmData GetAtmData()
+		private Kat34ScalperAtmData GetAtmData()
 		{
 			string tpl = cachedBotAtm ?? "";
 			if (tpl != atmLevelsName)
 			{
 				atmLevelsName = tpl;
 				atmLevels = HasAtmTemplate(tpl)
-					? Kat8934AtmParser.ParseFile(Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "templates", "AtmStrategy", tpl + ".xml"))
-					: new Kat8934AtmData();
+					? Kat34ScalperAtmParser.ParseFile(Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "templates", "AtmStrategy", tpl + ".xml"))
+					: new Kat34ScalperAtmData();
 			}
 			return atmLevels;
 		}
@@ -77,14 +77,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Account acc = ResolveBotAccount();
 			if (acc == null)
 			{
-				Print("[Kat8934] BOT: no account selected — pick one on the HUD or in settings.");
+				Print("[Kat34Scalper] BOT: no account selected — pick one on the HUD or in settings.");
 				return;
 			}
 			double entryPrice = isBuy
 				? refExtreme + EntryOffsetTicks * TickSize
 				: refExtreme - EntryOffsetTicks * TickSize;
 			// Price already past the trigger -> a stop would sit on the wrong side and be rejected; use a limit.
-			bool useStop = Kat8934Logic.UseStopOrder(isBuy, entryPrice, Closes[0][0]);
+			bool useStop = Kat34ScalperLogic.UseStopOrder(isBuy, entryPrice, Closes[0][0]);
 			try
 			{
 				// ATM contract: the entry order name MUST be "Entry" (see KatTradeManager).
@@ -104,17 +104,17 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				else
 				{
 					if (!string.IsNullOrEmpty(tpl) && !tpl.Equals("None", StringComparison.OrdinalIgnoreCase))
-						Print(string.Format("[Kat8934] BOT: ATM template '{0}' not found — bare stop order.", tpl));
+						Print(string.Format("[Kat34Scalper] BOT: ATM template '{0}' not found — bare stop order.", tpl));
 					acc.Submit(new[] { order });
 				}
-				Print(string.Format("[Kat8934] BOT: {0} {1} @ {2:F5} submitted (account {3}, ATM {4}).",
+				Print(string.Format("[Kat34Scalper] BOT: {0} {1} @ {2:F5} submitted (account {3}, ATM {4}).",
 					isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, acc.Name, HasAtmTemplate(tpl) ? tpl : "none"));
 				ShowHudStatus(string.Format("BOT: {0} {1} @ {2:F2} ({3})", isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, HasAtmTemplate(tpl) ? tpl : "no ATM"), Brushes.LightGreen);
 			}
 			catch (Exception ex)
 			{
 				pendingOrder = null;
-				Print(string.Format("[Kat8934] BOT submit error: {0}", ex.Message));
+				Print(string.Format("[Kat34Scalper] BOT submit error: {0}", ex.Message));
 				ShowHudStatus("BOT submit error: " + ex.Message, Brushes.OrangeRed);
 			}
 		}
@@ -138,7 +138,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			OrderState state = pendingOrder.OrderState;
 			if (state == OrderState.Filled || state == OrderState.Cancelled || state == OrderState.Rejected)
 			{
-				Print(string.Format("[Kat8934] BOT: entry order {0} @ {1:F5}.", state, pendingEntryPrice));
+				Print(string.Format("[Kat34Scalper] BOT: entry order {0} @ {1:F5}.", state, pendingEntryPrice));
 				if (state == OrderState.Filled)
 					ShowHudStatus(string.Format("BOT: entry FILLED @ {0:F2} — ATM manages brackets", pendingEntryPrice), Brushes.LightGreen);
 				pendingOrder = null;
@@ -180,13 +180,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (acc != null)
 				{
 					acc.Cancel(new[] { pendingOrder });
-					Print(string.Format("[Kat8934] BOT: entry cancel requested ({0}).", reason));
+					Print(string.Format("[Kat34Scalper] BOT: entry cancel requested ({0}).", reason));
 					ShowHudStatus("BOT: entry cancel — " + reason, Brushes.OrangeRed);
 				}
 			}
 			catch (Exception ex)
 			{
-				Print(string.Format("[Kat8934] BOT cancel error: {0}", ex.Message));
+				Print(string.Format("[Kat34Scalper] BOT cancel error: {0}", ex.Message));
 			}
 		}
 	}
