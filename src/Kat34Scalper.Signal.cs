@@ -23,7 +23,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper
 	{
 		// --- Signal module state ---
-		private volatile bool cachedA0 = true;   // HUD toggle: A0 sub-module on/off
+		private volatile bool cachedA0 = false;  // HUD toggle: A0 sub-module on/off (default OFF)
 		private volatile bool cachedA1 = true;   // HUD toggle: A1 sub-module on/off
 		private bool a0Alerted;                  // A0 alert already fired for the current fan episode
 		private readonly KatA1State sellState = new KatA1State(); // A1 sell-side sequence
@@ -110,6 +110,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 						CurrentBar, diagnosticA0Dir, buyAllowed));
 			}
 
+			DrawA1PhaseStatus(false, sellState.Phase, sellState.Touched89, fast, slow);
+			DrawA1PhaseStatus(true, buyState.Phase, buyState.Touched89, fast, slow);
+
 			if (sellState.Phase != sellPhaseBefore)
 				Print(string.Format("[Kat34Scalper][A1] bar {0} SELL phase {1}->{2}, allowed={3}, trend={4}, close={5:F5}, ema34={6:F5}, ema89={7:F5}",
 					CurrentBar, sellPhaseBefore, sellState.Phase, sellAllowed, fast < slow, close, fast, slow));
@@ -120,6 +123,32 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				Print(string.Format("[Kat34Scalper][A1] bar {0} result sell={1}, buy={2}, mode={3}",
 					CurrentBar, sellSignal.HasValue ? sellSignal.Value.ToString() : "none",
 					buySignal.HasValue ? buySignal.Value.ToString() : "none", mode));
+		}
+
+		// Live per-side A1 phase status marker on the chart - proves A1 is alive and shows where
+		// the current setup stalls (arm/pull/touch/U-turn). One marker per side; replaces each bar.
+		private void DrawA1PhaseStatus(bool isBuy, int phase, bool touched, double fast, double slow)
+		{
+			if (!cachedA1) return;
+			string tag = "K34S_A1ST_" + (isBuy ? "B" : "S");
+			if (phase == 0)
+			{
+				RemoveDrawObject(tag);
+				return;
+			}
+			string label;
+			double price = fast;
+			if (phase == 1)
+				label = "A1-arm";
+			else if (phase == 2)
+			{
+				label = touched ? "A1-pull-T" : "A1-pull";
+				price = touched ? slow : fast;
+			}
+			else
+				label = "A1-U-turn"; // phase == 3
+			Brush brush = isBuy ? Brushes.DodgerBlue : Brushes.OrangeRed;
+			Draw.Text(this, tag, label, 0, price, brush);
 		}
 		#endregion
 	}

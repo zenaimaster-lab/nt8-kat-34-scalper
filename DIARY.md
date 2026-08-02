@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.30] — 2026-08-02
+- **A0 signal + filter default OFF**: `cachedA0` true→false — the SIGNAL `A0 fan` sub-module toggle now starts OFF, so the A0 triangle/alert no longer auto-renders on load. `FanFilterEnabled` was already false (A0 fan *filter* OFF). A1 stays ON.
+- **A1 phase status markers (on-chart visibility)**: `EvaluateA1` now draws a live per-side status label on the chart (`K34S_A1ST_B/S`) showing the current A1 state-machine phase — `A1-arm` / `A1-pull` / `A1-pull-T` (touched ema89) / `A1-U-turn` — anchored at the fast/slow EMA on the current bar. One marker per side; replaces each bar; removed when the side returns to idle; cleared by the HUD Clear button. Full entry/SL/TP lines still draw on a completed signal via `DrawSignal`.
+- **Why A1 drew nothing before**: pure logic + 35/35 xunit tests pass, but the 5-step RetestBounce sequence (arm beyond ema34 → cross → touch ema89 → U-turn → retest) rarely completes within `Max Sequence Bars` (30) on real 30s data, and there was no on-chart feedback for intermediate phases — so the chart looked dead until a full signal fired. The markers make A1 activity visible without changing signal semantics; if a live setup stalls at `A1-arm`/`A1-pull` (never reaches `T` or `U-turn`), the touch/U-turn step is too strict for the chart and can be relaxed in a follow-up.
+- **Validation**: xunit suite + net48 CompileCheck; NT8 live recompile after deploy.
+- **Graphify entity mapping**: `Kat34Scalper.cachedA0` (default), `Kat34Scalper.EvaluateA1` (phase status draw), `Kat34Scalper.DrawA1PhaseStatus`.
 ### [v0.29] — 2026-08-02
 - **A0 architecture separation**: `EvaluateA0Fan` always calculates and returns ribbon direction; `cachedA0` now controls only A0 triangle/alert rendering. `FanFilterEnabled` no longer suppresses A0 output.
 - **A1-only fan filter**: `PassFilters` gates A1 with `FanFilterEnabled` alone, so A1 fan filtering remains usable when the A0 visual signal toggle is off. HUD now places `A0 Fan` under FILTER while SIGNAL retains `A0 fan`.

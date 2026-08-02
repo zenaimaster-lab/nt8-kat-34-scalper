@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.29` (Released: `2026-08-02`)
+**Current Version**: `v0.30` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -20,7 +20,7 @@ Per bar the pipeline runs: **Signal** (A0 direction/marker) → **Filter** (A1-o
 ## Signals
 
 ### 1. Signal (A0 fan)
-- **A0 fan signal**: EMAs 9/21/34/55/89/144/200 strictly ordered **and** spreading (EMA9↔EMA200 wider than `Fan Spread Lookback` bars ago, at least `Fan Min Spread (ticks)`). First bar of a fan episode draws a small triangle (buy blue below / sell orange above) and plays the `Alert Sound` when the SIGNAL `A0 fan` toggle is ON. Re-arms when the fan collapses.
+- **A0 fan signal**: EMAs 9/21/34/55/89/144/200 strictly ordered **and** spreading (EMA9↔EMA200 wider than `Fan Spread Lookback` bars ago, at least `Fan Min Spread (ticks)`). First bar of a fan episode draws a small triangle (buy blue below / sell orange above) and plays the `Alert Sound` when the SIGNAL `A0 fan` toggle is ON (default OFF). Re-arms when the fan collapses.
 
 ### 2. Filters (A1-only gates)
 - **A0 Fan Filter**: when enabled, A1 requires the A0 ribbon direction; it never controls A0 marker/alert rendering. OFF by default.
@@ -37,6 +37,7 @@ Per bar the pipeline runs: **Signal** (A0 direction/marker) → **Filter** (A1-o
   3. **Touch**: price touches or crosses the slow EMA.
   4. **U-turn**: price reverses and closes back through the fast EMA (with-trend again).
   - The whole sequence must complete within **`Max Sequence Bars`** (default 30, counted from the cross bar) or the setup expires and rearms. A pullback that reverses before ever touching the slow EMA simply rearms.
+- **Phase status markers**: while a setup is in progress, a live label (`A1-arm` / `A1-pull` / `A1-pull-T` (touched ema89) / `A1-U-turn`) sits at the fast/slow EMA on the current bar so A1 activity is visible before a full signal fires. Default ON with A1; cleared by the HUD Clear button.
 - **Trigger** (configurable):
   - `Retest Bounce`: a later bar closes back through the Fast EMA → signal (sell the retest / buy the retest).
   - `Breakdown`: fires immediately on the U-turn close.
