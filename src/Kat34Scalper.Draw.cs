@@ -32,8 +32,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			public int Bar;
 			public bool IsBuy;
 			public double ArrowY;
-			public double ArrowY2;
 			public double TextY;
+			public double Candidate1;
+			public double Candidate2;
+			public double EntryPrice;
+			public double SlPrice;
+			public double TpPrice;
+			public double BePrice;
+			public double Sl1Price;
+			public double Sl2Price;
 		}
 		private readonly List<KatSignalRecord> signalRecords = new List<KatSignalRecord>();
 		private bool versionDrawn;
@@ -56,6 +63,81 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			try { PlaySound(Path.Combine(NinjaTrader.Core.Globals.InstallDir, "sounds", AlertSound)); }
 			catch { }
+		}
+		private int SafeLineLengthBars()
+		{
+			return Math.Max(1, Math.Min(LineLengthBars, 500));
+		}
+
+		private int SafeLineWidth()
+		{
+			return Math.Max(1, Math.Min(LineWidth, 10));
+		}
+
+		private string SignalTag(KatSignalRecord record, string suffix)
+		{
+			return "K34S_" + (record.IsBuy ? "B" : "S") + "_" + suffix + "_" + record.Bar;
+		}
+
+		private void RenderSignal(KatSignalRecord record)
+		{
+			int age = CurrentBars[0] - record.Bar;
+			if (age < 0) return;
+
+			Brush entryBrush = new SolidColorBrush(record.IsBuy ? BuyEntryLineColor : SellEntryLineColor);
+			Brush slBrush = new SolidColorBrush(SLLineColor);
+			Brush tpBrush = new SolidColorBrush(TPLineColor);
+			Brush textBrush = new SolidColorBrush(record.IsBuy ? BuyTextColor : SellTextColor);
+			int lineLength = SafeLineLengthBars();
+			int width = SafeLineWidth();
+
+			if (cachedShowArrows)
+			{
+				if (record.IsBuy)
+					Draw.ArrowUp(this, SignalTag(record, "ARROW"), false, age, record.ArrowY, entryBrush);
+				else
+					Draw.ArrowDown(this, SignalTag(record, "ARROW"), false, age, record.ArrowY, entryBrush);
+			}
+			else
+				RemoveDrawObject(SignalTag(record, "ARROW"));
+
+			if (cachedShowLabels)
+			{
+				Draw.Text(this, SignalTag(record, "TEXT"), record.IsBuy ? "BUY" : "SELL", age, record.TextY, textBrush);
+			}
+			else
+				RemoveDrawObject(SignalTag(record, "TEXT"));
+
+			if (age <= lineLength)
+			{
+				if (record.Candidate1 != record.Candidate2)
+				{
+					Brush faded = new SolidColorBrush(record.IsBuy ? BuyEntryLineColor : SellEntryLineColor) { Opacity = 0.35 };
+					Draw.Line(this, SignalTag(record, "C1"), false, age, record.Candidate1, 0, record.Candidate1, faded, DashStyleHelper.Dot, 1);
+					Draw.Line(this, SignalTag(record, "C2"), false, age, record.Candidate2, 0, record.Candidate2, faded, DashStyleHelper.Dot, 1);
+				}
+				else
+				{
+					RemoveDrawObject(SignalTag(record, "C1"));
+					RemoveDrawObject(SignalTag(record, "C2"));
+				}
+
+				Draw.Line(this, SignalTag(record, "ENTRY"), false, age, record.EntryPrice, 0, record.EntryPrice, entryBrush, DashStyleHelper.Solid, width);
+				Draw.Line(this, SignalTag(record, "SL"), false, age, record.SlPrice, 0, record.SlPrice, slBrush, DashStyleHelper.Dash, width);
+				Draw.Line(this, SignalTag(record, "TP"), false, age, record.TpPrice, 0, record.TpPrice, tpBrush, DashStyleHelper.Dash, width);
+				if (record.BePrice != 0)
+					Draw.Line(this, SignalTag(record, "BE"), false, age, record.BePrice, 0, record.BePrice, Brushes.DeepSkyBlue, DashStyleHelper.DashDot, 1);
+				if (record.Sl1Price != 0)
+					Draw.Line(this, SignalTag(record, "SL1"), false, age, record.Sl1Price, 0, record.Sl1Price, Brushes.Orange, DashStyleHelper.Dot, 1);
+				if (record.Sl2Price != 0)
+					Draw.Line(this, SignalTag(record, "SL2"), false, age, record.Sl2Price, 0, record.Sl2Price, Brushes.Magenta, DashStyleHelper.Dot, 1);
+			}
+		}
+
+		private void RefreshSignalDrawings()
+		{
+			foreach (KatSignalRecord record in signalRecords)
+				RenderSignal(record);
 		}
 
 		private void DrawSignal(bool isBuy, int bar, double high, double low, double c1, double c2, int offsetTicks, int stopTicks, int targetTicks)
@@ -80,93 +162,46 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double slPrice = isBuy ? entryPrice - slTicks * tick : entryPrice + slTicks * tick;
 			double tpPrice = isBuy ? entryPrice + tpTicks * tick : entryPrice - tpTicks * tick;
 
-			Brush entryBrush = new SolidColorBrush(isBuy ? BuyEntryLineColor : SellEntryLineColor);
-			Brush slBrush = new SolidColorBrush(SLLineColor);
-			Brush tpBrush = new SolidColorBrush(TPLineColor);
-			Brush textBrush = new SolidColorBrush(isBuy ? BuyTextColor : SellTextColor);
-			int endAgo = -LineLengthBars; // negative barsAgo = bars into the future
 			double textY = isBuy ? entryPrice - tick : entryPrice + tick; // buy label below line, sell above
-
-			// A1 candidate lines (C1 = U-turn bar, C2 = best later bar) — faded dotted, only when they differ.
-			if (cand1 != cand2)
-			{
-				string side = isBuy ? "B" : "S";
-				Brush faded = new SolidColorBrush(isBuy ? BuyEntryLineColor : SellEntryLineColor) { Opacity = 0.35 };
-				Draw.Line(this, "K34S_" + side + "_C1_" + bar, false, 0, cand1, endAgo, cand1, faded, DashStyleHelper.Dot, 1);
-				Draw.Line(this, "K34S_" + side + "_C2_" + bar, false, 0, cand2, endAgo, cand2, faded, DashStyleHelper.Dot, 1);
-			}
-
-			// barsAgo 0 = the signal candle at draw time.
-			if (cachedShowArrows)
-			{
-				// ponytail: NT8 Draw.Arrow* has no size/outline parameter — outline = same arrow drawn
-				// 1 tick beyond the candle first, main color on top. Upgrade path: custom IDrawingTool.
-				double arrowY2 = isBuy ? arrowY - tick : arrowY + tick; // outline fringe on the outer edge
-				if (isBuy)
-				{
-					Draw.ArrowUp(this, "K34S_B_ARROW_" + bar + "_2", false, 0, arrowY2, Brushes.Black); // outline
-					Draw.ArrowUp(this, "K34S_B_ARROW_" + bar, false, 0, arrowY, Brushes.White);          // main
-				}
-				else
-				{
-					Draw.ArrowDown(this, "K34S_S_ARROW_" + bar + "_2", false, 0, arrowY2, Brushes.White); // outline
-					Draw.ArrowDown(this, "K34S_S_ARROW_" + bar, false, 0, arrowY, Brushes.Black);           // main
-				}
-			}
-
-			if (isBuy)
-			{
-				Draw.Line(this, "K34S_B_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Solid, LineWidth);
-				Draw.Line(this, "K34S_B_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
-				Draw.Line(this, "K34S_B_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
-				if (cachedShowLabels)
-					Draw.Text(this, "K34S_B_TEXT_" + bar, "BUY", 0, textY, textBrush);
-			}
-			else
-			{
-				Draw.Line(this, "K34S_S_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Solid, LineWidth);
-				Draw.Line(this, "K34S_S_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
-				Draw.Line(this, "K34S_S_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
-				if (cachedShowLabels)
-					Draw.Text(this, "K34S_S_TEXT_" + bar, "SELL", 0, textY, textBrush);
-			}
 
 			// Trailing-SL trigger lines from the ATM template — same style as KatTradeManager
 			// (BE DeepSkyBlue dash-dot, SL1 orange dot, SL2 magenta dot, 1 px, profit side of entry).
-			string sideTag = isBuy ? "B" : "S";
 			int dir = isBuy ? 1 : -1;
+			double bePrice = 0;
+			double sl1Price = 0;
+			double sl2Price = 0;
 			if (atm.BETrigger > 0)
-			{
-				double bePrice = entryPrice + dir * atm.BETrigger * tick;
-				Draw.Line(this, "K34S_" + sideTag + "_BE_" + bar, false, 0, bePrice, endAgo, bePrice, Brushes.DeepSkyBlue, DashStyleHelper.DashDot, 1);
-			}
+				bePrice = entryPrice + dir * atm.BETrigger * tick;
 			if (atm.SL1Trigger > 0)
-			{
-				double sl1Price = entryPrice + dir * atm.SL1Trigger * tick;
-				Draw.Line(this, "K34S_" + sideTag + "_SL1_" + bar, false, 0, sl1Price, endAgo, sl1Price, Brushes.Orange, DashStyleHelper.Dot, 1);
-			}
+				sl1Price = entryPrice + dir * atm.SL1Trigger * tick;
 			if (atm.SL2Trigger > 0)
-			{
-				double sl2Price = entryPrice + dir * atm.SL2Trigger * tick;
-				Draw.Line(this, "K34S_" + sideTag + "_SL2_" + bar, false, 0, sl2Price, endAgo, sl2Price, Brushes.Magenta, DashStyleHelper.Dot, 1);
-			}
+				sl2Price = entryPrice + dir * atm.SL2Trigger * tick;
 
 			if (signalRecords.Count >= MAX_SIGNAL_RECORDS)
 				signalRecords.RemoveAt(0);
-			signalRecords.Add(new KatSignalRecord
+			KatSignalRecord record = new KatSignalRecord
 			{
 				Bar = bar,
 				IsBuy = isBuy,
 				ArrowY = arrowY,
-				ArrowY2 = isBuy ? arrowY - tick : arrowY + tick, // outline position (outer edge)
-				TextY = textY
-			});
+				TextY = textY,
+				Candidate1 = cand1,
+				Candidate2 = cand2,
+				EntryPrice = entryPrice,
+				SlPrice = slPrice,
+				TpPrice = tpPrice,
+				BePrice = bePrice,
+				Sl1Price = sl1Price,
+				Sl2Price = sl2Price
+			};
+			signalRecords.Add(record);
+			RenderSignal(record);
 
 			PlayAlertSound();
 			Print(string.Format("[Kat34Scalper] {0} signal @ bar {1} — entry {2:F5}, SL {3:F5}, TP {4:F5}", isBuy ? "BUY" : "SELL", bar, entryPrice, slPrice, tpPrice));
 		}
 
-		// Called from the data thread (marshaled via Dispatcher.InvokeAsync from HUD clicks).
+		// Called from the data thread through TriggerCustomEvent from HUD clicks.
 		private void ClearOldSignalDrawings()
 		{
 			try
@@ -196,60 +231,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		// Applies the HUD arrow/label toggles to already-drawn signals.
-		// Called from the data thread (marshaled via Dispatcher.InvokeAsync from HUD clicks).
+		// Called from the data thread through TriggerCustomEvent from HUD clicks.
 		private void ApplyDrawMode(int bits)
 		{
 			try
 			{
-				if ((bits & 1) != 0)
-				{
-					if (cachedShowArrows)
-					{
-						foreach (KatSignalRecord r in signalRecords)
-						{
-							// barsAgo measured from the right edge at redraw time puts the object back on the signal candle.
-							int barsAgo = CurrentBars[0] - r.Bar;
-							if (r.IsBuy)
-							{
-								Draw.ArrowUp(this, "K34S_B_ARROW_" + r.Bar + "_2", false, barsAgo, r.ArrowY2, Brushes.Black);
-								Draw.ArrowUp(this, "K34S_B_ARROW_" + r.Bar, false, barsAgo, r.ArrowY, Brushes.White);
-							}
-							else
-							{
-								Draw.ArrowDown(this, "K34S_S_ARROW_" + r.Bar + "_2", false, barsAgo, r.ArrowY2, Brushes.White);
-								Draw.ArrowDown(this, "K34S_S_ARROW_" + r.Bar, false, barsAgo, r.ArrowY, Brushes.Black);
-							}
-						}
-					}
-					else
-					{
-						foreach (KatSignalRecord r in signalRecords)
-						{
-							RemoveDrawObject(r.IsBuy ? "K34S_B_ARROW_" + r.Bar : "K34S_S_ARROW_" + r.Bar);
-							RemoveDrawObject(r.IsBuy ? "K34S_B_ARROW_" + r.Bar + "_2" : "K34S_S_ARROW_" + r.Bar + "_2");
-						}
-					}
-				}
-
-				if ((bits & 2) != 0)
-				{
-					if (cachedShowLabels)
-					{
-						foreach (KatSignalRecord r in signalRecords)
-						{
-							int barsAgo = CurrentBars[0] - r.Bar;
-							if (r.IsBuy)
-								Draw.Text(this, "K34S_B_TEXT_" + r.Bar, "BUY", barsAgo, r.TextY, new SolidColorBrush(BuyTextColor));
-							else
-								Draw.Text(this, "K34S_S_TEXT_" + r.Bar, "SELL", barsAgo, r.TextY, new SolidColorBrush(SellTextColor));
-						}
-					}
-					else
-					{
-						foreach (KatSignalRecord r in signalRecords)
-							RemoveDrawObject(r.IsBuy ? "K34S_B_TEXT_" + r.Bar : "K34S_S_TEXT_" + r.Bar);
-					}
-				}
+				foreach (KatSignalRecord record in signalRecords)
+					RenderSignal(record);
 				ForceRefresh();
 			}
 			catch (Exception ex)
@@ -678,11 +666,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				else
 				{
 					ShowHudStatus("BOT OFF — pending entry cancelled", Brushes.OrangeRed);
-					Dispatcher.InvokeAsync(() =>
+					TriggerCustomEvent(o =>
 					{
 						pendingMigrate = false;
 						CancelPendingBotOrder("BOT switched OFF");
-					});
+					}, null);
 				}
 			};
 			secBot.Children.Add(btnBot);
@@ -702,7 +690,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				btnArrows.Content = cachedShowArrows ? "Arrow: ON" : "Arrow: OFF";
 				btnArrows.Background = cachedShowArrows ? hudOnBrush : hudOffBrush;
 				btnArrows.Foreground = cachedShowArrows ? Brushes.White : Brushes.LightGray;
-				Dispatcher.InvokeAsync(() => ApplyDrawMode(1));
+				TriggerCustomEvent(o => ApplyDrawMode(1), null);
 			};
 			Grid.SetColumn(btnArrows, 0);
 			dRow.Children.Add(btnArrows);
@@ -717,14 +705,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				btnLabels.Content = cachedShowLabels ? "Text: ON" : "Text: OFF";
 				btnLabels.Background = cachedShowLabels ? hudOnBrush : hudOffBrush;
 				btnLabels.Foreground = cachedShowLabels ? Brushes.White : Brushes.LightGray;
-				Dispatcher.InvokeAsync(() => ApplyDrawMode(2));
+				TriggerCustomEvent(o => ApplyDrawMode(2), null);
 			};
 			Grid.SetColumn(btnLabels, 2);
 			dRow.Children.Add(btnLabels);
 			secDraw.Children.Add(dRow);
 
 			Button btnClear = CreateHudButton("Clear", new SolidColorBrush(Color.FromRgb(20, 20, 20)),
-				(s, e) => Dispatcher.InvokeAsync(() => ClearOldSignalDrawings()));
+				(s, e) => TriggerCustomEvent(o => ClearOldSignalDrawings(), null));
 			secDraw.Children.Add(btnClear);
 			mainPanel.Children.Add(CreateSectionCard(secDraw, 0));
 

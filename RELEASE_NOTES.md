@@ -1,3 +1,10 @@
+# Release Notes — v0.25 (2026-08-02)
+
+- **Draw pipeline repaired**: replaced unsupported negative future `barsAgo` anchors with rolling signal-candle-to-current-bar lines using non-negative anchors, capped by `Line Length`. Stored signal records now retain entry, SL, TP and ATM trigger prices for reliable redraws on historical and realtime bars.
+- **Arrow rendering simplified**: removed the misaligned two-arrow outline trick; A1 signals now render one deterministic arrow in the configured per-side entry color. A0 fan triangles remain independent.
+- **HUD synchronization fixed**: UI-triggered drawing and BOT-off order cancellation now cross into the NinjaScript data context through `TriggerCustomEvent`.
+- Verification: 35/35 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.24 (2026-08-02)
 
 - **Root-cause fix for the persistent NT8 compile storm (CS0111/CS0102/CS0121/CS0229)**: NT8's codegen injects its `#region NinjaScript generated code` (cache field + Indicator/Strategy/MarketAnalyzerColumn wrappers) into EVERY file declaring `partial class Kat34Scalper : Indicator` — 5 files each defining the same members. Module files now declare bare `partial class Kat34Scalper` (KatTradeManager pattern); only `Kat34Scalper.cs` carries `: Indicator`, so only it receives the generated region. NT8 recompiled clean — deploy accepted.

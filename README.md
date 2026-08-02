@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.24` (Released: `2026-08-02`)
+**Current Version**: `v0.25` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -39,7 +39,7 @@ Per bar the pipeline runs: **Signal** (A0) → **Filter** (gates) → **Signal**
   - `Retest Bounce`: a later bar closes back through the Fast EMA → signal (sell the retest / buy the retest).
   - `Breakdown`: fires immediately on the U-turn close.
 - **Dual entry (A1)**: two candidates tracked per setup — **C1** = the U-turn bar's low/high, **C2** = the best later bar that still closes on the setup side of the fast EMA (higher low for sells / lower high for buys). The solid entry line sits at the better of the two (sell = higher stop, buy = lower stop); when they differ, both candidates also show as faded dotted lines.
-- **Drawing (KatTradeManager style)**: sell entry line **solid red**, buy entry line **solid lime green** (both with `Entry Offset` ticks); SL dashed red, TP dashed green — taken from the selected **ATM template** when it defines StopLoss/Target (settings `Stop/Target Distance` are the fallback); ATM **trailing-SL trigger lines** when the template defines them — **BE** DeepSkyBlue dash-dot, **SL1** orange dot, **SL2** magenta dot (1 px, profit side of entry); big 2x arrow near the candle (**Buy white** above / **Sell black** below, `Arrow Offset` ticks away, default 3); optional BUY/SELL label at the candle (default off, toggled from the HUD).
+- **Drawing (KatTradeManager style)**: sell entry line **solid red**, buy entry line **solid lime green** (both with `Entry Offset` ticks); SL dashed red, TP dashed green — taken from the selected **ATM template** when it defines StopLoss/Target (settings `Stop/Target Distance` are the fallback); ATM **trailing-SL trigger lines** when the template defines them — **BE** DeepSkyBlue dash-dot, **SL1** orange dot, **SL2** magenta dot (1 px, profit side of entry); lines use supported historical-to-current anchors and remain visible for up to `Line Length` bars; one deterministic per-side arrow uses the entry color at the signal candle; optional BUY/SELL label at the candle (default off, toggled from the HUD).
 
 ## Bot (semi-auto)
 - Trades **only** while the HUD **BOT: ON** button is active (off by default) *and* `Bot Enabled` is set — never runs on its own. Switching BOT OFF cancels the pending entry immediately.

@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.25] — 2026-08-02
+- **Root-cause draw repair**: removed unsupported negative `barsAgo` future anchors. Each A1 record now stores entry, SL, TP, BE, SL1, SL2 and candidate prices; `RenderSignal` refreshes lines from the signal candle to the current bar using non-negative anchors for up to `LineLengthBars`.
+- **Arrow determinism**: removed the fake two-arrow outline pass; each A1 signal now owns one per-side arrow using the configured entry color. A0 fan triangles remain separate.
+- **HUD thread boundary**: `Clear`, Arrow/Text redraw, and BOT-off cancellation now use `TriggerCustomEvent` before series/order operations.
+- **Validation**: 35/35 xunit tests; CompileCheck 0 errors.
+- **Graphify entity mapping**: `Kat34Scalper.RefreshSignalDrawings`, `Kat34Scalper.RenderSignal`, `KatSignalRecord` level fields, `Kat34Scalper.DrawSignal`, HUD `TriggerCustomEvent` callbacks.
 ### [v0.24] — 2026-08-02
 - **Timestamp**: `2026-08-02T06:35:00Z`
 - **Root-cause fix — persistent NT8 compile storm**: NT8's codegen injects `#region NinjaScript generated code` (cacheKat34Scalper field + Indicator/Strategy/MarketAnalyzerColumn wrappers) into EVERY deployed file declaring `partial class Kat34Scalper : Indicator`. 5 module files each re-defined the same members → CS0111/CS0102/CS0121/CS0229 across all files, resurrected after every redeploy (NT8 re-injects on recompile). Diagnosis path: deployed files had generated tails beyond repo line counts; KatTradeManager (working multi-file indicator) proved the pattern — only its main file declares `: Indicator` and only it has the tail. Fix: `src/Kat34Scalper.{Signal,Filter,Bot,Draw}.cs` now declare bare `public partial class Kat34Scalper`; only `Kat34Scalper.cs` keeps `: Indicator`. Verified post-deploy: only the main file carries the generated region and NinjaTrader.Custom.dll recompiled clean (deploy accepted).
