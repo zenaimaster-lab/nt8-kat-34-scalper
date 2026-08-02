@@ -22,7 +22,8 @@ using Kat34Scalper;
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
-	public partial class Kat34Scalper : Indicator
+	// No ': Indicator' — see Kat34Scalper.Signal.cs (NT8 codegen duplication guard).
+	public partial class Kat34Scalper
 	{
 		#region Signal Drawings (lines, arrows, labels, version label, alert)
 		private const int MAX_SIGNAL_RECORDS = 200;

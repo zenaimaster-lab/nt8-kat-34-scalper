@@ -18,7 +18,8 @@ using Kat34Scalper;
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
-	public partial class Kat34Scalper : Indicator
+	// No ': Indicator' — see Kat34Scalper.Signal.cs (NT8 codegen duplication guard).
+	public partial class Kat34Scalper
 	{
 		// --- Bot module state ---
 		private volatile bool cachedBotOn;

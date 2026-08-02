@@ -13,7 +13,8 @@ using Kat34Scalper;
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
-	public partial class Kat34Scalper : Indicator
+	// No ': Indicator' — see Kat34Scalper.Signal.cs (NT8 codegen duplication guard).
+	public partial class Kat34Scalper
 	{
 		// --- Filter module state (HUD toggles — default OFF: every gate open until user enables) ---
 		private volatile bool cachedMtf;

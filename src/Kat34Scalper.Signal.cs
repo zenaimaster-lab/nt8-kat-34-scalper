@@ -17,7 +17,10 @@ using Kat34Scalper;
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
-	public partial class Kat34Scalper : Indicator
+	// ponytail: no ': Indicator' here — NT8's codegen injects its generated region into EVERY
+	// file that declares the base class, duplicating cacheKat34Scalper/wrappers across files
+	// (CS0111/CS0102/CS0121/CS0229). Only Kat34Scalper.cs carries the base spec.
+	public partial class Kat34Scalper
 	{
 		// --- Signal module state ---
 		private volatile bool cachedA0 = true;   // HUD toggle: A0 sub-module on/off

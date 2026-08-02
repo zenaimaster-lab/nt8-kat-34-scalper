@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.24] — 2026-08-02
+- **Timestamp**: `2026-08-02T06:35:00Z`
+- **Root-cause fix — persistent NT8 compile storm**: NT8's codegen injects `#region NinjaScript generated code` (cacheKat34Scalper field + Indicator/Strategy/MarketAnalyzerColumn wrappers) into EVERY deployed file declaring `partial class Kat34Scalper : Indicator`. 5 module files each re-defined the same members → CS0111/CS0102/CS0121/CS0229 across all files, resurrected after every redeploy (NT8 re-injects on recompile). Diagnosis path: deployed files had generated tails beyond repo line counts; KatTradeManager (working multi-file indicator) proved the pattern — only its main file declares `: Indicator` and only it has the tail. Fix: `src/Kat34Scalper.{Signal,Filter,Bot,Draw}.cs` now declare bare `public partial class Kat34Scalper`; only `Kat34Scalper.cs` keeps `: Indicator`. Verified post-deploy: only the main file carries the generated region and NinjaTrader.Custom.dll recompiled clean (deploy accepted).
+- **Validation**: 35/35 xunit tests; CompileCheck 0 errors; NT8 live recompile OK.
+- **Graphify entity mapping**: `Kat34Scalper` partials (`Kat34Scalper.Signal.cs`, `Kat34Scalper.Filter.cs`, `Kat34Scalper.Bot.cs`, `Kat34Scalper.Draw.cs` — base-spec removal).
 ### [v0.23] — 2026-08-02
 - **Timestamp**: `2026-08-02T05:55:00Z`
 - **Default ATM = MNQ 1ct**: `BotAtmTemplate` default changed from `None` to `mnq. 1ct. 15-be20-35move15-50triggertrail5step1` (verified against the real template XML: StopLoss 60, Target 120, AutoBreakEvenProfitTrigger 80, trail steps 140/200 — parser XPath `//AtmStrategy/Brackets/Bracket/*` matches). Every A1 signal now draws ATM-driven entry/SL/TP + BE/trail trigger lines with zero setup; missing template file falls back to settings distances (60/120 — same values) via the existing `HasAtmTemplate` guard.

@@ -1,3 +1,8 @@
+# Release Notes — v0.24 (2026-08-02)
+
+- **Root-cause fix for the persistent NT8 compile storm (CS0111/CS0102/CS0121/CS0229)**: NT8's codegen injects its `#region NinjaScript generated code` (cache field + Indicator/Strategy/MarketAnalyzerColumn wrappers) into EVERY file declaring `partial class Kat34Scalper : Indicator` — 5 files each defining the same members. Module files now declare bare `partial class Kat34Scalper` (KatTradeManager pattern); only `Kat34Scalper.cs` carries `: Indicator`, so only it receives the generated region. NT8 recompiled clean — deploy accepted.
+- Verification: 35/35 xunit, CompileCheck 0 errors, NT8 live recompile OK.
+
 # Release Notes — v0.23 (2026-08-02)
 
 - **Default ATM = MNQ 1ct template**: `ATM Template` now defaults to `mnq. 1ct. 15-be20-35move15-50triggertrail5step1`, so every signal draws the ATM's entry/SL 60/TP 120 lines plus BE (dash-dot DeepSkyBlue) and trail trigger lines out of the box. Missing template file falls back to the settings distances (same 60/120).
