@@ -80,7 +80,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (sellAllowed)
 				{
 					DrawSignal(false, CurrentBar, high, low, sellState.C1, sellState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks, false, "A1");
-					TrySubmitBotEntry(false, sellState.C2);
+					TrySubmitBotEntry(false, sellState.C2, EntryOffsetTicks);
 				}
 				else
 					Print(string.Format("[Kat34Scalper][A1] bar {0} SELL result suppressed by filters; A0={1}, allowed={2}",
@@ -91,7 +91,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (buyAllowed)
 				{
 					DrawSignal(true, CurrentBar, high, low, buyState.C1, buyState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks, false, "A1");
-					TrySubmitBotEntry(true, buyState.C2);
+					TrySubmitBotEntry(true, buyState.C2, EntryOffsetTicks);
 				}
 				else
 					Print(string.Format("[Kat34Scalper][A1] bar {0} BUY result suppressed by filters; A0={1}, allowed={2}",

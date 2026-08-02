@@ -3,6 +3,7 @@
  * Each signal sub-module is independent and lives in its own file:
  *   src/Kat34Scalper.Signal.A0.cs — A0: EMA-ribbon fan (default OFF, backfill History Days)
  *   src/Kat34Scalper.Signal.A1.cs — A1: 89-34 pullback (default OFF, backfill History Days)
+ *   src/Kat34Scalper.Signal.A2.cs — A2: 34+8+Bounce ema34 touch (default OFF, backfill History Days)
  * Stage names per signal are specified in docs/SIGNALS.md.
  * New signals (A2, A3, ...) plug in as a new Kat34Scalper.Signal.AX.cs file.
  */
@@ -56,6 +57,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				a1BackfillPending = false;
 				if (fastEma != null && slowEma != null) BackfillA1();
+			}
+			if (a2BackfillPending)
+			{
+				a2BackfillPending = false;
+				if (ema8 != null && fanEmas != null) BackfillA2();
 			}
 		}
 	}

@@ -364,4 +364,179 @@ public class Kat34ScalperLogicTests
 		Assert.Equal(0, Kat34ScalperAtmParser.ParseXml("").Target);
 		Assert.Equal(0, Kat34ScalperAtmParser.ParseFile(@"C:\no\such\file.xml").StopLoss);
 	}
+
+	// --- A2 (34+8+Bounce): pending stop entry at the touch candle's extreme ---
+	// ema34 = 100.5. Buy: touch = low <= 100.5 with close > 100.5; entry trigger = RefExtreme + offset*tick.
+	// Sell mirrors: touch = high >= 100.5 with close < 100.5; trigger = RefExtreme - offset*tick.
+
+	[Fact]
+	public void A2_Buy_TouchCloseAbove_NewEntryAtHigh()
+	{
+		var s = new KatA2State();
+		// running above ema34, no touch yet -> nothing
+		Assert.Equal(KatA2Action.None, Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, true, 101.5, 100.8, 101.2, 100.5, 4, 0.25, s));
+		// wick dips to ema34, closes above -> NewEntry at the high
+		Assert.Equal(KatA2Action.NewEntry, Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, true, 101.0, 100.4, 100.8, 100.5, 4, 0.25, s));
+		Assert.True(s.Active);
+		Assert.Equal(101.0, s.RefExtreme);
+	}
+
+	[Fact]
+	public void A2_Buy_LowerHighTouch_MigratesEntryDown()
+	{
+		var s = new KatA2State();
+		Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, true, 101.0, 100.4, 100.8, 100.5, 4, 0.25, s); // NewEntry @101.0
+		// next touch candle with a lower high -> migrate down
+		Assert.Equal(KatA2Action.Migrate, Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, true, 100.8, 100.3, 100.7, 100.5, 4, 0.25, s));
+		Assert.Equal(100.8, s.RefExtreme);
+	}
+
+	[Fact]
+	public void A2_Buy_HigherHighBelowTrigger_KeepsEntry()
+	{
+		var s = new KatA2State();
+		Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, true, 101.0, 100.4, 100.8, 100.5, 4, 0.25, s); // trigger = 101.0 + 1.0 = 102.0
+		// touch candle with a HIGHER high (101.5) but still below the trigger: not filled, not better -> no change
+		Assert.Equal(KatA2Action.None, Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, true, 101.5, 100.4, 100.9, 100.5, 4, 0.25, s));
+		Assert.True(s.Active);
+		Assert.Equal(101.0, s.RefExtreme);
+	}
+
+	[Fact]
+	public void A2_Buy_ReachingTrigger_Filled()
+	{
+		var s = new KatA2State();
+		Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, true, 101.0, 100.4, 100.8, 100.5, 4, 0.25, s); // trigger 102.0
+		Assert.Equal(KatA2Action.Filled, Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, true, 102.1, 100.9, 101.8, 100.5, 4, 0.25, s));
+		Assert.False(s.Active); // setup done — next touch starts fresh
+	}
+
+	[Fact]
+	public void A2_Buy_CloseBelowEma34_CancelsEntry()
+	{
+		var s = new KatA2State();
+		Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, true, 101.0, 100.4, 100.8, 100.5, 4, 0.25, s);
+		Assert.Equal(KatA2Action.Cancel, Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, true, 100.6, 100.0, 100.2, 100.5, 4, 0.25, s));
+		Assert.False(s.Active);
+		// no entry active and a close below ema34 -> no signal at all (touch candle must CLOSE above)
+		Assert.Equal(KatA2Action.None, Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, true, 100.6, 100.3, 100.4, 100.5, 4, 0.25, s));
+		Assert.False(s.Active);
+	}
+
+	[Fact]
+	public void A2_Buy_TrendLoss_CancelsEntry()
+	{
+		var s = new KatA2State();
+		Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, true, 101.0, 100.4, 100.8, 100.5, 4, 0.25, s);
+		Assert.Equal(KatA2Action.Cancel, Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, false, 101.2, 100.7, 101.0, 100.5, 4, 0.25, s));
+		Assert.False(s.Active);
+		// trend dead + no entry -> silent
+		Assert.Equal(KatA2Action.None, Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, false, 101.0, 100.4, 100.8, 100.5, 4, 0.25, s));
+	}
+
+	[Fact]
+	public void A2_Sell_TouchCloseBelow_NewEntryAtLow_ThenMigratesUp()
+	{
+		var s = new KatA2State();
+		Assert.Equal(KatA2Action.None, Kat34ScalperLogic.UpdateA2(KatSignalKind.Sell, true, 100.2, 99.4, 99.8, 100.5, 4, 0.25, s)); // no touch
+		Assert.Equal(KatA2Action.NewEntry, Kat34ScalperLogic.UpdateA2(KatSignalKind.Sell, true, 100.6, 99.8, 100.2, 100.5, 4, 0.25, s));
+		Assert.Equal(99.8, s.RefExtreme);
+		// next touch candle with a higher low -> migrate the sell stop up
+		Assert.Equal(KatA2Action.Migrate, Kat34ScalperLogic.UpdateA2(KatSignalKind.Sell, true, 100.7, 99.9, 100.1, 100.5, 4, 0.25, s));
+		Assert.Equal(99.9, s.RefExtreme);
+	}
+
+	[Fact]
+	public void A2_Sell_ReachingTrigger_Filled()
+	{
+		var s = new KatA2State();
+		Kat34ScalperLogic.UpdateA2(KatSignalKind.Sell, true, 100.6, 99.8, 100.2, 100.5, 4, 0.25, s); // trigger = 99.8 - 1.0 = 98.8
+		Assert.Equal(KatA2Action.Filled, Kat34ScalperLogic.UpdateA2(KatSignalKind.Sell, true, 100.1, 98.7, 99.0, 100.5, 4, 0.25, s));
+		Assert.False(s.Active);
+	}
+
+	[Fact]
+	public void A2_Sell_CloseAboveEma34_CancelsEntry()
+	{
+		var s = new KatA2State();
+		Kat34ScalperLogic.UpdateA2(KatSignalKind.Sell, true, 100.6, 99.8, 100.2, 100.5, 4, 0.25, s);
+		Assert.Equal(KatA2Action.Cancel, Kat34ScalperLogic.UpdateA2(KatSignalKind.Sell, true, 100.9, 100.3, 100.7, 100.5, 4, 0.25, s));
+		Assert.False(s.Active);
+		// touch candle that closes ABOVE ema34 never places a sell entry
+		Assert.Equal(KatA2Action.None, Kat34ScalperLogic.UpdateA2(KatSignalKind.Sell, true, 100.7, 100.1, 100.6, 100.5, 4, 0.25, s));
+		Assert.False(s.Active);
+	}
+
+	// --- A2 backtest: full synthetic bar series replayed through the state machine ---
+	// ema34 flat at 100.0, offset 4 ticks × 0.25 = 1.0. Each bar = (high, low, close, trendOk).
+
+	private static List<KatA2Action> ReplayA2(KatSignalKind kind, double ema34, double[][] bars)
+	{
+		var s = new KatA2State();
+		var actions = new List<KatA2Action>();
+		foreach (double[] b in bars)
+			actions.Add(Kat34ScalperLogic.UpdateA2(kind, b[3] > 0.5, b[0], b[1], b[2], ema34, 4, 0.25, s));
+		return actions;
+	}
+
+	[Fact]
+	public void A2_Backtest_BuyRun_Touch_Migrate_Fill()
+	{
+		// 5 bars running above ema34 (no touch), pullback touches ema34 (NewEntry @101.0, trigger 102.0),
+		// next touch with a lower high (Migrate to 100.7, trigger 101.7), rally reaches it (Filled).
+		var bars = new[]
+		{
+			new[] { 101.5, 100.8, 101.2, 1.0 },
+			new[] { 101.6, 100.9, 101.3, 1.0 },
+			new[] { 101.4, 100.7, 101.1, 1.0 },
+			new[] { 101.5, 100.8, 101.2, 1.0 },
+			new[] { 101.3, 100.6, 101.0, 1.0 },
+			new[] { 101.0,  99.9, 100.3, 1.0 }, // touch + close above -> NewEntry
+			new[] { 100.7,  99.8, 100.2, 1.0 }, // touch, lower high -> Migrate
+			new[] { 101.8, 100.5, 101.5, 1.0 }, // high 101.8 >= trigger 101.7 -> Filled
+		};
+		var actions = ReplayA2(KatSignalKind.Buy, 100.0, bars);
+		Assert.Equal(
+			new[] { KatA2Action.None, KatA2Action.None, KatA2Action.None, KatA2Action.None, KatA2Action.None,
+				KatA2Action.NewEntry, KatA2Action.Migrate, KatA2Action.Filled },
+			actions);
+	}
+
+	[Fact]
+	public void A2_Backtest_BuyTouch_CloseBelow_Cancels()
+	{
+		// NewEntry then a close below ema34 kills the pending entry; later re-touch starts a fresh one.
+		var bars = new[]
+		{
+			new[] { 101.0,  99.9, 100.3, 1.0 }, // NewEntry @101.0
+			new[] { 100.4,  99.0,  99.5, 1.0 }, // close < 100 -> Cancel
+			new[] { 100.8,  99.9, 100.4, 1.0 }, // touch + close above -> NewEntry again
+			new[] { 101.5, 100.2, 101.2, 1.0 }, // trigger = 100.8+1.0=101.8 not reached -> None
+			new[] { 102.0, 100.9, 101.9, 1.0 }, // high 102.0 >= 101.8 -> Filled
+		};
+		var actions = ReplayA2(KatSignalKind.Buy, 100.0, bars);
+		Assert.Equal(
+			new[] { KatA2Action.NewEntry, KatA2Action.Cancel, KatA2Action.NewEntry, KatA2Action.None, KatA2Action.Filled },
+			actions);
+	}
+
+	[Fact]
+	public void A2_Backtest_SellRun_TrendLossCancels_ThenSellFills()
+	{
+		// Sell entry placed, trend stack breaks (Cancel); trend returns, new touch, migrate up, fill.
+		var bars = new[]
+		{
+			new[] { 99.2, 98.5, 99.0, 1.0 },  // running below, no touch
+			new[] { 100.1, 99.0, 99.7, 1.0 }, // touch + close below -> NewEntry @99.0 (trigger 98.0)
+			new[] { 100.3, 99.5, 99.8, 0.0 }, // trend lost -> Cancel
+			new[] { 100.2, 99.1, 99.6, 1.0 }, // trend back, touch -> NewEntry @99.1 (trigger 98.1)
+			new[] { 100.4, 99.3, 99.5, 1.0 }, // touch, higher low -> Migrate to 99.3 (trigger 98.3)
+			new[] { 99.8, 98.2, 98.5, 1.0 },  // low 98.2 <= 98.3 -> Filled
+		};
+		var actions = ReplayA2(KatSignalKind.Sell, 100.0, bars);
+		Assert.Equal(
+			new[] { KatA2Action.None, KatA2Action.NewEntry, KatA2Action.Cancel,
+				KatA2Action.NewEntry, KatA2Action.Migrate, KatA2Action.Filled },
+			actions);
+	}
 }

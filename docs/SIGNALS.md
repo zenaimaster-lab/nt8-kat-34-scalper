@@ -100,3 +100,43 @@ trước/khi code. Khi thêm signal mới (A2, A3...): copy template, điền đ
 - Entry line solid (per-side color), SL dashed red, TP dashed green; C1/C2 faded dotted nếu khác nhau; ATM trigger lines BE (DeepSkyBlue dash-dot) / SL1 (orange dot) / SL2 (magenta dot) khi template có.
 - Lines hiển thị tối đa `Line Length (bars)` (7).
 - **Ownership prefix:** mọi drawing của signal A1 dùng prefix `K34S_A1_<B/S>_` (entry/SL/TP) và `K34S_A1ST_<B/S>_` (stage markers). Khi A1 OFF chỉ xóa prefix này. Clear HUD xóa toàn bộ `K34S_*`.
+
+---
+
+## A2 — 34+8+Bounce
+
+- File: `src/Kat34Scalper.Signal.A2.cs` | Settings group: `3.5 Signal A2 — 34+8+Bounce` | HUD toggle: SIGNAL › `A2 34+8`
+- Mục đích: bắt nhịp bounce từ EMA 34 trong trend stack mạnh (BUY 34+++: EMAs xếp chồng 8>34>89>144>200) — pullback chạm EMA 34 rồi bật lên, vào lệnh stop ở đỉnh nến chạm.
+- Điều kiện nền (trend stack) — BUY (SELL mirror ngược lại), **mỗi điều kiện có toggle riêng trong settings**:
+  1. `Cond: EMA 8 above EMA 34` — EMA 8 nằm trên HOẶC touch EMA 34 (không được cross down). Touch cho phép (`>=`).
+  2. `Cond: EMA 34 above EMA 89` — strict `>`.
+  3. `Cond: EMA 89 above EMA 144` — strict `>`.
+  4. `Cond: EMA 144 above EMA 200` — strict `>`.
+  Mất stack (bất kỳ điều kiện nào đang bật fail) → hủy entry đang pending. SELL: 8<=34 (touch OK, không cross up), 34<89, 89<144, 144<200.
+- Settings: `Enabled` (false), `History Days` (3), 4 cond toggles (true), `Entry Offset (ticks)` (1), `Stop Distance (ticks)` (60, fallback), `Target Distance (ticks)` (120, fallback).
+- Tag drawing: signal lines `K34S_A2_<B/S>_<suffix>_<bar>`; text label `K34S_A2_TX_<B/S>_<bar>`.
+- Filter ảnh hưởng: KHÔNG (tính trên chính TF chart). Filter TF lớn hơn sẽ add sau ở section Filter.
+- **KHÔNG có stage markers** — signal một giai đoạn duy nhất, chỉ vẽ entry/SL/TP lines + text `Buy A2` (dưới nến, màu Buy Text) / `Sell A2` (trên nến, màu Sell Text) tại nến entry.
+
+### Bảng giai đoạn (states) — BUY minh họa, SELL mirror
+
+| State | Phase logic | Điều kiện VÀO | Điều kiện RA / hành động |
+|-------|-------------|----------------|---------------------------|
+| idle | `Active=false` | trend stack hợp lệ, chưa có touch | nến touch (wick low <= EMA34) + close TRÊN EMA34 → NewEntry |
+| pending | `Active=true`, `RefExtreme` = high nến touch | NewEntry: pending stop LONG ở `high + Entry Offset`, vẽ lines + text | touch sau có high THẤP hơn → Migrate (dời entry xuống); high chạm trigger → Filled; close < EMA34 hoặc mất stack → Cancel |
+
+- Thứ tự check mỗi bar: **Filled trước** (high >= `RefExtreme + Entry Offset`) → **Cancel** (close < EMA34 hoặc `!trendOk`) → **touch**: chưa active → NewEntry, high < RefExtreme → Migrate, ngược lại None.
+- Nến touch mà close DƯỚI EMA34: không bao giờ có entry (touch phải close trên mới đặt pending stop Buy).
+- Đỉnh nến touch sau CAO hơn entry hiện tại: không làm gì — stop Buy đã khớp trước đó (logic Filled cover khi high >= trigger).
+
+### Signal fire
+- Điều kiện fire: bar touch đầu tiên (wick chạm EMA34, close đúng phía) — close basis (OnBarClose).
+- Entry: stop ở extreme nến touch ± `Entry Offset` (BUY: high + offset / SELL: low − offset); Migrate dời theo extreme tốt hơn.
+- SL/TP: từ ATM template nếu có, fallback `Stop/Target Distance` của group A2.
+- Bot: BOT ON + `Bot Enabled` → submit stop (limit nếu giá đã chạy qua) với **offset của A2**; A2 Cancel hủy pending order thuộc owner `A2` (không đụng order của A1). Backfill/replay không bắn order.
+
+### Drawing
+- Entry line solid (per-side color), SL dashed red, TP dashed green, ATM trigger lines khi template có — chuẩn chung.
+- Text `Buy A2` dưới low nến entry (Buy Text Color) / `Sell A2` trên high (Sell Text Color); khi Migrate text dời sang nến entry mới.
+- Cancel → xóa lines + text của setup đó. Filled → lines fade theo `Line Length`, text ở lại nến entry.
+- **Ownership prefix:** `K34S_A2_`. A2 OFF chỉ xóa prefix này + records owner `A2`. Clear HUD xóa toàn bộ `K34S_*`.

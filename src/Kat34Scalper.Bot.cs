@@ -27,6 +27,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private volatile string cachedBotAccountName = "";
 		private Order pendingOrder;
 		private Account pendingOrderAccount; // account that owns pendingOrder (cancel must target owner account)
+		private string pendingOrderOwner = "A1"; // signal module that submitted pendingOrder ("A1"/"A2" — per-signal cancel)
+		private int pendingOffsetTicks = 1; // entry offset of the owning signal (migration re-place must reuse it)
 		private bool pendingIsBuy;
 		private double pendingEntryPrice; // last submitted entry price (limit OR stop — Order.StopPrice is 0 on limits)
 		private double pendingBestRef;    // best extreme used for migration (sell: highest qualifying low / buy: lowest high)
@@ -67,14 +69,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		// Called from the Signal module after a signal fires. refExtreme = best candidate extreme (sell: c2 low / buy: c2 high).
-		private void TrySubmitBotEntry(bool isBuy, double refExtreme)
+		// offsetTicks = the calling signal's own Entry Offset (order price must match its drawn entry line).
+		// owner = signal module id ("A1"/"A2") — a signal cancels only its own pending order.
+		private void TrySubmitBotEntry(bool isBuy, double refExtreme, int offsetTicks, string owner = "A1")
 		{
 			if (!cachedBotOn || !BotEnabled || refExtreme == 0) return;
 			if (pendingOrder != null || pendingMigrate) return; // one bot order at a time
-			SubmitBotOrder(isBuy, refExtreme);
+			SubmitBotOrder(isBuy, refExtreme, offsetTicks, owner);
 		}
 
-		private void SubmitBotOrder(bool isBuy, double refExtreme)
+		private void SubmitBotOrder(bool isBuy, double refExtreme, int offsetTicks, string owner = "A1")
 		{
 			Account acc = ResolveBotAccount();
 			if (acc == null)
@@ -83,8 +87,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				return;
 			}
 			double entryPrice = isBuy
-				? refExtreme + EntryOffsetTicks * TickSize
-				: refExtreme - EntryOffsetTicks * TickSize;
+				? refExtreme + offsetTicks * TickSize
+				: refExtreme - offsetTicks * TickSize;
 			// Price already past the trigger -> a stop would sit on the wrong side and be rejected; use a limit.
 			bool useStop = Kat34ScalperLogic.UseStopOrder(isBuy, entryPrice, Closes[0][0]);
 			try
@@ -96,6 +100,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					BotOrderQuantity, useStop ? 0 : entryPrice, useStop ? entryPrice : 0, "", "Entry", NinjaTrader.Core.Globals.MaxDate, null);
 
 				pendingOrder = order;
+				pendingOrderOwner = owner;
+				pendingOffsetTicks = offsetTicks;
 				pendingIsBuy = isBuy;
 				pendingBestRef = refExtreme;
 				pendingEntryPrice = entryPrice;
@@ -137,7 +143,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					pendingMigrate = false;
 					if (fastEma != null && slowEma != null
 						&& (pendingIsBuy ? fastEma[0] > slowEma[0] && close > fastEma[0] : fastEma[0] < slowEma[0] && close < fastEma[0]))
-						SubmitBotOrder(pendingIsBuy, pendingMigrateRef);
+						SubmitBotOrder(pendingIsBuy, pendingMigrateRef, pendingOffsetTicks, pendingOrderOwner);
 				}
 				return;
 			}

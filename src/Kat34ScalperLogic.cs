@@ -55,6 +55,40 @@ namespace Kat34Scalper
 		}
 	}
 
+	/// <summary>Result of one A2 bar step — what the pending ema34-bounce entry did on this bar.</summary>
+	public enum KatA2Action
+	{
+		None,     // nothing changed
+		NewEntry, // first valid touch candle — place the pending stop at its extreme
+		Migrate,  // later touch candle with a better extreme — move the pending entry
+		Cancel,   // close beyond ema34 (or trend lost) — kill the pending entry
+		Filled    // bar reached the pending entry — assume filled, setup done
+	}
+
+	/// <summary>
+	/// Per-side A2 (34+8+Bounce) pending-entry state. Active = a touch candle already placed
+	/// a pending stop entry; RefExtreme ratchets to better extremes only (buy: lowest touch
+	/// high / sell: highest touch low). The caller owns one instance per side.
+	/// </summary>
+	public sealed class KatA2State
+	{
+		public bool Active;
+		public double RefExtreme;
+
+		public void Reset()
+		{
+			Active = false;
+			RefExtreme = 0;
+		}
+
+		// Backfill handoff: replayed temp state replaces the live state (same contract as KatA1State).
+		public void CopyFrom(KatA2State other)
+		{
+			Active = other.Active;
+			RefExtreme = other.RefExtreme;
+		}
+	}
+
 	public static class Kat34ScalperLogic
 	{
 		/// <summary>
@@ -255,6 +289,57 @@ namespace Kat34Scalper
 			}
 
 			return null;
+		}
+
+		/// <summary>
+		/// A2 (34+8+Bounce) — advances one pending-entry state machine by one bar.
+		/// Buy: trend stack valid (caller evaluates the enabled ema conditions), price pulls back
+		/// and TOUCHES ema34 (wick low &lt;= ema34) while CLOSING above it → pending stop LONG at the
+		/// touch candle's high (+ offset). A later touch candle with a lower high migrates the entry
+		/// down; a higher high means the stop would already have filled. A close below ema34 (or trend
+		/// loss) cancels the entry. Sell mirrors: touch = high &gt;= ema34, close below; entry at the
+		/// touch candle's low (- offset); migrate up to a higher low; close above ema34 cancels.
+		/// Fill check runs first (entry = RefExtreme ± offset): once price reaches the trigger the
+		/// setup is done regardless of what else the bar did.
+		/// </summary>
+		public static KatA2Action UpdateA2(
+			KatSignalKind kind, bool trendOk,
+			double high, double low, double close, double ema34,
+			int offsetTicks, double tickSize,
+			KatA2State s)
+		{
+			if (kind == KatSignalKind.Buy)
+			{
+				double trigger = s.RefExtreme + offsetTicks * tickSize;
+				if (s.Active && high >= trigger) { s.Reset(); return KatA2Action.Filled; }
+				if (!trendOk || close < ema34)
+				{
+					if (s.Active) { s.Reset(); return KatA2Action.Cancel; }
+					return KatA2Action.None;
+				}
+				if (low <= ema34) // wick touched ema34 and the bar closed above it
+				{
+					if (!s.Active) { s.Active = true; s.RefExtreme = high; return KatA2Action.NewEntry; }
+					if (high < s.RefExtreme) { s.RefExtreme = high; return KatA2Action.Migrate; }
+				}
+				return KatA2Action.None;
+			}
+			else
+			{
+				double trigger = s.RefExtreme - offsetTicks * tickSize;
+				if (s.Active && low <= trigger) { s.Reset(); return KatA2Action.Filled; }
+				if (!trendOk || close > ema34)
+				{
+					if (s.Active) { s.Reset(); return KatA2Action.Cancel; }
+					return KatA2Action.None;
+				}
+				if (high >= ema34) // wick touched ema34 and the bar closed below it
+				{
+					if (!s.Active) { s.Active = true; s.RefExtreme = low; return KatA2Action.NewEntry; }
+					if (low > s.RefExtreme) { s.RefExtreme = low; return KatA2Action.Migrate; }
+				}
+				return KatA2Action.None;
+			}
 		}
 	}
 

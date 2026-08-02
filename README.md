@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.33` (Released: `2026-08-02`)
+**Current Version**: `v0.34` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -12,7 +12,8 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | `src/Kat34ScalperLogic.cs` | **Pure logic** | signal state machines + filter math + ATM parser — zero NT8 deps, xunit-tested |
 | `src/Kat34Scalper.Signal.cs` | **Signal (shared)** | backfill window helper, trigger-mode conversion, shared diagnostics |
 | `src/Kat34Scalper.Signal.A0.cs` | **Signal A0** | independent sub-module: EMA-ribbon fan (own toggle, settings group, drawings, backfill) |
-| `src/Kat34Scalper.Signal.A1.cs` | **Signal A1** | independent sub-module: 89-34 pullback (own toggle, settings group, drawings, backfill) |
+|| `src/Kat34Scalper.Signal.A1.cs` | **Signal A1** | independent sub-module: 89-34 pullback (own toggle, settings group, drawings, backfill) |
+|| `src/Kat34Scalper.Signal.A2.cs` | **Signal A2** | independent sub-module: 34+8+Bounce ema34-touch pending entry (own toggle, settings group, drawings, backfill) |
 | `src/Kat34Scalper.Filter.cs` | **Filter** | gates: fan direction, MTF (3m/5m/15m), ADX, Volume, Time window (+ per-bar `*At(barsAgo)` variants for backfill replay) |
 | `src/Kat34Scalper.Bot.cs` | **Bot** | signal → order conversion (stop on valid side, limit when price ran past), ATM brackets, migration, trend-flip cancel |
 | `src/Kat34Scalper.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, arrows, labels, legacy drawing cleanup, version label, alert sound, HUD (sections titled SIGNAL / FILTER / BOT / DRAW) |
@@ -48,6 +49,12 @@ Every signal sub-module is **independent and default OFF**; its stages are speci
 - **Dual entry (A1)**: two candidates tracked per setup — **C1** = the U-turn bar's low/high, **C2** = the best later bar that still closes on the setup side of the fast EMA (higher low for sells / lower high for buys). The solid entry line sits at the better of the two (sell = higher stop, buy = lower stop); when they differ, both candidates also show as faded dotted lines.
 - **Drawing (KatTradeManager style)**: sell entry line **solid red**, buy entry line **solid lime green** (both with `Entry Offset` ticks); SL dashed red, TP dashed green — taken from the selected **ATM template** when it defines StopLoss/Target (settings `Stop/Target Distance` are the fallback); ATM **trailing-SL trigger lines** when the template defines them — **BE** DeepSkyBlue dash-dot, **SL1** orange dot, **SL2** magenta dot (1 px, profit side of entry); lines use supported historical-to-current anchors and remain visible for up to `Line Length` bars; one deterministic per-side arrow uses the entry color at the signal candle; optional BUY/SELL label at the candle (default off, toggled from the HUD).
 
+### A2 Signal (34+8+Bounce — shared by Sell and Buy, mirrored)
+- **Context (trend stack)**: BUY 34+++ = EMA 8 above/touching EMA 34 (no cross down) + EMA 34 > EMA 89 > EMA 144 > EMA 200 — **each condition individually toggleable** in settings. SELL mirrors. Trend loss cancels the pending entry.
+- **Setup**: price runs above EMA 34, pulls back and **touches** it (wick low ≤ EMA 34) while **closing above** → pending stop LONG at the touch candle's **high (wick included)** + `Entry Offset`. A later touch candle with a **lower high migrates the entry down** (a higher high means the stop already filled). A **close below EMA 34** cancels the entry — a touch candle must close above EMA 34 to place the pending stop Buy at all.
+- **No stage markers** (single-phase setup): drawings are the entry/SL/TP lines plus a `Buy A2` label below the entry candle (Buy Text Color) / `Sell A2` above (Sell Text Color). Cancel removes the setup's lines + label; fill leaves them to fade per `Line Length`.
+- **Filters**: none yet — A2 computes on the chart's own timeframe only; higher-TF filters will plug into the Filter section later.
+
 ## Bot (semi-auto)
 - Trades **only** while the HUD **BOT: ON** button is active (off by default) *and* `Bot Enabled` is set — never runs on its own. Switching BOT OFF cancels the pending entry immediately.
 - On an A1 signal it submits a stop order (sell stop below the better candidate low / buy stop above the better candidate high) through the selected **ATM template** on the selected **account**; `None` or a missing template falls back to a bare stop order. If price has **already run past the entry**, the order is submitted as a **limit** instead (a stop on the wrong side of the market would be rejected) — same rule as KatTradeManager.
@@ -59,6 +66,7 @@ Every signal sub-module is **independent and default OFF**; its stages are speci
 || 1. Filters | A0 Fan Filter Enabled (**session-only**, boots OFF), Fan Min Spread (20 ticks), Fan Spread Lookback (5 bars), Use 3m/5m/15m Fan (off), ADX Period (14), ADX Min (20), Volume SMA Period (20), Volume Min x SMA (1.0), Time Start/End (08:00–17:00), Alert Sound (dropdown of NT8 .wav files) |
 || 2. Signal A0 — EMA Fan | Enabled (**default OFF**), History Days (3 — ON backfills + draws this window) |
 || 3. Signal A1 — 89/34 Pullback | Enabled (**default OFF**), History Days (3), Fast EMA Period (34), Slow EMA Period (89), Max Sequence Bars (30), Trigger Mode (default Breakdown), Entry Offset (1 tick), Stop Distance (60, ATM fallback), Target Distance (120, ATM fallback) |
+|| 3.5 Signal A2 — 34+8+Bounce | Enabled (**default OFF**), History Days (3), Cond toggles: EMA 8 above EMA 34 / EMA 34 above EMA 89 / EMA 89 above EMA 144 / EMA 144 above EMA 200 (all on), Entry Offset (1 tick), Stop Distance (60, ATM fallback), Target Distance (120, ATM fallback) |
 || 4. Lines & Text | Line Length (7 bars), Line Width (2 px), Arrow Offset (3 ticks), Sell/Buy Entry Line Colors (solid), SL/TP Line Colors, Sell/Buy Text Colors, Show Arrows, Show Buy/Sell Labels (default off) |
 || 5. Bot | Bot Enabled (off), Order Quantity (1), ATM Template (default `mnq. 1ct. 15-be20-35move15-50triggertrail5step1` — its SL 60 / TP 120 / BE / trail levels drive the signal lines; dropdown of NT8 ATM templates + None), Account Name (default **Sim101**) |
 
@@ -66,7 +74,7 @@ Parameters group: `Show Version Label` — draws `Kat34Scalper vX.XX (date) [cha
 
 ## HUD
 TradeManager-style panel (same colors, sizes and structure): dark navy card `Argb(240,20,24,33)` on a draggable canvas (drag anywhere outside the buttons, clamped so it can't leave the chart), `⚡ KAT 34 SCALPER vX.XX` steel-blue header, and a status line (5 s auto-clear) that mirrors bot events — submits, migrations, cancels, fills. Each section carries a **module title** naming the module it controls:
-- **SIGNAL**: `A0 fan` + `A1 89-34` independent sub-module toggles (both default OFF) — ON backfills + draws the module's `History Days` window immediately, OFF removes only that module's drawings; disabled `A2… | A3…` placeholders for future signal sub-modules.
+- **SIGNAL**: `A0 fan` + `A1 89-34` + `A2 34+8` independent sub-module toggles (all default OFF) — ON backfills + draws the module's `History Days` window immediately, OFF removes only that module's drawings; disabled `A3…` placeholder for future signal sub-modules.
 - **FILTER**: `A0 Fan | MTF`, `ADX | Volume`, `Time window` toggles — blue ON / gray OFF, effective from the next bar. All OFF by default (the A0 Fan gate boots OFF every load — session-only).
 - **BOT**: `Acc:` row (account dropdown), ATM template dropdown (sorted, `None` = bare stop order), `⚡ BOT: ON/OFF` (default OFF; OFF cancels the pending entry immediately).
 - **DRAW**: `Arrow | Text` drawing toggles, dark `Clear` button.

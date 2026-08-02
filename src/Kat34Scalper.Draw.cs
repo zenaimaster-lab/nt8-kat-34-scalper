@@ -87,7 +87,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			int age = CurrentBars[0] - record.Bar;
 			if (age < 0) return;
 			// Per-signal ownership: if owner disabled, skip (OFF already removed its drawings)
-			if ((record.Owner ?? "A1") == "A1" && !cachedA1) return;
+			string owner = record.Owner ?? "A1";
+			if (owner == "A1" && !cachedA1) return;
+			if (owner == "A2" && !cachedA2) return;
 
 			Brush entryBrush = new SolidColorBrush(record.IsBuy ? BuyEntryLineColor : SellEntryLineColor);
 			Brush slBrush = new SolidColorBrush(SLLineColor);
@@ -162,29 +164,41 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		// replay = true during a History Days backfill pass: same drawing, no alert sound, no bot order.
 		// owner = signal module id ("A1", "A2"...) for per-signal ON/OFF cleanup ownership.
-		private void DrawSignal(bool isBuy, int bar, double high, double low, double c1, double c2, int offsetTicks, int stopTicks, int targetTicks, bool replay = false, string owner = "A1")
+		// Returns the created record so the owning signal can migrate/cancel it later (A2).
+		private KatSignalRecord DrawSignal(bool isBuy, int bar, double high, double low, double c1, double c2, int offsetTicks, int stopTicks, int targetTicks, bool replay = false, string owner = "A1")
+		{
+			if (signalRecords.Count >= MAX_SIGNAL_RECORDS)
+				signalRecords.RemoveAt(0);
+			KatSignalRecord record = new KatSignalRecord { Owner = owner };
+			FillSignalRecord(record, isBuy, bar, high, low, c1, c2, offsetTicks, stopTicks, targetTicks);
+			signalRecords.Add(record);
+			RenderSignal(record);
+
+			if (!replay)
+				PlayAlertSound();
+			Print(string.Format("[Kat34Scalper][{6}][DRAW]{3} {0} signal @ bar {1} — entry {2:F5}, SL {4:F5}, TP {5:F5}", isBuy ? "BUY" : "SELL", bar, record.EntryPrice, replay ? "[replay]" : "", record.SlPrice, record.TpPrice, owner ?? "A1"));
+			return record;
+		}
+
+		// Computes every price level (entry, candidates, SL/TP from ATM or settings, BE/SL1/SL2
+		// triggers) and stores them on the record. Shared by DrawSignal (new signal) and the A2
+		// migration (same record, new bar + better extreme — call RemoveSignalRecordDrawings first).
+		private void FillSignalRecord(KatSignalRecord record, bool isBuy, int bar, double high, double low, double c1, double c2, int offsetTicks, int stopTicks, int targetTicks)
 		{
 			double tick = TickSize;
-			double entryPrice;
-			double arrowY;
 
 			// A1 dual entry: c1 = U-turn bar extreme, c2 = best later candidate (0 = none yet — fall back to the signal bar).
 			double ref1 = c1 != 0 ? c1 : (isBuy ? high : low);
 			double ref2 = c2 != 0 ? c2 : ref1;
-			entryPrice = Kat34ScalperLogic.EffectiveEntry(isBuy, ref1, ref2, offsetTicks, tick);
+			double entryPrice = Kat34ScalperLogic.EffectiveEntry(isBuy, ref1, ref2, offsetTicks, tick);
 			double cand1 = isBuy ? ref1 + offsetTicks * tick : ref1 - offsetTicks * tick;
 			double cand2 = isBuy ? ref2 + offsetTicks * tick : ref2 - offsetTicks * tick;
-			arrowY = isBuy ? low - ArrowOffsetTicks * tick : high + ArrowOffsetTicks * tick;
 
 			// TradeManager-style levels: SL/TP come from the selected ATM template when it defines them,
 			// otherwise from the indicator settings; BE/SL1/SL2 trailing-SL triggers exist only with an ATM.
 			Kat34ScalperAtmData atm = GetAtmData();
 			int slTicks = atm.StopLoss > 0 ? atm.StopLoss : stopTicks;
 			int tpTicks = atm.Target > 0 ? atm.Target : targetTicks;
-			double slPrice = isBuy ? entryPrice - slTicks * tick : entryPrice + slTicks * tick;
-			double tpPrice = isBuy ? entryPrice + tpTicks * tick : entryPrice - tpTicks * tick;
-
-			double textY = isBuy ? entryPrice - tick : entryPrice + tick; // buy label below line, sell above
 
 			// Trailing-SL trigger lines from the ATM template — same style as KatTradeManager
 			// (BE DeepSkyBlue dash-dot, SL1 orange dot, SL2 magenta dot, 1 px, profit side of entry).
@@ -199,30 +213,39 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (atm.SL2Trigger > 0)
 				sl2Price = entryPrice + dir * atm.SL2Trigger * tick;
 
-			if (signalRecords.Count >= MAX_SIGNAL_RECORDS)
-				signalRecords.RemoveAt(0);
-			KatSignalRecord record = new KatSignalRecord
-			{
-				Bar = bar,
-				IsBuy = isBuy,
-				Owner = owner,
-				ArrowY = arrowY,
-				TextY = textY,
-				Candidate1 = cand1,
-				Candidate2 = cand2,
-				EntryPrice = entryPrice,
-				SlPrice = slPrice,
-				TpPrice = tpPrice,
-				BePrice = bePrice,
-				Sl1Price = sl1Price,
-				Sl2Price = sl2Price
-			};
-			signalRecords.Add(record);
-			RenderSignal(record);
+			record.Bar = bar;
+			record.IsBuy = isBuy;
+			record.ArrowY = isBuy ? low - ArrowOffsetTicks * tick : high + ArrowOffsetTicks * tick;
+			record.TextY = isBuy ? entryPrice - tick : entryPrice + tick; // buy label below line, sell above
+			record.Candidate1 = cand1;
+			record.Candidate2 = cand2;
+			record.EntryPrice = entryPrice;
+			record.SlPrice = isBuy ? entryPrice - slTicks * tick : entryPrice + slTicks * tick;
+			record.TpPrice = isBuy ? entryPrice + tpTicks * tick : entryPrice - tpTicks * tick;
+			record.BePrice = bePrice;
+			record.Sl1Price = sl1Price;
+			record.Sl2Price = sl2Price;
+		}
 
-			if (!replay)
-				PlayAlertSound();
-			Print(string.Format("[Kat34Scalper][{6}][DRAW]{3} {0} signal @ bar {1} — entry {2:F5}, SL {4:F5}, TP {5:F5}", isBuy ? "BUY" : "SELL", bar, entryPrice, replay ? "[replay]" : "", slPrice, tpPrice, owner ?? "A1"));
+		// Removes every draw object a signal record owns (entry/SL/TP/candidates/ATM triggers).
+		// Tags derive from record.Bar — call BEFORE updating the bar on a migration.
+		private void RemoveSignalRecordDrawings(KatSignalRecord record)
+		{
+			RemoveDrawObject(SignalTag(record, "C1"));
+			RemoveDrawObject(SignalTag(record, "C2"));
+			RemoveDrawObject(SignalTag(record, "ENTRY"));
+			RemoveDrawObject(SignalTag(record, "SL"));
+			RemoveDrawObject(SignalTag(record, "TP"));
+			RemoveDrawObject(SignalTag(record, "BE"));
+			RemoveDrawObject(SignalTag(record, "SL1"));
+			RemoveDrawObject(SignalTag(record, "SL2"));
+		}
+
+		// Removes a record's draw objects and drops it from the list (A2 cancel).
+		private void RemoveSignalRecord(KatSignalRecord record)
+		{
+			RemoveSignalRecordDrawings(record);
+			signalRecords.Remove(record);
 		}
 
 		// Removes every draw object whose tag starts with the given prefix (data thread only).
@@ -603,8 +626,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			Grid sRow2 = CreateTwoColGrid();
 			sRow2.Margin = new Thickness(0);
-			Button btnA2 = CreateHudButton("A2…", hudOffBrush, null);
-			btnA2.IsEnabled = false;
+			Button btnA2 = CreateFilterToggle("A2 34+8", () => cachedA2, v => SetA2Signal(v));
 			Grid.SetColumn(btnA2, 0);
 			sRow2.Children.Add(btnA2);
 			Button btnA3 = CreateHudButton("A3…", hudOffBrush, null);

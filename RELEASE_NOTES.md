@@ -1,3 +1,11 @@
+# Release Notes — v0.34 (2026-08-02)
+
+- **New signal sub-module A2 (34+8+Bounce)**: pending stop entry on an EMA-34 bounce inside a stacked trend. BUY: EMA 8 above/touching EMA 34 (no cross down) + EMA 34 > 89 > 144 > 200 — every condition individually toggleable in the new settings group `3.5 Signal A2 — 34+8+Bounce`; SELL mirrored. Price pulls back, touches EMA 34 (wick) and closes above it → pending stop LONG at the touch candle's high (+ Entry Offset); later touch candles with lower highs migrate the entry down; a close below EMA 34 (or trend loss) cancels it; reaching the trigger marks it filled. No stage markers — entry/SL/TP lines + `Buy A2`/`Sell A2` label at the entry candle. No filters gate A2 yet.
+- **Bot owner tracking**: each pending order now records its signal owner + entry offset (`pendingOrderOwner`/`pendingOffsetTicks`); A2 cancels only its own order and the bot entry price uses the calling signal's offset (order now matches the drawn entry line for every signal).
+- **Draw pipeline**: `DrawSignal` returns the created record; level math extracted into `FillSignalRecord` (shared with A2 migration); new `RemoveSignalRecord(Drawings)` helpers; `RenderSignal` gates per owner (A1/A2). HUD SIGNAL section: real `A2 34+8` toggle replaces the disabled `A2…` placeholder.
+- **Backtest verification**: 3 synthetic-series replay tests through the full A2 state machine (buy run touch→migrate→fill, cancel→re-entry→fill, sell trend-loss cancel→re-entry→migrate→fill) assert exact per-bar action sequences; 12 unit tests cover every A2 action/edge both sides.
+- Verification: 47/47 xunit, CompileCheck 0 errors (CS0436 warnings vs NinjaTrader.Custom.dll expected).
+
 # Release Notes — v0.29 (2026-08-02)
 
 - **A0 signal/filter separation**: the SIGNAL `A0 fan` toggle now controls only A0 triangle/alert output. A0 direction is still calculated independently for A1 evaluation.
