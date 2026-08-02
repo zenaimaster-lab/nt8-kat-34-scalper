@@ -1,6 +1,6 @@
 # NT8 Kat8934 — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.16` (Released: `2026-08-01`)
+**Current Version**: `v0.17` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -15,12 +15,17 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 
 ### 2. Signal (shared by Sell and Buy — mirrored mechanism)
 - **Context**: Fast EMA vs Slow EMA — Sell: fast below slow (downtrend); Buy: fast above slow.
-- **Setup**: price touches/crosses the Slow EMA, U-turns and closes back through the Fast EMA.
+- **Sequence** (every step on close basis, wicks don't cross):
+  1. **Armed**: price closes beyond the fast EMA (Sell: below / Buy: above).
+  2. **Pullback**: price crosses back through the fast EMA toward the slow EMA — the sequence clock starts.
+  3. **Touch**: price touches or crosses the slow EMA.
+  4. **U-turn**: price reverses and closes back through the fast EMA (with-trend again).
+  - The whole sequence must complete within **`Max Sequence Bars`** (default 30, counted from the cross bar) or the setup expires and rearms. A pullback that reverses before ever touching the slow EMA simply rearms.
 - **Trigger** (configurable):
   - `Retest Bounce`: a later bar closes back through the Fast EMA → signal (sell the retest / buy the retest).
   - `Breakdown`: fires immediately on the U-turn close.
 - **Dual entry (A1)**: two candidates tracked per setup — **C1** = the U-turn bar's low/high, **C2** = the best later bar that still closes on the setup side of the fast EMA (higher low for sells / lower high for buys). The solid entry line sits at the better of the two (sell = higher stop, buy = lower stop); when they differ, both candidates also show as faded dotted lines.
-- **Drawing**: sell entry line **solid red**, buy entry line **solid lime green** (both with `Entry Offset` ticks); SL dashed red (`Stop Distance` above/below entry), TP dashed green; big 2x arrow near the candle (Buy white above, Sell black below, `Arrow Offset` ticks away, default 3); optional BUY/SELL label at the candle (Buy below / Sell above the entry level, default off, toggled from the HUD).
+- **Drawing (KatTradeManager style)**: sell entry line **solid red**, buy entry line **solid lime green** (both with `Entry Offset` ticks); SL dashed red, TP dashed green — taken from the selected **ATM template** when it defines StopLoss/Target (settings `Stop/Target Distance` are the fallback); ATM **trailing-SL trigger lines** when the template defines them — **BE** DeepSkyBlue dash-dot, **SL1** orange dot, **SL2** magenta dot (1 px, profit side of entry); big 2x arrow near the candle (**Buy white** above / **Sell black** below, `Arrow Offset` ticks away, default 3); optional BUY/SELL label at the candle (default off, toggled from the HUD).
 
 ## Bot (semi-auto)
 - Trades **only** while the HUD **BOT: ON** button is active (off by default) *and* `Bot Enabled` is set — never runs on its own. Switching BOT OFF cancels the pending entry immediately.
@@ -31,11 +36,11 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | Section | Settings |
 |---|---|
 | 1. Filters | A0 Fan Filter Enabled, Fan Min Spread (20 ticks), Fan Spread Lookback (5 bars), Use 3m/5m/15m Fan (off), ADX Period (14), ADX Min (20), Volume SMA Period (20), Volume Min x SMA (1.0), Time Start/End (08:00–17:00), Alert Sound (dropdown of NT8 .wav files) |
-| 2. Signal | Enabled, Fast EMA Period (34), Slow EMA Period (89), Trigger Mode, Entry Offset (1 tick), Stop Distance (60), Target Distance (120) |
+| 2. Signal | Enabled, Fast EMA Period (34), Slow EMA Period (89), Max Sequence Bars (30), Trigger Mode, Entry Offset (1 tick), Stop Distance (60, ATM fallback), Target Distance (120, ATM fallback) |
 | 4. Bot | Bot Enabled (off), Order Quantity (1), ATM Template (dropdown of NT8 ATM templates + None), Account Name |
 | 3. Lines & Text | Line Length (7 bars), Line Width (2 px), Arrow Offset (3 ticks), Sell/Buy Entry Line Colors (solid), SL/TP Line Colors, Sell/Buy Text Colors, Show Arrows, Show Buy/Sell Labels (default off) |
 
-Parameters group: `Show Version Label` — draws `Kat8934 vX.XX (date)` top-left on the chart (updates on every F5 recompile).
+Parameters group: `Show Version Label` — draws `Kat8934 vX.XX (date) [chart timeframe]` top-left on the chart (updates on every F5 recompile). All signal math runs on the primary series of the chart the indicator is added to — the label proves which timeframe that is (e.g. `[30 Second]`).
 
 ## HUD
 TradeManager-style panel (same colors, sizes and structure): dark navy card `Argb(240,20,24,33)` on a draggable canvas (drag anywhere outside the buttons, clamped so it can't leave the chart), `⚡ KAT 8934 vX.XX` steel-blue header, and a status line (5 s auto-clear) that mirrors bot events — submits, migrations, cancels, fills.

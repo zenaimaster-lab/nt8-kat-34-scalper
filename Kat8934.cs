@@ -1,8 +1,11 @@
 /*
  * Kat8934.cs
- * Version: 0.16 (2026-08-01)
- * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy) with entry, SL, TP dash lines.
+ * Version: 0.17 (2026-08-02)
+ * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy): pullback from beyond ema34,
+ * ema89 touch, U-turn close back through ema34, all within Max Sequence Bars.
+ * Entry/SL/TP lines + ATM trailing-SL trigger lines (BE/SL1/SL2, KatTradeManager style).
  * A0 EMA-ribbon fan filter (9..200) with MTF (3m/5m/15m), ADX/volume and time-window gates, alert sound.
+ * The version label shows the chart timeframe it computes on (always the primary series).
  */
 
 #region Using declarations
@@ -82,19 +85,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.16";
-		public const string RELEASE_DATE = "2026-08-01";
+		public const string VERSION = "0.17";
+		public const string RELEASE_DATE = "2026-08-02";
 
 		private EMA fastEma;
 		private EMA slowEma;
-		private bool sellTouched89;
-		private bool sellUturned;
-		private bool buyTouched89;
-		private bool buyUturned;
-		private double sellC1;
-		private double sellC2;
-		private double buyC1;
-		private double buyC2;
+		private readonly KatA1State sellState = new KatA1State();
+		private readonly KatA1State buyState = new KatA1State();
+		private string atmLevelsName = "\0"; // never matches a real template name — forces first parse
+		private Kat8934AtmData atmLevels;
 		private bool versionDrawn;
 		private volatile bool cachedShowArrows = true;
 		private volatile bool cachedShowLabels;
@@ -191,10 +190,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			BotAccountName				= "";
 
 				// 2. Signal defaults (Sell and Buy share the same mirrored mechanism)
-				SignalEnabled				= true;
-				EmaFastPeriod				= 34;
-				EmaSlowPeriod				= 89;
-				TriggerMode					= Kat8934TriggerMode.RetestBounce;
+			SignalEnabled				= true;
+			EmaFastPeriod				= 34;
+			EmaSlowPeriod				= 89;
+			MaxSequenceBars				= 30;
+			TriggerMode					= Kat8934TriggerMode.RetestBounce;
 				EntryOffsetTicks			= 1;
 				StopDistanceTicks			= 60;
 				TargetDistanceTicks			= 120;
@@ -245,7 +245,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			else
 				Print(string.Format("[Kat8934] Bad time filter '{0}'-'{1}' — time window disabled.", TimeFilterStart, TimeFilterEnd));
 
-			Print(string.Format("[Kat8934] v{0} ({1}) loaded.", VERSION, RELEASE_DATE));
+			Print(string.Format("[Kat8934] v{0} ({1}) loaded on {2} {3} — all signals compute on THIS series.",
+			VERSION, RELEASE_DATE, Instrument.MasterInstrument.Name, ChartTimeframe()));
 			cachedShowArrows = ShowArrows;
 			cachedShowLabels = ShowLabels;
 			cachedBotAtm = BotAtmTemplate ?? "";
@@ -289,20 +290,18 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double fast = fastEma[0];
 			double slow = slowEma[0];
 			KatTriggerMode mode = ToLogicMode(TriggerMode);
-			if (sellAllowed && Kat8934Logic.Update(KatSignalKind.Sell, mode,
-				fast < slow, high, low, close, fast, slow,
-				ref sellTouched89, ref sellUturned, ref sellC1, ref sellC2) == KatSignalKind.Sell)
-			{
-				DrawSignal(false, CurrentBar, high, low, sellC1, sellC2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
-				TrySubmitBotEntry(false, sellC2);
-			}
-			if (buyAllowed && Kat8934Logic.Update(KatSignalKind.Buy, mode,
-				fast > slow, high, low, close, fast, slow,
-				ref buyTouched89, ref buyUturned, ref buyC1, ref buyC2) == KatSignalKind.Buy)
-			{
-				DrawSignal(true, CurrentBar, high, low, buyC1, buyC2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
-				TrySubmitBotEntry(true, buyC2);
-			}
+		if (sellAllowed && Kat8934Logic.Update(KatSignalKind.Sell, mode, MaxSequenceBars,
+			fast < slow, high, low, close, fast, slow, sellState) == KatSignalKind.Sell)
+		{
+			DrawSignal(false, CurrentBar, high, low, sellState.C1, sellState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
+			TrySubmitBotEntry(false, sellState.C2);
+		}
+		if (buyAllowed && Kat8934Logic.Update(KatSignalKind.Buy, mode, MaxSequenceBars,
+			fast > slow, high, low, close, fast, slow, buyState) == KatSignalKind.Buy)
+		{
+			DrawSignal(true, CurrentBar, high, low, buyState.C1, buyState.C2, EntryOffsetTicks, StopDistanceTicks, TargetDistanceTicks);
+			TrySubmitBotEntry(true, buyState.C2);
+		}
 		}
 
 		ManageBotEntry(high, low, close);
@@ -520,10 +519,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 
 		#region HUD Panel & Drawings
+		// Primary-series timeframe, e.g. "30 Second" — proof the indicator computes on the chart TF it was added to.
+		private string ChartTimeframe()
+		{
+			return BarsArray[0].BarsPeriod.Value + " " + BarsArray[0].BarsPeriod.BarsPeriodType;
+		}
+
 		private void DrawVersionLabel()
 		{
 			versionDrawn = true;
-			Draw.TextFixed(this, "K8934_version", string.Format("Kat8934 v{0} ({1})", VERSION, RELEASE_DATE), TextPosition.TopLeft);
+			Draw.TextFixed(this, "K8934_version", string.Format("Kat8934 v{0} ({1}) [{2}]", VERSION, RELEASE_DATE, ChartTimeframe()), TextPosition.TopLeft);
 		}
 
 		// Called from the data thread (marshaled via Dispatcher.InvokeAsync from HUD clicks).
@@ -1061,10 +1066,24 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 		#endregion
 
-		private static KatTriggerMode ToLogicMode(Kat8934TriggerMode mode)
+	private static KatTriggerMode ToLogicMode(Kat8934TriggerMode mode)
+	{
+		return mode == Kat8934TriggerMode.Breakdown ? KatTriggerMode.Breakdown : KatTriggerMode.RetestBounce;
+	}
+
+	// Parses the selected ATM template once; re-parses only when the template name changes (HUD or settings).
+	private Kat8934AtmData GetAtmData()
+	{
+		string tpl = cachedBotAtm ?? "";
+		if (tpl != atmLevelsName)
 		{
-			return mode == Kat8934TriggerMode.Breakdown ? KatTriggerMode.Breakdown : KatTriggerMode.RetestBounce;
+			atmLevelsName = tpl;
+			atmLevels = HasAtmTemplate(tpl)
+				? Kat8934AtmParser.ParseFile(Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "templates", "AtmStrategy", tpl + ".xml"))
+				: new Kat8934AtmData();
 		}
+		return atmLevels;
+	}
 
 	private void DrawSignal(bool isBuy, int bar, double high, double low, double c1, double c2, int offsetTicks, int stopTicks, int targetTicks)
 	{
@@ -1080,8 +1099,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		double cand2 = isBuy ? ref2 + offsetTicks * tick : ref2 - offsetTicks * tick;
 		arrowY = isBuy ? low - ArrowOffsetTicks * tick : high + ArrowOffsetTicks * tick;
 
-			double slPrice = isBuy ? entryPrice - stopTicks * tick : entryPrice + stopTicks * tick;
-			double tpPrice = isBuy ? entryPrice + targetTicks * tick : entryPrice - targetTicks * tick;
+		// TradeManager-style levels: SL/TP come from the selected ATM template when it defines them,
+		// otherwise from the indicator settings; BE/SL1/SL2 trailing-SL triggers exist only with an ATM.
+		Kat8934AtmData atm = GetAtmData();
+		int slTicks = atm.StopLoss > 0 ? atm.StopLoss : stopTicks;
+		int tpTicks = atm.Target > 0 ? atm.Target : targetTicks;
+		double slPrice = isBuy ? entryPrice - slTicks * tick : entryPrice + slTicks * tick;
+		double tpPrice = isBuy ? entryPrice + tpTicks * tick : entryPrice - tpTicks * tick;
 
 			Brush entryBrush = new SolidColorBrush(isBuy ? BuyEntryLineColor : SellEntryLineColor);
 			Brush slBrush = new SolidColorBrush(SLLineColor);
@@ -1116,22 +1140,42 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				}
 			}
 
-			if (isBuy)
-			{
-				Draw.Line(this, "K8934_B_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Solid, LineWidth);
-				Draw.Line(this, "K8934_B_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
-				Draw.Line(this, "K8934_B_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
-				if (cachedShowLabels)
-					Draw.Text(this, "K8934_B_TEXT_" + bar, "BUY", 0, textY, textBrush);
-			}
-			else
-			{
-				Draw.Line(this, "K8934_S_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Solid, LineWidth);
-				Draw.Line(this, "K8934_S_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
-				Draw.Line(this, "K8934_S_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
-				if (cachedShowLabels)
-					Draw.Text(this, "K8934_S_TEXT_" + bar, "SELL", 0, textY, textBrush);
-			}
+		if (isBuy)
+		{
+			Draw.Line(this, "K8934_B_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Solid, LineWidth);
+			Draw.Line(this, "K8934_B_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
+			Draw.Line(this, "K8934_B_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
+			if (cachedShowLabels)
+				Draw.Text(this, "K8934_B_TEXT_" + bar, "BUY", 0, textY, textBrush);
+		}
+		else
+		{
+			Draw.Line(this, "K8934_S_ENTRY_" + bar, false, 0, entryPrice, endAgo, entryPrice, entryBrush, DashStyleHelper.Solid, LineWidth);
+			Draw.Line(this, "K8934_S_SL_" + bar, false, 0, slPrice, endAgo, slPrice, slBrush, DashStyleHelper.Dash, LineWidth);
+			Draw.Line(this, "K8934_S_TP_" + bar, false, 0, tpPrice, endAgo, tpPrice, tpBrush, DashStyleHelper.Dash, LineWidth);
+			if (cachedShowLabels)
+				Draw.Text(this, "K8934_S_TEXT_" + bar, "SELL", 0, textY, textBrush);
+		}
+
+		// Trailing-SL trigger lines from the ATM template — same style as KatTradeManager
+		// (BE DeepSkyBlue dash-dot, SL1 orange dot, SL2 magenta dot, 1 px, profit side of entry).
+		string sideTag = isBuy ? "B" : "S";
+		int dir = isBuy ? 1 : -1;
+		if (atm.BETrigger > 0)
+		{
+			double bePrice = entryPrice + dir * atm.BETrigger * tick;
+			Draw.Line(this, "K8934_" + sideTag + "_BE_" + bar, false, 0, bePrice, endAgo, bePrice, Brushes.DeepSkyBlue, DashStyleHelper.DashDot, 1);
+		}
+		if (atm.SL1Trigger > 0)
+		{
+			double sl1Price = entryPrice + dir * atm.SL1Trigger * tick;
+			Draw.Line(this, "K8934_" + sideTag + "_SL1_" + bar, false, 0, sl1Price, endAgo, sl1Price, Brushes.Orange, DashStyleHelper.Dot, 1);
+		}
+		if (atm.SL2Trigger > 0)
+		{
+			double sl2Price = entryPrice + dir * atm.SL2Trigger * tick;
+			Draw.Line(this, "K8934_" + sideTag + "_SL2_" + bar, false, 0, sl2Price, endAgo, sl2Price, Brushes.Magenta, DashStyleHelper.Dot, 1);
+		}
 
 			if (signalRecords.Count >= MAX_SIGNAL_RECORDS)
 				signalRecords.RemoveAt(0);
@@ -1228,27 +1272,34 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "Fast EMA Period", Order = 2, GroupName = "2. Signal")]
 		public int EmaFastPeriod { get; set; }
 
-		[NinjaScriptProperty]
-		[Display(Name = "Slow EMA Period", Order = 3, GroupName = "2. Signal")]
-		public int EmaSlowPeriod { get; set; }
+	[NinjaScriptProperty]
+	[Display(Name = "Slow EMA Period", Order = 3, GroupName = "2. Signal")]
+	public int EmaSlowPeriod { get; set; }
 
-		[NinjaScriptProperty]
-		[Display(Name = "Trigger Mode", Order = 4, GroupName = "2. Signal",
-			Description = "Retest Bounce: Sell fires when price closes back above the fast EMA after the U-turn close below it (Buy mirrored). Breakdown: fire immediately on the U-turn close.")]
-		public Kat8934TriggerMode TriggerMode { get; set; }
+	[NinjaScriptProperty]
+	[Display(Name = "Max Sequence Bars", Order = 4, GroupName = "2. Signal",
+		Description = "The whole sequence — pullback cross through the fast EMA, slow-EMA touch, U-turn close back through the fast EMA (and the retest trigger) — must complete within this many bars, otherwise the setup expires.")]
+	public int MaxSequenceBars { get; set; }
 
-		[NinjaScriptProperty]
-		[Display(Name = "Entry Offset (ticks)", Order = 5, GroupName = "2. Signal",
-			Description = "Sell entry below the signal low / Buy entry above the signal high.")]
-		public int EntryOffsetTicks { get; set; }
+	[NinjaScriptProperty]
+	[Display(Name = "Trigger Mode", Order = 5, GroupName = "2. Signal",
+		Description = "Retest Bounce: Sell fires when price closes back above the fast EMA after the U-turn close below it (Buy mirrored). Breakdown: fire immediately on the U-turn close.")]
+	public Kat8934TriggerMode TriggerMode { get; set; }
 
-		[NinjaScriptProperty]
-		[Display(Name = "Stop Distance (ticks)", Order = 6, GroupName = "2. Signal")]
-		public int StopDistanceTicks { get; set; }
+	[NinjaScriptProperty]
+	[Display(Name = "Entry Offset (ticks)", Order = 6, GroupName = "2. Signal",
+		Description = "Sell entry below the signal low / Buy entry above the signal high.")]
+	public int EntryOffsetTicks { get; set; }
 
-		[NinjaScriptProperty]
-		[Display(Name = "Target Distance (ticks)", Order = 7, GroupName = "2. Signal")]
-		public int TargetDistanceTicks { get; set; }
+	[NinjaScriptProperty]
+	[Display(Name = "Stop Distance (ticks)", Order = 7, GroupName = "2. Signal",
+		Description = "Fallback when the selected ATM template defines no StopLoss.")]
+	public int StopDistanceTicks { get; set; }
+
+	[NinjaScriptProperty]
+	[Display(Name = "Target Distance (ticks)", Order = 8, GroupName = "2. Signal",
+		Description = "Fallback when the selected ATM template defines no Target.")]
+	public int TargetDistanceTicks { get; set; }
 
 		// --- 4. Bot (semi-auto — trades only while the HUD BOT button is ON) ---
 	[NinjaScriptProperty]

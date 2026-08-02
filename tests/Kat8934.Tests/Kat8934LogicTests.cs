@@ -5,113 +5,178 @@ namespace Kat8934.Tests;
 
 public class Kat8934LogicTests
 {
-	private static (bool sellTouched, bool sellUturned, KatSignalKind? signal) StepSell(
-		KatTriggerMode mode, bool trendOk, double high, double low, double close, double ema34, double ema89)
-	{
-		bool touched = false, uturned = false;
-		var signal = Kat8934Logic.Update(KatSignalKind.Sell, mode, trendOk, high, low, close, ema34, ema89, ref touched, ref uturned);
-		return (touched, uturned, signal);
-	}
+	// --- A1 sequence: pullback from beyond ema34 -> ema89 touch -> U-turn close through ema34 ---
+	// Sell trend: ema34 below ema89 (e.g. 100.5 / 101.5). Buy trend mirrored (100.5 / 99.5).
 
 	[Fact]
-	public void Sell_NoTouch_NoSignal()
+	public void Sell_Breakdown_FullSequence_FiresOnUturnClose()
 	{
-		var s = StepSell(KatTriggerMode.Breakdown, true, 100, 99, 100, 101, 102);
-		Assert.Null(s.signal);
-		Assert.False(s.sellTouched);
-	}
-
-	[Fact]
-	public void Sell_BreakdownMode_FiresOnUturnCloseBelowEma34()
-	{
-		bool touched = false, uturned = false;
-		// bar 1: high touches EMA89
-		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, true, 102, 100, 101, 101, 101.5, ref touched, ref uturned));
-		Assert.True(touched);
-		// bar 2: U-turn closes below EMA34 -> fires immediately
-		var signal = Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, true, 101, 99.5, 99.8, 100.5, 101.5, ref touched, ref uturned);
+		var s = new KatA1State();
+		// bar 1: close below ema34 -> armed
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s));
+		// bar 2: cross UP through ema34 (close basis) -> sequence starts, no touch yet
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 101.0, 100.2, 101.0, 100.5, 101.5, s));
+		// bar 3: high touches ema89, still closing above ema34
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 102.0, 100.8, 101.2, 100.5, 101.5, s));
+		Assert.True(s.Touched89);
+		// bar 4: U-turn close back below ema34 -> Breakdown fires immediately
+		var signal = Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.8, 99.8, 99.9, 100.5, 101.5, s);
 		Assert.Equal(KatSignalKind.Sell, signal);
-		// state reset after fire
-		Assert.False(touched);
-		Assert.False(uturned);
+		Assert.Equal(99.8, s.C1);
+		Assert.Equal(99.8, s.C2);
 	}
 
 	[Fact]
-	public void Sell_RetestMode_FiresOnlyWhenCloseBackAboveEma34()
+	public void Sell_RequiresPullbackFromBelowEma34_NoArmNoSignal()
 	{
-		bool touched = false, uturned = false;
-		// bar 1: touch EMA89
-		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 102, 100, 101, 101, 101.5, ref touched, ref uturned));
-		// bar 2: U-turn close below EMA34 -> no signal yet (retest mode)
-		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 101, 99.5, 99.8, 100.5, 101.5, ref touched, ref uturned));
-		Assert.True(uturned);
-		// bar 3: retest bounce closes back above EMA34 -> Sell
-		var signal = Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 101.5, 99.9, 101.2, 100.5, 101.5, ref touched, ref uturned);
+		var s = new KatA1State();
+		// price was never below ema34: a touch of ema89 from ABOVE followed by a close below ema34 is NOT a setup
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 103.0, 101.0, 102.0, 100.5, 101.5, s));
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 102.5, 101.2, 102.2, 100.5, 101.5, s));
+		// this bar only arms (close < ema34) — it must NOT fire, the pullback never happened
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.6, 99.6, 99.8, 100.5, 101.5, s));
+		Assert.Equal(1, s.Phase);
+	}
+
+	[Fact]
+	public void Sell_WickAboveEma34_DoesNotCountAsCross()
+	{
+		var s = new KatA1State();
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
+		// wick pokes above ema34 but close stays below -> still armed, sequence not started
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 101.5, 99.8, 100.4, 100.5, 101.5, s));
+		Assert.Equal(1, s.Phase);
+		// real cross on close basis
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 101.0, 100.2, 101.0, 100.5, 101.5, s));
+		Assert.Equal(2, s.Phase);
+	}
+
+	[Fact]
+	public void Sell_RetestMode_FiresOnlyOnCloseBackAboveEma34_AndTracksC2()
+	{
+		var s = new KatA1State();
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, 30, true, 102.0, 100.2, 101.5, 100.5, 101.5, s)); // cross + touch (high 102)
+		// U-turn close below ema34, low 99.5 -> no signal yet in retest mode
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, 30, true, 101.0, 99.5, 99.8, 100.5, 101.5, s));
+		Assert.Equal(3, s.Phase);
+		Assert.Equal(99.5, s.C1);
+		// still below ema34, higher low 99.9 -> better sell entry candidate
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, 30, true, 100.4, 99.9, 100.1, 100.5, 101.5, s));
+		Assert.Equal(99.9, s.C2);
+		Assert.Equal(99.5, s.C1);
+		// retest bar closes back above ema34 -> Sell; its low (100.2) must NOT become C2
+		var signal = Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, 30, true, 101.5, 100.2, 101.2, 100.5, 101.5, s);
 		Assert.Equal(KatSignalKind.Sell, signal);
-		Assert.False(touched);
-		Assert.False(uturned);
+		Assert.Equal(99.9, s.C2);
 	}
 
 	[Fact]
-	public void Sell_NoTrend_NoSignal_AndResetsState()
+	public void Sell_ExpiresAfterMaxSequenceBars()
 	{
-		bool touched = true, uturned = true; // stale state from earlier
-		var signal = Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, false, 105, 104, 104.5, 103, 101, ref touched, ref uturned);
-		Assert.Null(signal);
-		Assert.False(touched);
-		Assert.False(uturned);
+		var s = new KatA1State();
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 3, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 3, true, 102.0, 100.2, 101.5, 100.5, 101.5, s)); // cross+touch, seq=1
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 3, true, 102.0, 100.8, 101.4, 100.5, 101.5, s)); // seq=2
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 3, true, 102.0, 100.8, 101.4, 100.5, 101.5, s)); // seq=3
+		// seq would be 4 > 3 -> expired and reset (close > ema34 -> no re-arm)
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 3, true, 102.0, 100.8, 101.4, 100.5, 101.5, s));
+		Assert.Equal(0, s.Phase);
+		// late U-turn close below ema34: only re-arms, must NOT fire on the stale touch
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 3, true, 100.8, 99.8, 99.9, 100.5, 101.5, s));
+		Assert.Equal(1, s.Phase);
 	}
 
 	[Fact]
-	public void Buy_BreakdownMode_FiresOnUturnCloseAboveEma34()
+	public void Sell_UturnOnLastAllowedBar_StillFires()
 	{
-		bool touched = false, uturned = false;
-		// bar 1: low touches EMA89
-		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, true, 100, 98, 99, 101, 98.5, ref touched, ref uturned));
-		// bar 2: U-turn closes above EMA34 -> Buy
-		var signal = Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, true, 100.5, 99.8, 101.2, 100.5, 98.5, ref touched, ref uturned);
+		var s = new KatA1State();
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 2, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 2, true, 102.0, 100.2, 101.5, 100.5, 101.5, s)); // cross+touch, seq=1
+		// seq=2 == max -> still alive, U-turn fires
+		var signal = Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 2, true, 100.8, 99.8, 99.9, 100.5, 101.5, s);
+		Assert.Equal(KatSignalKind.Sell, signal);
+	}
+
+	[Fact]
+	public void Sell_FailedPullback_ReArmsWithoutStaleTouch()
+	{
+		var s = new KatA1State();
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
+		// cross up but high stays below ema89 (no touch), then close back below ema34 -> failed pullback, rearmed
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 101.2, 100.2, 101.0, 100.5, 101.5, s));
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.8, 99.7, 99.9, 100.5, 101.5, s));
+		Assert.Equal(1, s.Phase);
+		Assert.False(s.Touched89);
+		// new pullback: cross + touch + U-turn -> fires
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 102.0, 100.2, 101.5, 100.5, 101.5, s));
+		var signal = Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.8, 99.8, 99.9, 100.5, 101.5, s);
+		Assert.Equal(KatSignalKind.Sell, signal);
+	}
+
+	[Fact]
+	public void Sell_TrendLoss_ResetsSequence()
+	{
+		var s = new KatA1State();
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 102.0, 100.2, 101.5, 100.5, 101.5, s)); // cross+touch
+		// trend flips (ema34 no longer below ema89) -> full reset
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, false, 100.8, 99.8, 99.9, 100.5, 101.5, s));
+		Assert.Equal(0, s.Phase);
+		Assert.False(s.Touched89);
+		// U-turn-like bar after reset: no fire
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.8, 99.8, 99.9, 100.5, 101.5, s));
+	}
+
+	[Fact]
+	public void Buy_Breakdown_FullSequence_FiresOnUturnClose()
+	{
+		var s = new KatA1State();
+		// uptrend: ema34 100.5 above ema89 99.5
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 30, true, 101.8, 101.0, 101.5, 100.5, 99.5, s)); // arm above ema34
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 30, true, 100.8, 99.8, 100.0, 100.5, 99.5, s)); // cross DOWN through ema34
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 30, true, 100.2, 99.4, 99.9, 100.5, 99.5, s)); // low touches ema89
+		Assert.True(s.Touched89);
+		var signal = Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 30, true, 100.9, 99.9, 100.8, 100.5, 99.5, s); // U-turn close above ema34
+		Assert.Equal(KatSignalKind.Buy, signal);
+		Assert.Equal(100.9, s.C1);
+	}
+
+	[Fact]
+	public void Buy_RetestMode_FiresOnlyOnCloseBackBelowEma34_AndTracksC2()
+	{
+		var s = new KatA1State();
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, 30, true, 101.8, 101.0, 101.5, 100.5, 99.5, s)); // arm
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, 30, true, 100.8, 99.4, 99.9, 100.5, 99.5, s)); // cross down + touch (low 99.4)
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, 30, true, 100.9, 99.8, 100.8, 100.5, 99.5, s)); // U-turn close above ema34, high 100.9
+		Assert.Equal(3, s.Phase);
+		Assert.Equal(100.9, s.C1);
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, 30, true, 100.6, 100.1, 100.6, 100.5, 99.5, s)); // lower high -> C2
+		Assert.Equal(100.6, s.C2);
+		var signal = Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, 30, true, 100.4, 99.7, 100.2, 100.5, 99.5, s); // close back below ema34 -> Buy
 		Assert.Equal(KatSignalKind.Buy, signal);
 	}
 
 	[Fact]
-	public void Buy_RetestMode_FiresOnlyWhenCloseBackBelowEma34()
+	public void Buy_ExpiresAfterMaxSequenceBars()
 	{
-		bool touched = false, uturned = false;
-		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, true, 100, 98, 99, 101, 98.5, ref touched, ref uturned));
-		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, true, 100.5, 99.8, 101.2, 100.5, 98.5, ref touched, ref uturned));
-		Assert.True(uturned);
-		var signal = Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, true, 99.5, 99.0, 99.8, 100.5, 98.5, ref touched, ref uturned);
-		Assert.Equal(KatSignalKind.Buy, signal);
-		Assert.False(touched);
+		var s = new KatA1State();
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 2, true, 101.8, 101.0, 101.5, 100.5, 99.5, s)); // arm
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 2, true, 100.8, 99.4, 99.9, 100.5, 99.5, s)); // cross+touch, seq=1
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 2, true, 100.2, 99.6, 100.0, 100.5, 99.5, s)); // seq=2
+		// seq=3 > 2 -> expired; this bar closes above ema34 so it only rearms (phase 1)
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 2, true, 100.8, 99.6, 100.6, 100.5, 99.5, s));
+		Assert.Equal(1, s.Phase);
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 2, true, 100.9, 100.1, 100.8, 100.5, 99.5, s)); // no fire on stale touch
 	}
 
 	[Fact]
-	public void Sell_OneBarTouchAndUturn_FiresImmediately_Breakdown()
+	public void Buy_RequiresPullbackFromAboveEma34_NoArmNoSignal()
 	{
-		bool touched = false, uturned = false;
-		// single bar both touches EMA89 (high) and closes below EMA34
-		var signal = Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, true, 103, 99, 99.5, 100.5, 101.5, ref touched, ref uturned);
-		Assert.Equal(KatSignalKind.Sell, signal);
-	}
-
-	[Fact]
-	public void RetestMode_KeepsWaitingWhilePriceStaysBelowEma34()
-	{
-		bool touched = false, uturned = false;
-		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 102, 100, 101, 101, 101.5, ref touched, ref uturned));
-		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 101, 99.5, 99.8, 100.5, 101.5, ref touched, ref uturned));
-		// more down bars below EMA34: still no signal
-		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 99.7, 99.0, 99.2, 100.5, 101.5, ref touched, ref uturned));
-		Assert.Null(Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 99.6, 98.8, 99.0, 100.5, 101.5, ref touched, ref uturned));
-		Assert.True(uturned);
-	}
-
-	[Fact]
-	public void Buy_NoTrend_NoSignal()
-	{
-		bool touched = false, uturned = false;
-		var signal = Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, false, 100, 98, 99, 101, 98.5, ref touched, ref uturned);
-		Assert.Null(signal);
+		var s = new KatA1State();
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 30, true, 99.0, 98.0, 98.5, 100.5, 99.5, s)); // below both, no arm
+		Assert.Null(Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 30, true, 100.9, 99.8, 100.6, 100.5, 99.5, s)); // arm (close > ema34)
+		Assert.Equal(1, s.Phase);
 	}
 
 	// --- A0 EMA-ribbon fan ---
@@ -214,70 +279,6 @@ public class Kat8934LogicTests
 		Assert.True(Kat8934Logic.IsInTimeWindow(new TimeSpan(3, 0, 0), new TimeSpan(8, 0, 0), new TimeSpan(8, 0, 0)));
 	}
 
-	// --- A1 dual-entry candidates (C1 = U-turn bar, C2 = best later bar) ---
-	[Fact]
-	public void Sell_UturnBar_SetsC1AndC2ToItsLow()
-	{
-		bool touched = false, uturned = false;
-		double c1 = 0, c2 = 0;
-		// bar 1: touch ema89
-		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 102, 100, 101, 101, 101.5, ref touched, ref uturned, ref c1, ref c2);
-		// bar 2: U-turn close below ema34, low 99.5
-		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 101, 99.5, 99.8, 100.5, 101.5, ref touched, ref uturned, ref c1, ref c2);
-		Assert.Equal(99.5, c1);
-		Assert.Equal(99.5, c2);
-	}
-
-	[Fact]
-	public void Sell_LaterBarWithHigherLow_UpdatesC2Only()
-	{
-		bool touched = false, uturned = false;
-		double c1 = 0, c2 = 0;
-		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 102, 100, 101, 101, 101.5, ref touched, ref uturned, ref c1, ref c2);
-		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 101, 99.5, 99.8, 100.5, 101.5, ref touched, ref uturned, ref c1, ref c2);
-		// bar 3: still below ema34, higher low 99.9 -> better sell entry
-		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 100.4, 99.9, 100.1, 100.5, 101.5, ref touched, ref uturned, ref c1, ref c2);
-		Assert.Equal(99.5, c1); // unchanged
-		Assert.Equal(99.9, c2); // raised
-	}
-
-	[Fact]
-	public void Sell_BarAboveEma34_DoesNotUpdateC2_ButFires()
-	{
-		bool touched = false, uturned = false;
-		double c1 = 0, c2 = 0;
-		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 102, 100, 101, 101, 101.5, ref touched, ref uturned, ref c1, ref c2);
-		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 101, 99.5, 99.8, 100.5, 101.5, ref touched, ref uturned, ref c1, ref c2);
-		// retest bar closes back above ema34 -> signal; its low (100.2) must NOT become c2
-		var signal = Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, true, 101.5, 100.2, 101.2, 100.5, 101.5, ref touched, ref uturned, ref c1, ref c2);
-		Assert.Equal(KatSignalKind.Sell, signal);
-		Assert.Equal(99.5, c2);
-	}
-
-	[Fact]
-	public void Buy_LaterBarWithLowerHigh_UpdatesC2Only()
-	{
-		bool touched = false, uturned = false;
-		double c1 = 0, c2 = 0;
-		Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, true, 100, 98, 99, 101, 98.5, ref touched, ref uturned, ref c1, ref c2);
-		Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, true, 100.5, 99.8, 101.2, 100.5, 98.5, ref touched, ref uturned, ref c1, ref c2);
-		Assert.Equal(100.5, c1);
-		// bar 3: ema34 drifted down to 99.9 — close 100.0 still above it, lower high 100.1 -> better buy entry
-		Kat8934Logic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, true, 100.1, 99.6, 100.0, 99.9, 98.5, ref touched, ref uturned, ref c1, ref c2);
-		Assert.Equal(100.5, c1);
-		Assert.Equal(100.1, c2);
-	}
-
-	[Fact]
-	public void Candidates_ResetOnTrendLoss()
-	{
-		bool touched = true, uturned = true;
-		double c1 = 99, c2 = 99;
-		Kat8934Logic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, false, 105, 104, 104.5, 103, 101, ref touched, ref uturned, ref c1, ref c2);
-		Assert.Equal(0, c1);
-		Assert.Equal(0, c2);
-	}
-
 	// --- EffectiveEntry ---
 	[Fact]
 	public void EffectiveEntry_Sell_TakesHigherStop()
@@ -291,5 +292,45 @@ public class Kat8934LogicTests
 	{
 		// buy: above candidate highs; c2 lower -> better
 		Assert.Equal(100.1 + 0.25, Kat8934Logic.EffectiveEntry(true, 100.5, 100.1, 1, 0.25));
+	}
+
+	// --- ATM template parser ---
+	private const string SampleAtmXml =
+		"<AtmStrategy><Brackets><Bracket>" +
+		"<StopLoss>60</StopLoss><Target>120</Target>" +
+		"<StopStrategy><AutoBreakEvenProfitTrigger>30</AutoBreakEvenProfitTrigger>" +
+		"<AutoTrailSteps>" +
+		"<AutoTrailStep><ProfitTrigger>45</ProfitTrigger></AutoTrailStep>" +
+		"<AutoTrailStep><ProfitTrigger>80</ProfitTrigger></AutoTrailStep>" +
+		"</AutoTrailSteps></StopStrategy>" +
+		"</Bracket></Brackets></AtmStrategy>";
+
+	[Fact]
+	public void Atm_FullTemplate_ParsesAllLevels()
+	{
+		var d = Kat8934AtmParser.ParseXml(SampleAtmXml);
+		Assert.Equal(60, d.StopLoss);
+		Assert.Equal(120, d.Target);
+		Assert.Equal(30, d.BETrigger);
+		Assert.Equal(45, d.SL1Trigger);
+		Assert.Equal(80, d.SL2Trigger);
+	}
+
+	[Fact]
+	public void Atm_MissingNodes_StayZero()
+	{
+		var d = Kat8934AtmParser.ParseXml("<AtmStrategy><Brackets><Bracket><StopLoss>40</StopLoss></Bracket></Brackets></AtmStrategy>");
+		Assert.Equal(40, d.StopLoss);
+		Assert.Equal(0, d.Target);
+		Assert.Equal(0, d.BETrigger);
+		Assert.Equal(0, d.SL1Trigger);
+	}
+
+	[Fact]
+	public void Atm_GarbageOrEmpty_ReturnsZeros()
+	{
+		Assert.Equal(0, Kat8934AtmParser.ParseXml("not xml at all").StopLoss);
+		Assert.Equal(0, Kat8934AtmParser.ParseXml("").Target);
+		Assert.Equal(0, Kat8934AtmParser.ParseFile(@"C:\no\such\file.xml").StopLoss);
 	}
 }

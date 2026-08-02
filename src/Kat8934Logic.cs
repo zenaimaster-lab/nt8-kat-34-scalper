@@ -1,6 +1,8 @@
-/* Kat8934Logic.cs - pure signal state machine, zero NT8 dependencies (unit-testable). */
+/* Kat8934Logic.cs - pure signal state machine + ATM template parser, zero NT8 dependencies (unit-testable). */
 
 using System;
+using System.IO;
+using System.Xml;
 
 namespace Kat8934
 {
@@ -16,6 +18,30 @@ namespace Kat8934
 		RetestBounce,
 		// Fire immediately on the U-turn bar closing through the fast EMA.
 		Breakdown
+	}
+
+	/// <summary>
+	/// Per-side A1 sequence state — the caller owns one instance per side (sell/buy).
+	/// Phase: 0 = idle (waiting for price beyond the fast EMA), 1 = armed (price beyond the fast
+	/// EMA, waiting for the cross back through it), 2 = pullback running (crossed, watching for the
+	/// slow-EMA touch and the U-turn close), 3 = U-turned, waiting for the retest trigger.
+	/// </summary>
+	public sealed class KatA1State
+	{
+		public int Phase;
+		public bool Touched89;
+		public int SeqBars;   // sequence lifetime in bars, counted from the ema34 cross bar
+		public double C1;     // U-turn bar extreme (sell: its low / buy: its high)
+		public double C2;     // best later candidate extreme
+
+		public void Reset()
+		{
+			Phase = 0;
+			Touched89 = false;
+			SeqBars = 0;
+			C1 = 0;
+			C2 = 0;
+		}
 	}
 
 	public static class Kat8934Logic
@@ -74,94 +100,221 @@ namespace Kat8934
 		}
 
 		/// <summary>
-		/// Advances the per-side state machine by one bar. Caller owns the state flags.
-		/// Sell: downtrend (ema34 below ema89) — price touches/crosses ema89, U-turns and closes
-		/// back below ema34, then (RetestBounce) a later bar closes back above ema34 → Sell.
-		/// Buy mirrors the same sequence.
+		/// Advances the per-side state machine by one bar. Caller owns the KatA1State instance.
+		/// Sell (downtrend: ema34 below ema89): price pulls back from BELOW ema34, crosses UP
+		/// through ema34, touches/crosses ema89, reverses and closes back below ema34 (U-turn).
+		/// Breakdown fires on that U-turn close; RetestBounce fires when a later bar closes back
+		/// above ema34. The whole sequence (cross bar included) must complete within maxSeqBars,
+		/// otherwise the setup expires and rearms. Buy mirrors the same sequence.
+		/// C1/C2 are kept (not cleared) when a signal fires so the caller can price the entry.
 		/// </summary>
 		public static KatSignalKind? Update(
-			KatSignalKind kind, KatTriggerMode mode,
+			KatSignalKind kind, KatTriggerMode mode, int maxSeqBars,
 			bool trendOk,
 			double high, double low, double close,
 			double ema34, double ema89,
-			ref bool touched89, ref bool uturned)
-		{
-			double c1 = 0, c2 = 0;
-			return Update(kind, mode, trendOk, high, low, close, ema34, ema89,
-				ref touched89, ref uturned, ref c1, ref c2);
-		}
-
-		/// <summary>
-		/// Full update with A1 dual-entry candidates.
-		/// Sell: c1 = low of the U-turn bar (first close back below ema34); c2 = the highest low
-		/// among later bars that still close below ema34 (better — higher — sell entry).
-		/// Buy mirrors with highs (c2 = lowest high). c1/c2 are 0 until a U-turn sets them.
-		/// </summary>
-		public static KatSignalKind? Update(
-			KatSignalKind kind, KatTriggerMode mode,
-			bool trendOk,
-			double high, double low, double close,
-			double ema34, double ema89,
-			ref bool touched89, ref bool uturned,
-			ref double c1, ref double c2)
+			KatA1State s)
 		{
 			if (!trendOk)
 			{
-				touched89 = false;
-				uturned = false;
-				c1 = 0;
-				c2 = 0;
+				s.Reset();
 				return null;
+			}
+			if (maxSeqBars < 1) maxSeqBars = 1;
+
+			// Sequence lifetime: counted from the ema34 cross bar. Expired setups rearm from scratch.
+			if (s.Phase >= 2)
+			{
+				s.SeqBars++;
+				if (s.SeqBars > maxSeqBars) s.Reset();
 			}
 
 			if (kind == KatSignalKind.Sell)
 			{
-				if (!touched89 && high >= ema89) touched89 = true;
-				if (touched89 && !uturned && close < ema34)
+				// 0: idle — the pullback must start from BELOW ema34
+				if (s.Phase == 0 && close < ema34) s.Phase = 1;
+
+				// 1: armed below — the cross UP through ema34 (close basis) starts the sequence
+				if (s.Phase == 1 && close > ema34)
 				{
-					uturned = true;
-					c1 = low;
-					c2 = low;
+					s.Phase = 2;
+					s.SeqBars = 1;
 				}
-				else if (uturned && close < ema34 && low > c2)
+
+				// 2: pullback running — watch the ema89 touch and the U-turn close back below ema34
+				if (s.Phase == 2)
 				{
-					c2 = low; // bar closed below ema34 with a higher low — better sell entry
-				}
-				if (touched89 && uturned)
-				{
-					if (mode == KatTriggerMode.Breakdown || close > ema34)
+					if (high >= ema89) s.Touched89 = true;
+					if (close < ema34)
 					{
-						touched89 = false;
-						uturned = false;
+						if (s.Touched89)
+						{
+							s.C1 = low;
+							s.C2 = low;
+							if (mode == KatTriggerMode.Breakdown)
+							{
+								s.Phase = 1; // back below ema34 already — armed for the next pullback
+								s.Touched89 = false;
+								s.SeqBars = 0;
+								return KatSignalKind.Sell;
+							}
+							s.Phase = 3;
+						}
+						else
+						{
+							// reversed below ema34 before ever touching ema89 — failed pullback, rearmed
+							s.Phase = 1;
+							s.SeqBars = 0;
+						}
+					}
+				}
+
+				// 3: U-turned — RetestBounce fires when a later bar closes back above ema34
+				if (s.Phase == 3)
+				{
+					if (close < ema34 && low > s.C2) s.C2 = low; // higher low — better sell entry
+					if (close > ema34)
+					{
+						s.Phase = 0;
+						s.Touched89 = false;
+						s.SeqBars = 0;
 						return KatSignalKind.Sell;
 					}
 				}
 			}
 			else
 			{
-				if (!touched89 && low <= ema89) touched89 = true;
-				if (touched89 && !uturned && close > ema34)
+				// Buy mirrors Sell: armed ABOVE ema34, cross DOWN through it, touch ema89 from above,
+				// U-turn close back above ema34, RetestBounce fires on the close back below ema34.
+				if (s.Phase == 0 && close > ema34) s.Phase = 1;
+
+				if (s.Phase == 1 && close < ema34)
 				{
-					uturned = true;
-					c1 = high;
-					c2 = high;
+					s.Phase = 2;
+					s.SeqBars = 1;
 				}
-				else if (uturned && close > ema34 && high < c2)
+
+				if (s.Phase == 2)
 				{
-					c2 = high; // bar closed above ema34 with a lower high — better buy entry
-				}
-				if (touched89 && uturned)
-				{
-					if (mode == KatTriggerMode.Breakdown || close < ema34)
+					if (low <= ema89) s.Touched89 = true;
+					if (close > ema34)
 					{
-						touched89 = false;
-						uturned = false;
+						if (s.Touched89)
+						{
+							s.C1 = high;
+							s.C2 = high;
+							if (mode == KatTriggerMode.Breakdown)
+							{
+								s.Phase = 1;
+								s.Touched89 = false;
+								s.SeqBars = 0;
+								return KatSignalKind.Buy;
+							}
+							s.Phase = 3;
+						}
+						else
+						{
+							s.Phase = 1;
+							s.SeqBars = 0;
+						}
+					}
+				}
+
+				if (s.Phase == 3)
+				{
+					if (close > ema34 && high < s.C2) s.C2 = high; // lower high — better buy entry
+					if (close < ema34)
+					{
+						s.Phase = 0;
+						s.Touched89 = false;
+						s.SeqBars = 0;
 						return KatSignalKind.Buy;
 					}
 				}
 			}
 
 			return null;
+		}
+	}
+
+	/// <summary>Parsed SL/TP and trailing-SL trigger levels (ticks) from an NT8 ATM strategy template.</summary>
+	public sealed class Kat8934AtmData
+	{
+		public int StopLoss;
+		public int Target;
+		public int BETrigger;
+		public int SL1Trigger;
+		public int SL2Trigger;
+	}
+
+	/// <summary>
+	/// Reads StopLoss/Target/AutoBreakEven/AutoTrail profit triggers from an ATM template .xml.
+	/// Any parse failure yields zeroed data (callers fall back to indicator settings).
+	/// Named Kat8934* on purpose: NT8 compiles every Custom indicator into ONE assembly —
+	/// reusing KatTradeManager's type names would collide.
+	/// </summary>
+	public static class Kat8934AtmParser
+	{
+		public static Kat8934AtmData ParseFile(string filePath)
+		{
+			if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return new Kat8934AtmData();
+			try
+			{
+				XmlDocument doc = new XmlDocument();
+				doc.Load(filePath);
+				return ParseDocument(doc);
+			}
+			catch
+			{
+				return new Kat8934AtmData();
+			}
+		}
+
+		public static Kat8934AtmData ParseXml(string xmlContent)
+		{
+			if (string.IsNullOrWhiteSpace(xmlContent)) return new Kat8934AtmData();
+			try
+			{
+				XmlDocument doc = new XmlDocument();
+				doc.LoadXml(xmlContent);
+				return ParseDocument(doc);
+			}
+			catch
+			{
+				return new Kat8934AtmData();
+			}
+		}
+
+		private static Kat8934AtmData ParseDocument(XmlDocument doc)
+		{
+			Kat8934AtmData result = new Kat8934AtmData();
+			if (doc == null) return result;
+
+			result.StopLoss = ReadInt(doc, "//AtmStrategy/Brackets/Bracket/StopLoss");
+			result.Target = ReadInt(doc, "//AtmStrategy/Brackets/Bracket/Target");
+			result.BETrigger = ReadInt(doc, "//AtmStrategy/Brackets/Bracket/StopStrategy/AutoBreakEvenProfitTrigger");
+
+			XmlNodeList trailSteps = doc.SelectNodes("//AtmStrategy/Brackets/Bracket/StopStrategy/AutoTrailSteps/AutoTrailStep");
+			if (trailSteps != null)
+			{
+				if (trailSteps.Count > 0) result.SL1Trigger = ReadInt(trailSteps[0], "ProfitTrigger");
+				if (trailSteps.Count > 1) result.SL2Trigger = ReadInt(trailSteps[1], "ProfitTrigger");
+			}
+			return result;
+		}
+
+		private static int ReadInt(XmlDocument doc, string xpath)
+		{
+			XmlNode node = doc.SelectSingleNode(xpath);
+			int value;
+			return node != null && int.TryParse(node.InnerText, out value) ? value : 0;
+		}
+
+		private static int ReadInt(XmlNode parent, string name)
+		{
+			XmlNode node = parent == null ? null : parent.SelectSingleNode(name);
+			int value;
+			return node != null && int.TryParse(node.InnerText, out value) ? value : 0;
 		}
 	}
 }
