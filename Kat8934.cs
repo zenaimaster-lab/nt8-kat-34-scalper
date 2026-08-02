@@ -1,6 +1,6 @@
 /*
  * Kat8934.cs
- * Version: 0.14 (2026-08-01)
+ * Version: 0.15 (2026-08-01)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy) with entry, SL, TP dash lines.
  * A0 EMA-ribbon fan filter (9..200) with MTF (3m/5m/15m), ADX/volume and time-window gates, alert sound.
  */
@@ -13,6 +13,7 @@ using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Xml.Serialization;
 using NinjaTrader.Cbi;
@@ -81,7 +82,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public class Kat8934 : Indicator
 	{
 		#region Metadata & State
-		public const string VERSION = "0.14";
+		public const string VERSION = "0.15";
 		public const string RELEASE_DATE = "2026-08-01";
 
 		private EMA fastEma;
@@ -137,6 +138,18 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 		private readonly List<KatSignalRecord> signalRecords = new List<KatSignalRecord>();
 		private Border hudBorder;
+		private Canvas hudCanvas;
+		private TextBlock hudStatusText;
+		private System.Windows.Threading.DispatcherTimer hudStatusTimer;
+		private bool isHudDragging;
+		private bool hasHudDragPosition;
+		private double hudDragLeft;
+		private double hudDragTop;
+		private double hudDragStartLeft;
+		private double hudDragStartTop;
+		private Point hudDragStart;
+		private readonly SolidColorBrush hudOnBrush = new SolidColorBrush(Color.FromRgb(0, 122, 204));
+		private readonly SolidColorBrush hudOffBrush = new SolidColorBrush(Color.FromRgb(45, 50, 65));
 		#endregion
 
 		#region Indicator Lifecycle
@@ -354,11 +367,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 			Print(string.Format("[Kat8934] BOT: {0} stop @ {1:F5} submitted (account {2}, ATM {3}).",
 				isBuy ? "BUY" : "SELL", stopPrice, acc.Name, HasAtmTemplate(tpl) ? tpl : "none"));
+			ShowHudStatus(string.Format("BOT: {0} stop @ {1:F2} ({2})", isBuy ? "BUY" : "SELL", stopPrice, HasAtmTemplate(tpl) ? tpl : "no ATM"), Brushes.LightGreen);
 		}
 		catch (Exception ex)
 		{
 			pendingOrder = null;
 			Print(string.Format("[Kat8934] BOT submit error: {0}", ex.Message));
+			ShowHudStatus("BOT submit error: " + ex.Message, Brushes.OrangeRed);
 		}
 	}
 
@@ -382,6 +397,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		if (state == OrderState.Filled || state == OrderState.Cancelled || state == OrderState.Rejected)
 		{
 			Print(string.Format("[Kat8934] BOT: entry order {0} @ {1:F5}.", state, pendingOrder.StopPrice));
+			if (state == OrderState.Filled)
+				ShowHudStatus(string.Format("BOT: entry FILLED @ {0:F2} — ATM manages brackets", pendingOrder.StopPrice), Brushes.LightGreen);
 			pendingOrder = null;
 			return; // filled: ATM owns the brackets from here
 		}
@@ -422,6 +439,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				acc.Cancel(new[] { pendingOrder });
 				Print(string.Format("[Kat8934] BOT: entry cancel requested ({0}).", reason));
+				ShowHudStatus("BOT: entry cancel — " + reason, Brushes.OrangeRed);
 			}
 		}
 		catch (Exception ex)
@@ -600,7 +618,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 		}
 
-		private Button CreateHudButton(string text, Brush bg, RoutedEventHandler handler)
+		// --- TradeManager-style HUD helpers (same colors, sizes and structure) ---
+		private Button CreateHudButton(string text, Brush bg, RoutedEventHandler handler, double height = 24, double fontSize = 10)
 		{
 			Button btn = new Button
 			{
@@ -608,10 +627,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				Background = bg,
 				Foreground = Brushes.White,
 				FontWeight = FontWeights.Normal,
-				FontSize = 12,
-				Margin = new Thickness(0, 0, 4, 0),
+				FontSize = fontSize,
+				Margin = new Thickness(0),
 				Padding = new Thickness(2),
-				Height = 24,
+				Height = height,
 				BorderThickness = new Thickness(0)
 			};
 			if (handler != null)
@@ -619,179 +638,426 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			return btn;
 		}
 
-		private Button CreateFilterToggle(string label, Brush onBrush, Brush offBrush, Func<bool> getter, Action<bool> setter)
-	{
-		Button btn = CreateHudButton(getter() ? label + ": ON" : label + ": OFF", getter() ? onBrush : offBrush, null);
-		btn.Click += (s, e) =>
+		private Border CreateSectionCard(FrameworkElement child, double bottomMargin)
 		{
-			setter(!getter());
-			btn.Content = getter() ? label + ": ON" : label + ": OFF";
-			btn.Background = getter() ? onBrush : offBrush;
-		};
-		return btn;
-	}
+			return new Border
+			{
+				Background = new SolidColorBrush(Color.FromRgb(10, 12, 18)),
+				BorderBrush = new SolidColorBrush(Color.FromRgb(35, 42, 56)),
+				BorderThickness = new Thickness(1),
+				CornerRadius = new CornerRadius(5),
+				Padding = new Thickness(6),
+				Margin = new Thickness(0, 0, 0, bottomMargin),
+				Child = child
+			};
+		}
 
-	private void BuildHud()
+		private Grid CreateTwoColGrid()
+		{
+			Grid g = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+			g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+			g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4) });
+			g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+			return g;
+		}
+
+		private void AddGridRow(Grid grid, string labelText, FrameworkElement input)
+		{
+			int rowIdx = grid.RowDefinitions.Count;
+			grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28) });
+			TextBlock label = new TextBlock
+			{
+				Text = labelText,
+				Foreground = Brushes.LightGray,
+				VerticalAlignment = VerticalAlignment.Center,
+				FontSize = 11
+			};
+			Grid.SetRow(label, rowIdx);
+			Grid.SetColumn(label, 0);
+			grid.Children.Add(label);
+
+			input.VerticalAlignment = VerticalAlignment.Center;
+			input.HorizontalAlignment = HorizontalAlignment.Stretch;
+			input.Height = 22;
+			Grid.SetRow(input, rowIdx);
+			Grid.SetColumn(input, 1);
+			grid.Children.Add(input);
+		}
+
+		private Button CreateFilterToggle(string label, Func<bool> getter, Action<bool> setter)
+		{
+			Button btn = CreateHudButton(getter() ? label + ": ON" : label + ": OFF", getter() ? hudOnBrush : hudOffBrush, null);
+			btn.Foreground = getter() ? Brushes.White : Brushes.LightGray;
+			btn.Click += (s, e) =>
+			{
+				setter(!getter());
+				bool on = getter();
+				btn.Content = on ? label + ": ON" : label + ": OFF";
+				btn.Background = on ? hudOnBrush : hudOffBrush;
+				btn.Foreground = on ? Brushes.White : Brushes.LightGray;
+			};
+			return btn;
+		}
+
+		private void ShowHudStatus(string message, Brush foreground)
+		{
+			if (ChartControl == null || ChartControl.Dispatcher == null) return;
+			Action update = () =>
+			{
+				if (hudStatusText == null) return;
+				hudStatusText.Text = message;
+				hudStatusText.Foreground = foreground ?? Brushes.White;
+				if (hudStatusTimer == null)
+				{
+					hudStatusTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+					hudStatusTimer.Tick += (s, e) =>
+					{
+						if (hudStatusText != null)
+						{
+							hudStatusText.Text = string.Empty;
+							hudStatusText.Foreground = Brushes.White;
+						}
+						hudStatusTimer.Stop();
+					};
+				}
+				hudStatusTimer.Stop();
+				hudStatusTimer.Start();
+			};
+			if (ChartControl.Dispatcher.CheckAccess()) update();
+			else ChartControl.Dispatcher.BeginInvoke(update);
+		}
+
+		// --- HUD drag (TradeManager pattern: capture on the border, clamp ≥40px visible, skip interactive controls) ---
+		private static DependencyObject GetHudParent(DependencyObject element)
+		{
+			if (element == null) return null;
+			try { DependencyObject p = VisualTreeHelper.GetParent(element); if (p != null) return p; } catch { }
+			try { return LogicalTreeHelper.GetParent(element); } catch { return null; }
+		}
+
+		private static bool IsInteractiveVisual(DependencyObject src)
+		{
+			while (src != null)
+			{
+				if (src is System.Windows.Controls.Primitives.ButtonBase
+					|| src is ComboBox
+					|| src is System.Windows.Controls.Primitives.Selector
+					|| src is TextBox)
+					return true;
+				src = GetHudParent(src);
+			}
+			return false;
+		}
+
+		private void OnHudPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+		{
+			if (isHudDragging || hudBorder == null || hudCanvas == null) return;
+			if (IsInteractiveVisual(e.OriginalSource as DependencyObject)) return;
+			hudDragStart = e.GetPosition(hudCanvas);
+			hudDragStartLeft = Canvas.GetLeft(hudBorder);
+			if (double.IsNaN(hudDragStartLeft)) hudDragStartLeft = 10;
+			hudDragStartTop = Canvas.GetTop(hudBorder);
+			if (double.IsNaN(hudDragStartTop)) hudDragStartTop = 10;
+			isHudDragging = Mouse.Capture(hudBorder, CaptureMode.SubTree);
+			e.Handled = isHudDragging;
+		}
+
+		private void OnHudPreviewMouseMove(object sender, MouseEventArgs e)
+		{
+			if (!isHudDragging || hudBorder == null || hudCanvas == null) return;
+			if (e.LeftButton != MouseButtonState.Pressed)
+			{
+				StopHudDrag();
+				return;
+			}
+			Point cur = e.GetPosition(hudCanvas);
+			double newLeft = hudDragStartLeft + (cur.X - hudDragStart.X);
+			double newTop = hudDragStartTop + (cur.Y - hudDragStart.Y);
+			const double minVisible = 40; // never drag the panel off-screen
+			double panelW = hudBorder.ActualWidth > 0 ? hudBorder.ActualWidth : 240;
+			double panelH = hudBorder.ActualHeight > 0 ? hudBorder.ActualHeight : 40;
+			newLeft = Math.Min(Math.Max(newLeft, minVisible - panelW), Math.Max(0, hudCanvas.ActualWidth - minVisible));
+			newTop = Math.Min(Math.Max(newTop, minVisible - panelH), Math.Max(0, hudCanvas.ActualHeight - minVisible));
+			Canvas.SetLeft(hudBorder, newLeft);
+			Canvas.SetTop(hudBorder, newTop);
+			hasHudDragPosition = true;
+			hudDragLeft = newLeft;
+			hudDragTop = newTop;
+			e.Handled = true;
+		}
+
+		private void OnHudPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+		{
+			if (!isHudDragging) return;
+			StopHudDrag();
+			e.Handled = true;
+		}
+
+		private void StopHudDrag()
+		{
+			isHudDragging = false;
+			if (Mouse.Captured == hudBorder) Mouse.Capture(null);
+		}
+
+		private void OnHudLostMouseCapture(object sender, MouseEventArgs e)
+		{
+			isHudDragging = false;
+		}
+
+		private void AttachHudDragHandlers()
+		{
+			if (hudBorder == null) return;
+			hudBorder.AddHandler(Border.PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(OnHudPreviewMouseLeftButtonDown), true);
+			hudBorder.AddHandler(Border.PreviewMouseMoveEvent, new MouseEventHandler(OnHudPreviewMouseMove), true);
+			hudBorder.AddHandler(Border.PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler(OnHudPreviewMouseLeftButtonUp), true);
+			hudBorder.LostMouseCapture += OnHudLostMouseCapture;
+		}
+
+		private void DetachHudDragHandlers()
+		{
+			if (hudBorder == null) return;
+			hudBorder.RemoveHandler(Border.PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(OnHudPreviewMouseLeftButtonDown));
+			hudBorder.RemoveHandler(Border.PreviewMouseMoveEvent, new MouseEventHandler(OnHudPreviewMouseMove));
+			hudBorder.RemoveHandler(Border.PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler(OnHudPreviewMouseLeftButtonUp));
+			hudBorder.LostMouseCapture -= OnHudLostMouseCapture;
+		}
+
+		private void BuildHud()
 		{
 			// Attach to the outer grid (ChartControl.Parent), never ChartControl itself —
 			// ChartControl lays out the price panel and a child would squeeze it (side gaps).
 			Grid host = ChartControl != null ? ChartControl.Parent as Grid : null;
 			if (hudBorder != null || host == null) return;
 
-		SolidColorBrush onBrush = new SolidColorBrush(Color.FromRgb(0, 122, 204));
-		SolidColorBrush offBrush = new SolidColorBrush(Color.FromRgb(45, 50, 65));
-
-		Button btnClear = CreateHudButton("Clear", new SolidColorBrush(Color.FromRgb(20, 20, 20)), (s, e) => Dispatcher.InvokeAsync(() => ClearOldSignalDrawings()));
-
-		Button btnArrows = CreateHudButton(cachedShowArrows ? "Arrow: ON" : "Arrow: OFF",
-			cachedShowArrows ? onBrush : offBrush, null);
-		btnArrows.Click += (s, e) =>
-		{
-			cachedShowArrows = !cachedShowArrows;
-			ShowArrows = cachedShowArrows;
-			btnArrows.Content = cachedShowArrows ? "Arrow: ON" : "Arrow: OFF";
-			btnArrows.Background = cachedShowArrows ? onBrush : offBrush;
-			Dispatcher.InvokeAsync(() => ApplyDrawMode(1));
-		};
-
-		Button btnLabels = CreateHudButton(cachedShowLabels ? "Text: ON" : "Text: OFF",
-			cachedShowLabels ? onBrush : offBrush, null);
-		btnLabels.Click += (s, e) =>
-		{
-			cachedShowLabels = !cachedShowLabels;
-			ShowLabels = cachedShowLabels;
-			btnLabels.Content = cachedShowLabels ? "Text: ON" : "Text: OFF";
-			btnLabels.Background = cachedShowLabels ? onBrush : offBrush;
-			Dispatcher.InvokeAsync(() => ApplyDrawMode(2));
-		};
-
-		var row1 = new StackPanel { Orientation = Orientation.Horizontal };
-		row1.Children.Add(btnClear);
-		row1.Children.Add(btnArrows);
-		row1.Children.Add(btnLabels);
-
-		// Row 2: filter toggles — flip the volatile cached flags; the data thread picks them up on the next bar.
-		var row2 = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
-		row2.Children.Add(CreateFilterToggle("A0", onBrush, offBrush, () => cachedA0, v => cachedA0 = v));
-		row2.Children.Add(CreateFilterToggle("MTF", onBrush, offBrush, () => cachedMtf, v => cachedMtf = v));
-		row2.Children.Add(CreateFilterToggle("ADX", onBrush, offBrush, () => cachedAdx, v => cachedAdx = v));
-		row2.Children.Add(CreateFilterToggle("Vol", onBrush, offBrush, () => cachedVol, v => cachedVol = v));
-		row2.Children.Add(CreateFilterToggle("Time", onBrush, offBrush, () => cachedTime, v => cachedTime = v));
-
-		// Row 3: semi-auto bot — OFF by default; trades only while ON. OFF cancels the pending bot entry.
-		var row3 = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
-
-		Button btnBot = CreateHudButton("BOT: OFF", offBrush, null);
-		btnBot.Click += (s, e) =>
-		{
-			cachedBotOn = !cachedBotOn;
-			btnBot.Content = cachedBotOn ? "BOT: ON" : "BOT: OFF";
-			btnBot.Background = cachedBotOn ? onBrush : offBrush;
-			if (!cachedBotOn)
-				Dispatcher.InvokeAsync(() =>
-				{
-					pendingMigrate = false;
-					CancelPendingBotOrder("BOT switched OFF");
-				});
-		};
-		row3.Children.Add(btnBot);
-
-		// ATM template dropdown (sorted; "None" = bare stop order).
-		var atmCombo = new ComboBox
-		{
-			FontSize = 11, Height = 22, Margin = new Thickness(0, 0, 4, 0),
-			Background = offBrush, Foreground = Brushes.White, BorderThickness = new Thickness(0)
-		};
-		atmCombo.Items.Add("None");
-		try
-		{
-			string atmDir = Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "templates", "AtmStrategy");
-			if (Directory.Exists(atmDir))
+			hudCanvas = new Canvas
 			{
-				var names = new List<string>();
-				foreach (string f in Directory.GetFiles(atmDir, "*.xml"))
-					names.Add(Path.GetFileNameWithoutExtension(f));
-				names.Sort(StringComparer.OrdinalIgnoreCase);
-				foreach (string n in names) atmCombo.Items.Add(n);
-			}
-		}
-		catch { }
-		for (int i = 0; i < atmCombo.Items.Count; i++)
-			if (atmCombo.Items[i].ToString().Equals(cachedBotAtm, StringComparison.OrdinalIgnoreCase))
-				atmCombo.SelectedIndex = i;
-		if (atmCombo.SelectedIndex < 0) atmCombo.SelectedIndex = 0;
-		atmCombo.SelectionChanged += (s, e) =>
-		{
-			if (atmCombo.SelectedItem == null) return;
-			cachedBotAtm = atmCombo.SelectedItem.ToString();
-			BotAtmTemplate = cachedBotAtm;
-		};
-		row3.Children.Add(atmCombo);
-
-		// Account dropdown.
-		var accCombo = new ComboBox
-		{
-			FontSize = 11, Height = 22, Margin = new Thickness(0, 0, 4, 0),
-			Background = offBrush, Foreground = Brushes.White, BorderThickness = new Thickness(0)
-		};
-		if (Account.All != null)
-		{
-			foreach (Account acc in Account.All)
-				accCombo.Items.Add(acc.Name);
-		}
-		for (int i = 0; i < accCombo.Items.Count; i++)
-			if (accCombo.Items[i].ToString().Equals(cachedBotAccountName, StringComparison.OrdinalIgnoreCase))
-				accCombo.SelectedIndex = i;
-		if (accCombo.SelectedIndex < 0 && accCombo.Items.Count > 0) accCombo.SelectedIndex = 0;
-		if (accCombo.SelectedItem != null)
-		{
-			cachedBotAccountName = accCombo.SelectedItem.ToString();
-			BotAccountName = cachedBotAccountName;
-		}
-		accCombo.SelectionChanged += (s, e) =>
-		{
-			if (accCombo.SelectedItem == null) return;
-			cachedBotAccountName = accCombo.SelectedItem.ToString();
-			BotAccountName = cachedBotAccountName;
-		};
-		row3.Children.Add(accCombo);
-
-		// Placeholders for future signal entries (A2, A3…).
-		Button btnA2 = CreateHudButton("A2…", offBrush, null);
-		btnA2.IsEnabled = false;
-		Button btnA3 = CreateHudButton("A3…", offBrush, null);
-		btnA3.IsEnabled = false;
-		row3.Children.Add(btnA2);
-		row3.Children.Add(btnA3);
-
-		var panel = new StackPanel { Orientation = Orientation.Vertical };
-		panel.Children.Add(row1);
-		panel.Children.Add(row2);
-		panel.Children.Add(row3);
+				HorizontalAlignment = HorizontalAlignment.Stretch,
+				VerticalAlignment = VerticalAlignment.Stretch,
+				ClipToBounds = false
+			};
+			System.Windows.Controls.Panel.SetZIndex(hudCanvas, 9999);
+			host.Children.Add(hudCanvas);
 
 			hudBorder = new Border
 			{
-				Child = panel,
+				Tag = "Kat8934Panel",
 				Background = new SolidColorBrush(Color.FromArgb(240, 20, 24, 33)),
 				BorderBrush = new SolidColorBrush(Color.FromRgb(35, 42, 56)),
 				BorderThickness = new Thickness(1),
 				CornerRadius = new CornerRadius(6),
 				Padding = new Thickness(8),
+				Width = 240,
 				HorizontalAlignment = HorizontalAlignment.Left,
-				VerticalAlignment = VerticalAlignment.Bottom,
-				Margin = new Thickness(10, 0, 0, 4)
+				VerticalAlignment = VerticalAlignment.Top,
+				Cursor = Cursors.SizeAll
 			};
-			host.Children.Add(hudBorder);
+			hudCanvas.Children.Add(hudBorder);
+			Canvas.SetLeft(hudBorder, hasHudDragPosition ? hudDragLeft : 10);
+			Canvas.SetTop(hudBorder, hasHudDragPosition ? hudDragTop : 10);
+			hudBorder.Loaded += (s, ev) =>
+			{
+				if (!hasHudDragPosition && hudCanvas != null)
+					Canvas.SetTop(hudBorder, Math.Max(0, hudCanvas.ActualHeight - hudBorder.ActualHeight - 10));
+			};
+			AttachHudDragHandlers();
+
+			var mainPanel = new StackPanel();
+
+			mainPanel.Children.Add(new TextBlock
+			{
+				Text = string.Format("⚡ KAT 8934 v{0}", VERSION),
+				Foreground = new SolidColorBrush(Color.FromRgb(70, 130, 160)),
+				FontWeight = FontWeights.Bold,
+				FontSize = 12,
+				Margin = new Thickness(0, 0, 0, 6),
+				HorizontalAlignment = HorizontalAlignment.Left
+			});
+
+			hudStatusText = new TextBlock
+			{
+				Foreground = Brushes.White,
+				FontSize = 10,
+				Margin = new Thickness(0, 0, 0, 6),
+				Height = 32,
+				MinHeight = 32,
+				MaxHeight = 32,
+				TextWrapping = TextWrapping.Wrap,
+				Text = string.Empty
+			};
+			mainPanel.Children.Add(hudStatusText);
+
+			// --- Section 1: Account & ATM ---
+			var sec1 = new StackPanel();
+			var accGrid = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+			accGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(85) });
+			accGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+			var accCombo = new ComboBox { FontSize = 11, Height = 22 };
+			if (Account.All != null)
+				foreach (Account acc in Account.All)
+					accCombo.Items.Add(acc.Name);
+			for (int i = 0; i < accCombo.Items.Count; i++)
+				if (accCombo.Items[i].ToString().Equals(cachedBotAccountName, StringComparison.OrdinalIgnoreCase))
+					accCombo.SelectedIndex = i;
+			if (accCombo.SelectedIndex < 0 && accCombo.Items.Count > 0) accCombo.SelectedIndex = 0;
+			if (accCombo.SelectedItem != null)
+			{
+				cachedBotAccountName = accCombo.SelectedItem.ToString();
+				BotAccountName = cachedBotAccountName;
+			}
+			accCombo.SelectionChanged += (s, e) =>
+			{
+				if (accCombo.SelectedItem == null) return;
+				cachedBotAccountName = accCombo.SelectedItem.ToString();
+				BotAccountName = cachedBotAccountName;
+			};
+			AddGridRow(accGrid, "Acc:", accCombo);
+			sec1.Children.Add(accGrid);
+
+			var atmCombo = new ComboBox { FontSize = 11, Height = 22, HorizontalAlignment = HorizontalAlignment.Stretch };
+			atmCombo.Items.Add("None");
+			try
+			{
+				string atmDir = Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "templates", "AtmStrategy");
+				if (Directory.Exists(atmDir))
+				{
+					var names = new List<string>();
+					foreach (string f in Directory.GetFiles(atmDir, "*.xml"))
+						names.Add(Path.GetFileNameWithoutExtension(f));
+					names.Sort(StringComparer.OrdinalIgnoreCase); // filesystem order is not deterministic
+					foreach (string n in names) atmCombo.Items.Add(n);
+				}
+			}
+			catch { }
+			for (int i = 0; i < atmCombo.Items.Count; i++)
+				if (atmCombo.Items[i].ToString().Equals(cachedBotAtm, StringComparison.OrdinalIgnoreCase))
+					atmCombo.SelectedIndex = i;
+			if (atmCombo.SelectedIndex < 0) atmCombo.SelectedIndex = 0;
+			atmCombo.SelectionChanged += (s, e) =>
+			{
+				if (atmCombo.SelectedItem == null) return;
+				cachedBotAtm = atmCombo.SelectedItem.ToString();
+				BotAtmTemplate = cachedBotAtm;
+			};
+			sec1.Children.Add(atmCombo);
+			mainPanel.Children.Add(CreateSectionCard(sec1, 6));
+
+			// --- Section 2: Filters ---
+			var sec2 = new StackPanel();
+			Grid fRow1 = CreateTwoColGrid();
+			Button tA0 = CreateFilterToggle("A0 fan", () => cachedA0, v => cachedA0 = v);
+			Grid.SetColumn(tA0, 0);
+			fRow1.Children.Add(tA0);
+			Button tMtf = CreateFilterToggle("MTF", () => cachedMtf, v => cachedMtf = v);
+			Grid.SetColumn(tMtf, 2);
+			fRow1.Children.Add(tMtf);
+			sec2.Children.Add(fRow1);
+
+			Grid fRow2 = CreateTwoColGrid();
+			Button tAdx = CreateFilterToggle("ADX", () => cachedAdx, v => cachedAdx = v);
+			Grid.SetColumn(tAdx, 0);
+			fRow2.Children.Add(tAdx);
+			Button tVol = CreateFilterToggle("Volume", () => cachedVol, v => cachedVol = v);
+			Grid.SetColumn(tVol, 2);
+			fRow2.Children.Add(tVol);
+			sec2.Children.Add(fRow2);
+
+			Button tTime = CreateFilterToggle("Time window", () => cachedTime, v => cachedTime = v);
+			sec2.Children.Add(tTime);
+			mainPanel.Children.Add(CreateSectionCard(sec2, 6));
+
+			// --- Section 3: Bot & Display ---
+			var sec3 = new StackPanel();
+			Button btnBot = CreateHudButton("BOT: OFF", hudOffBrush, null, 26, 11);
+			btnBot.Foreground = Brushes.LightGray;
+			btnBot.Margin = new Thickness(0, 0, 0, 4);
+			btnBot.Click += (s, e) =>
+			{
+				cachedBotOn = !cachedBotOn;
+				btnBot.Content = cachedBotOn ? "⚡ BOT: ON" : "BOT: OFF";
+				btnBot.Background = cachedBotOn ? hudOnBrush : hudOffBrush;
+				btnBot.Foreground = cachedBotOn ? Brushes.White : Brushes.LightGray;
+				if (cachedBotOn)
+					ShowHudStatus("BOT ON — A1 signals auto-submit stop orders", Brushes.LightGreen);
+				else
+				{
+					ShowHudStatus("BOT OFF — pending entry cancelled", Brushes.OrangeRed);
+					Dispatcher.InvokeAsync(() =>
+					{
+						pendingMigrate = false;
+						CancelPendingBotOrder("BOT switched OFF");
+					});
+				}
+			};
+			sec3.Children.Add(btnBot);
+
+			Grid dRow = CreateTwoColGrid();
+			Button btnArrows = CreateHudButton(cachedShowArrows ? "Arrow: ON" : "Arrow: OFF",
+				cachedShowArrows ? hudOnBrush : hudOffBrush, null);
+			btnArrows.Foreground = cachedShowArrows ? Brushes.White : Brushes.LightGray;
+			btnArrows.Click += (s, e) =>
+			{
+				cachedShowArrows = !cachedShowArrows;
+				ShowArrows = cachedShowArrows;
+				btnArrows.Content = cachedShowArrows ? "Arrow: ON" : "Arrow: OFF";
+				btnArrows.Background = cachedShowArrows ? hudOnBrush : hudOffBrush;
+				btnArrows.Foreground = cachedShowArrows ? Brushes.White : Brushes.LightGray;
+				Dispatcher.InvokeAsync(() => ApplyDrawMode(1));
+			};
+			Grid.SetColumn(btnArrows, 0);
+			dRow.Children.Add(btnArrows);
+
+			Button btnLabels = CreateHudButton(cachedShowLabels ? "Text: ON" : "Text: OFF",
+				cachedShowLabels ? hudOnBrush : hudOffBrush, null);
+			btnLabels.Foreground = cachedShowLabels ? Brushes.White : Brushes.LightGray;
+			btnLabels.Click += (s, e) =>
+			{
+				cachedShowLabels = !cachedShowLabels;
+				ShowLabels = cachedShowLabels;
+				btnLabels.Content = cachedShowLabels ? "Text: ON" : "Text: OFF";
+				btnLabels.Background = cachedShowLabels ? hudOnBrush : hudOffBrush;
+				btnLabels.Foreground = cachedShowLabels ? Brushes.White : Brushes.LightGray;
+				Dispatcher.InvokeAsync(() => ApplyDrawMode(2));
+			};
+			Grid.SetColumn(btnLabels, 2);
+			dRow.Children.Add(btnLabels);
+			sec3.Children.Add(dRow);
+
+			Grid aRow = CreateTwoColGrid();
+			Button btnA2 = CreateHudButton("A2…", hudOffBrush, null);
+			btnA2.IsEnabled = false;
+			Grid.SetColumn(btnA2, 0);
+			aRow.Children.Add(btnA2);
+			Button btnA3 = CreateHudButton("A3…", hudOffBrush, null);
+			btnA3.IsEnabled = false;
+			Grid.SetColumn(btnA3, 2);
+			aRow.Children.Add(btnA3);
+			sec3.Children.Add(aRow);
+
+			Button btnClear = CreateHudButton("Clear", new SolidColorBrush(Color.FromRgb(20, 20, 20)),
+				(s, e) => Dispatcher.InvokeAsync(() => ClearOldSignalDrawings()));
+			sec3.Children.Add(btnClear);
+			mainPanel.Children.Add(CreateSectionCard(sec3, 0));
+
+			hudBorder.Child = mainPanel;
 		}
 
 		private void RemoveHud()
 		{
-			if (hudBorder != null)
+			StopHudDrag();
+			if (hudStatusTimer != null)
 			{
-				if (hudBorder.Parent is Grid host)
-					host.Children.Remove(hudBorder);
+				hudStatusTimer.Stop();
+				hudStatusTimer = null;
 			}
+			DetachHudDragHandlers();
+			if (hudBorder != null && hudBorder.Parent is Panel borderHost)
+				borderHost.Children.Remove(hudBorder);
 			hudBorder = null;
+			if (hudCanvas != null && hudCanvas.Parent is Grid host)
+				host.Children.Remove(hudCanvas);
+			hudCanvas = null;
+			hudStatusText = null;
 		}
 		#endregion
 

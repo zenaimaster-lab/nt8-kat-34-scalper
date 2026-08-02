@@ -1,6 +1,6 @@
 # NT8 Kat8934 — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.14` (Released: `2026-08-01`)
+**Current Version**: `v0.15` (Released: `2026-08-01`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -38,10 +38,10 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 Parameters group: `Show Version Label` — draws `Kat8934 vX.XX (date)` top-left on the chart (updates on every F5 recompile).
 
 ## HUD
-Small panel at the bottom-left of the chart (graphics match the KatTradeManager HUD: dark navy panel, slate border, borderless white buttons):
-- Row 1: **Clear** — removes all signal drawings; **Arrow: ON/OFF** — signal arrows; **Text: ON/OFF** — BUY/SELL labels. All react immediately.
-- Row 2: **A0 / MTF / ADX / Vol / Time** — runtime filter toggles (blue ON / gray OFF), effective from the next bar.
-- Row 3: **BOT: ON/OFF** — arms/disarms the semi-auto bot (OFF cancels its pending entry); **ATM dropdown**; **Account dropdown**; disabled **A2… / A3…** placeholders for future signals.
+TradeManager-style panel (same colors, sizes and structure): dark navy card `Argb(240,20,24,33)` on a draggable canvas (drag anywhere outside the buttons, clamped so it can't leave the chart), `⚡ KAT 8934 vX.XX` steel-blue header, and a status line (5 s auto-clear) that mirrors bot events — submits, migrations, cancels, fills.
+- **Section 1 — Account & ATM**: `Acc:` row (account dropdown) + ATM template dropdown (sorted, `None` = bare stop order).
+- **Section 2 — Filters**: `A0 fan | MTF`, `ADX | Volume`, `Time window` toggles — blue ON / gray OFF (LightGray text), effective from the next bar.
+- **Section 3 — Bot & Display**: `⚡ BOT: ON/OFF` (default OFF; OFF cancels the pending entry immediately), `Arrow | Text` drawing toggles, disabled `A2… | A3…` placeholders for future signals, dark `Clear` button.
 
 ## Installation in NinjaTrader 8
 
