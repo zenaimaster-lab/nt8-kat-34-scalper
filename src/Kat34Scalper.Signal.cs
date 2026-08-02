@@ -76,6 +76,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			KatTriggerMode mode = ToLogicMode(TriggerMode);
 			int sellPhaseBefore = sellState.Phase;
 			int buyPhaseBefore = buyState.Phase;
+			bool sellTouchedBefore = sellState.Touched89;
+			bool buyTouchedBefore = buyState.Touched89;
 			KatSignalKind? sellSignal = null;
 			KatSignalKind? buySignal = null;
 
@@ -110,45 +112,48 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 						CurrentBar, diagnosticA0Dir, buyAllowed));
 			}
 
-			DrawA1PhaseStatus(false, sellState.Phase, sellState.Touched89, fast, slow);
-			DrawA1PhaseStatus(true, buyState.Phase, buyState.Touched89, fast, slow);
-
+			// Phase-transition milestones (arm / pull / U-turn) + touch milestone - persistent
+			// per-bar markers so A1 setup progression is visible on chart history, not just live.
 			if (sellState.Phase != sellPhaseBefore)
+			{
+				DrawA1PhaseMarker(false, CurrentBar, high, low, sellState.Phase, sellState.Touched89);
 				Print(string.Format("[Kat34Scalper][A1] bar {0} SELL phase {1}->{2}, allowed={3}, trend={4}, close={5:F5}, ema34={6:F5}, ema89={7:F5}",
 					CurrentBar, sellPhaseBefore, sellState.Phase, sellAllowed, fast < slow, close, fast, slow));
+			}
 			if (buyState.Phase != buyPhaseBefore)
+			{
+				DrawA1PhaseMarker(true, CurrentBar, high, low, buyState.Phase, buyState.Touched89);
 				Print(string.Format("[Kat34Scalper][A1] bar {0} BUY phase {1}->{2}, allowed={3}, trend={4}, close={5:F5}, ema34={6:F5}, ema89={7:F5}",
 					CurrentBar, buyPhaseBefore, buyState.Phase, buyAllowed, fast > slow, close, fast, slow));
+			}
+			// Touch milestone - pullback reached ema89 (happens inside phase 2, not a phase change).
+			if (!sellTouchedBefore && sellState.Touched89 && sellState.Phase == 2)
+				DrawA1PhaseMarker(false, CurrentBar, high, low, 2, true);
+			if (!buyTouchedBefore && buyState.Touched89 && buyState.Phase == 2)
+				DrawA1PhaseMarker(true, CurrentBar, high, low, 2, true);
+
 			if (sellSignal.HasValue || buySignal.HasValue)
 				Print(string.Format("[Kat34Scalper][A1] bar {0} result sell={1}, buy={2}, mode={3}",
 					CurrentBar, sellSignal.HasValue ? sellSignal.Value.ToString() : "none",
 					buySignal.HasValue ? buySignal.Value.ToString() : "none", mode));
 		}
 
-		// Live per-side A1 phase status marker on the chart - proves A1 is alive and shows where
-		// the current setup stalls (arm/pull/touch/U-turn). One marker per side; replaces each bar.
-		private void DrawA1PhaseStatus(bool isBuy, int phase, bool touched, double fast, double slow)
+		// Persistent per-bar milestone marker drawn at the bar where an A1 phase changes or ema89
+		// is first touched. Unique tag per bar so each milestone survives on chart history.
+		// Label: A1-arm (phase 1) / A1-pull (phase 2, no touch yet) / A1-pull-T (phase 2, touched)
+		// / A1-U (phase 3 - retest wait, RetestBounce mode only). Buy below the low, sell above the high.
+		private void DrawA1PhaseMarker(bool isBuy, int bar, double high, double low, int phase, bool touched)
 		{
 			if (!cachedA1) return;
-			string tag = "K34S_A1ST_" + (isBuy ? "B" : "S");
-			if (phase == 0)
-			{
-				RemoveDrawObject(tag);
-				return;
-			}
 			string label;
-			double price = fast;
-			if (phase == 1)
-				label = "A1-arm";
-			else if (phase == 2)
-			{
-				label = touched ? "A1-pull-T" : "A1-pull";
-				price = touched ? slow : fast;
-			}
-			else
-				label = "A1-U-turn"; // phase == 3
+			if (phase == 1) label = "A1-arm";
+			else if (phase == 2) label = touched ? "A1-pull-T" : "A1-pull";
+			else if (phase == 3) label = "A1-U";
+			else return;
+			string tag = "K34S_A1ST_" + (isBuy ? "B" : "S") + "_" + bar;
+			double y = isBuy ? low - ArrowOffsetTicks * TickSize : high + ArrowOffsetTicks * TickSize;
 			Brush brush = isBuy ? Brushes.DodgerBlue : Brushes.OrangeRed;
-			Draw.Text(this, tag, label, 0, price, brush);
+			Draw.Text(this, tag, label, 0, y, brush);
 		}
 		#endregion
 	}

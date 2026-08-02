@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.31] — 2026-08-02
+- **Default TriggerMode → Breakdown**: `Kat34ScalperTriggerMode.RetestBounce` → `Breakdown` in `SetDefaults`. Breakdown fires immediately on the U-turn close (4-step sequence: arm → cross → touch ema89 → U-turn), instead of waiting for an extra retest close back through ema34 (5-step). More signals fire on real data — the retest wait was the step that most often expired inside `Max Sequence Bars` (30) on 30s charts.
+- **A1 phase markers rebuilt to milestones (persistent on history)**: the v0.30 live marker reused one tag per side and redrew it every bar at `barsAgo=0`, so only the latest bar carried the label — historical bars showed nothing. Replaced with `DrawA1PhaseMarker` drawing a unique tag per bar (`K34S_A1ST_B/S_<bar>`) at every phase transition and at the ema89 touch, so each milestone persists on chart history. Labels: `A1-arm` / `A1-pull` / `A1-pull-T` (touched ema89) / `A1-U` (RetestBounce phase 3 only). Buy markers below the low, sell above the high (same offset as arrows). Touch tracked via new `sellTouchedBefore`/`buyTouchedBefore` captures around `Kat34ScalperLogic.Update`.
+- **Validation**: 35/35 xunit; CompileCheck 0 errors; NT8 live recompile after deploy.
+- **Graphify entity mapping**: `Kat34Scalper.TriggerMode` (default Breakdown), `Kat34Scalper.EvaluateA1` (touchedBefore capture + milestone draw calls), `Kat34Scalper.DrawA1PhaseMarker`.
 ### [v0.30] — 2026-08-02
 - **A0 signal + filter default OFF**: `cachedA0` true→false — the SIGNAL `A0 fan` sub-module toggle now starts OFF, so the A0 triangle/alert no longer auto-renders on load. `FanFilterEnabled` was already false (A0 fan *filter* OFF). A1 stays ON.
 - **A1 phase status markers (on-chart visibility)**: `EvaluateA1` now draws a live per-side status label on the chart (`K34S_A1ST_B/S`) showing the current A1 state-machine phase — `A1-arm` / `A1-pull` / `A1-pull-T` (touched ema89) / `A1-U-turn` — anchored at the fast/slow EMA on the current bar. One marker per side; replaces each bar; removed when the side returns to idle; cleared by the HUD Clear button. Full entry/SL/TP lines still draw on a completed signal via `DrawSignal`.
