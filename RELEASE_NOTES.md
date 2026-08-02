@@ -1,3 +1,8 @@
+# Release Notes — v0.36 (2026-08-02)
+
+- **A2 self-diagnostics**: a silent A2 now explains itself in NinjaScript Output. New `[Kat34Scalper][A2][GATE]` print on every trend-stack transition (live bar): buyTrend/sellTrend, active-pending flags and the raw e8/e34/e89/e144/e200 values. `SetA2Signal` prints the toggle. The backfill summary now reports replay counters — `backfill done — N day(s), M bar(s) replayed: X entries, Y cancels, Z fills` — so an empty chart is immediately distinguishable: 0 entries (no valid setup in the window) vs entries>0 with cancels catching up (setups died on closes beyond ema34 / trend-stack flips, drawings removed per spec).
+- Verification: 47/47 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.35 (2026-08-02)
 
 - **A2 missing Entry/SL/TP lines fixed**: `RenderSignal` caps line rendering at `Line Length` (7) bars of age, but the A2 label draws permanently — so any A2 pending entry older than 7 bars (or replayed from the History Days backfill) showed `Buy A2` text with no lines. New `KatSignalRecord.KeepAlive` flag: A2 sets it on NewEntry and clears it on Filled; while set, the entry/SL/TP lines render from the entry candle to the current bar regardless of age. Cancel removes the setup outright; filled setups fade normally.

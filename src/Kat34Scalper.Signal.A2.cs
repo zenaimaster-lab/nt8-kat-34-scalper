@@ -40,6 +40,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private KatSignalRecord a2BuyRecord;
 		private string a2SellTextTag;             // "Buy A2"/"Sell A2" label at the entry candle
 		private string a2BuyTextTag;
+		private bool a2GateInit;                  // gate-transition diagnostic state (Filter [GATE] pattern)
+		private bool a2LastBuyTrend;
+		private bool a2LastSellTrend;
+		private int a2ReplayEntries;              // backfill replay counters — prove the window had setups
+		private int a2ReplayCancels;
+		private int a2ReplayFills;
 
 		// HUD entry point. ON: compute + draw the History Days window immediately.
 		// OFF: remove every A2 drawing (entry/SL/TP lines + labels) — nothing else is touched.
@@ -47,6 +53,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			cachedA2 = on;
 			A2Enabled = on;
+			Print(string.Format("[Kat34Scalper][A2] toggled {0}", on ? "ON — backfilling History Days" : "OFF — drawings removed"));
 			if (on)
 			{
 				a2BackfillPending = true;
@@ -101,10 +108,24 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double e144 = fanEmas[0][5][ago];
 			double e200 = fanEmas[0][6][ago];
 
+			bool sellTrend = A2SellTrendOk(e8, e34, e89, e144, e200);
+			bool buyTrend = A2BuyTrendOk(e8, e34, e89, e144, e200);
+
+			// Gate-transition diagnostic (live bar only) — makes a silent A2 explain itself:
+			// trend stack flips and active-pending state are visible in NinjaScript Output.
+			if (ago == 0 && (!a2GateInit || a2LastBuyTrend != buyTrend || a2LastSellTrend != sellTrend))
+			{
+				a2GateInit = true;
+				a2LastBuyTrend = buyTrend;
+				a2LastSellTrend = sellTrend;
+				Print(string.Format("[Kat34Scalper][A2][GATE] bar {0} buyTrend={1}, sellTrend={2}, buyActive={3}, sellActive={4}, e8={5:F2}, e34={6:F2}, e89={7:F2}, e144={8:F2}, e200={9:F2}",
+					CurrentBars[0], buyTrend, sellTrend, buyState.Active, sellState.Active, e8, e34, e89, e144, e200));
+			}
+
 			KatA2Action sellAction = Kat34ScalperLogic.UpdateA2(KatSignalKind.Sell,
-				A2SellTrendOk(e8, e34, e89, e144, e200), high, low, close, e34, A2EntryOffsetTicks, TickSize, sellState);
+				sellTrend, high, low, close, e34, A2EntryOffsetTicks, TickSize, sellState);
 			KatA2Action buyAction = Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy,
-				A2BuyTrendOk(e8, e34, e89, e144, e200), high, low, close, e34, A2EntryOffsetTicks, TickSize, buyState);
+				buyTrend, high, low, close, e34, A2EntryOffsetTicks, TickSize, buyState);
 
 			A2HandleAction(sellAction, false, ago, replay, sellState, ref sellRecord, ref sellTextTag);
 			A2HandleAction(buyAction, true, ago, replay, buyState, ref buyRecord, ref buyTextTag);
@@ -124,6 +145,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			if (action == KatA2Action.NewEntry)
 			{
+				if (replay) a2ReplayEntries++;
 				record = DrawSignal(isBuy, bar, high, low, s.RefExtreme, s.RefExtreme,
 					A2EntryOffsetTicks, A2StopDistanceTicks, A2TargetDistanceTicks, replay, "A2");
 				record.KeepAlive = true; // pending entry — lines must not fade after Line Length bars
@@ -145,12 +167,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 			else if (action == KatA2Action.Cancel)
 			{
+				if (replay) a2ReplayCancels++;
 				if (record != null) { RemoveSignalRecord(record); record = null; }
 				if (textTag != null) { RemoveDrawObject(textTag); textTag = null; }
 				if (!replay) CancelA2BotEntry(isBuy, "A2 entry cancelled (close beyond ema34 / trend lost)");
 			}
 			else // Filled — setup done; drawing fades per Line Length from here, label stays on the candle
 			{
+				if (replay) a2ReplayFills++;
 				if (record != null) record.KeepAlive = false;
 				record = null;
 				textTag = null;
@@ -199,6 +223,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			KatSignalRecord buyRecord = null;
 			string sellTextTag = null;
 			string buyTextTag = null;
+			a2ReplayEntries = 0;
+			a2ReplayCancels = 0;
+			a2ReplayFills = 0;
 			for (int ago = start; ago >= 0; ago--)
 				RunA2Bar(ago, true, tmpSell, tmpBuy, ref sellRecord, ref buyRecord, ref sellTextTag, ref buyTextTag);
 			a2SellState.CopyFrom(tmpSell);
@@ -207,8 +234,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			a2BuyRecord = buyRecord;
 			a2SellTextTag = sellTextTag;
 			a2BuyTextTag = buyTextTag;
-			Print(string.Format("[Kat34Scalper][A2] backfill done — {0} day(s), {1} bar(s) replayed; live states synced (sell active {2}, buy active {3}).",
-				A2HistoryDays, start + 1, a2SellState.Active, a2BuyState.Active));
+			Print(string.Format("[Kat34Scalper][A2] backfill done — {0} day(s), {1} bar(s) replayed: {2} entries, {3} cancels, {4} fills; live states synced (sell active {5}, buy active {6}).",
+				A2HistoryDays, start + 1, a2ReplayEntries, a2ReplayCancels, a2ReplayFills, a2SellState.Active, a2BuyState.Active));
 		}
 	}
 }

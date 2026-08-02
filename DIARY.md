@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.36] — 2026-08-02
+- **A2 gate-transition diagnostics + replay counters**: user reported chart fully empty after v0.35 (no lines, no text). Trace/log showed no exception; v0.35 never touched the text path → the chart had zero A2 actions to draw (toggle reverted OFF on reload, setups legitimately cancelled, or no valid 34+++ stack in the window — indistinguishable from outside). New observability: `[Kat34Scalper][A2][GATE]` prints on every buy/sell trend-stack flip (live bar, Filter-[GATE] pattern: trends + active flags + raw ema values); `SetA2Signal` prints the toggle; backfill summary includes replay counters (`X entries, Y cancels, Z fills` — `a2ReplayEntries/Cancels/Fills` incremented in `A2HandleAction` during replay). Open New → NinjaScript Output to see exactly why A2 is silent.
+- **Validation**: 47/47 xunit; CompileCheck 0 errors; NT8 recompile via Deploy-NT8.ps1.
+- **Graphify entity mapping**: `Kat34Scalper.RunA2Bar` (gate print), `Kat34Scalper.SetA2Signal` (toggle print), `Kat34Scalper.BackfillA2` (replay counters), `a2GateInit/a2LastBuyTrend/a2LastSellTrend`, `a2ReplayEntries/Cancels/Fills`.
+
 ### [v0.35] — 2026-08-02
 - **Fix — A2 Entry/SL/TP lines invisible**: root cause = `RenderSignal` only draws lines while `age <= Line Length` (7 bars); the A2 text label has no age gate. Pending A2 entries live far longer than 7 bars (and backfill-replayed setups start old), so the chart showed `Buy A2` text with zero lines. New `KatSignalRecord.KeepAlive`: A2 NewEntry sets it, Filled clears it; `RenderSignal` skips the age cap while set → lines render from the entry candle to the current bar for the whole life of the pending entry. Cancel still removes lines + label immediately; filled setups fade per `Line Length`.
 - **Validation**: 47/47 xunit; CompileCheck 0 errors; NT8 recompile via Deploy-NT8.ps1.
