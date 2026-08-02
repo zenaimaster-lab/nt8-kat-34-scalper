@@ -22,10 +22,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private volatile bool cachedVol;
 		private volatile bool cachedTime;
 
-		// Fan gate + MTF + market + time. a0Dir comes from the Signal module (0 = A0 off or no fan).
+		// Fan gate + MTF + market + time. a0Dir comes from the independent A0 fan calculation.
 		private void PassFilters(int a0Dir, out bool sellAllowed, out bool buyAllowed)
 		{
-			bool fanOff = !cachedA0 || !FanFilterEnabled;
+			bool fanOff = !FanFilterEnabled;
 			bool pass = (fanOff || a0Dir != 0) && MtfPass(a0Dir) && MarketPass() && TimePass();
 			sellAllowed = pass && (fanOff || a0Dir < 0);
 			buyAllowed  = pass && (fanOff || a0Dir > 0);

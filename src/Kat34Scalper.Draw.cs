@@ -602,27 +602,32 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			secSignal.Children.Add(sRow2);
 			mainPanel.Children.Add(CreateSectionCard(secSignal, 6));
 
-			// --- FILTER module: MTF, ADX, Volume, Time window gates ---
+			// --- FILTER module: A0 fan gate, MTF, ADX, Volume, Time window ---
 			mainPanel.Children.Add(CreateModuleTitle("FILTER"));
 			var secFilter = new StackPanel();
 			Grid fRow1 = CreateTwoColGrid();
+			Button tFan = CreateFilterToggle("A0 Fan", () => FanFilterEnabled, v => FanFilterEnabled = v);
+			Grid.SetColumn(tFan, 0);
+			fRow1.Children.Add(tFan);
 			Button tMtf = CreateFilterToggle("MTF", () => cachedMtf, v => cachedMtf = v);
-			Grid.SetColumn(tMtf, 0);
+			Grid.SetColumn(tMtf, 2);
 			fRow1.Children.Add(tMtf);
 			Button tAdx = CreateFilterToggle("ADX", () => cachedAdx, v => cachedAdx = v);
-			Grid.SetColumn(tAdx, 2);
-			fRow1.Children.Add(tAdx);
-			secFilter.Children.Add(fRow1);
-
 			Grid fRow2 = CreateTwoColGrid();
 			fRow2.Margin = new Thickness(0);
+			Grid.SetColumn(tAdx, 0);
+			fRow2.Children.Add(tAdx);
 			Button tVol = CreateFilterToggle("Volume", () => cachedVol, v => cachedVol = v);
-			Grid.SetColumn(tVol, 0);
-			fRow2.Children.Add(tVol);
 			Button tTime = CreateFilterToggle("Time window", () => cachedTime, v => cachedTime = v);
-			Grid.SetColumn(tTime, 2);
-			fRow2.Children.Add(tTime);
+			Grid.SetColumn(tVol, 2);
+			fRow2.Children.Add(tVol);
+			Grid fRow3 = CreateTwoColGrid();
+			fRow3.Margin = new Thickness(0);
+			Grid.SetColumn(tTime, 0);
+			fRow3.Children.Add(tTime);
+			secFilter.Children.Add(fRow1);
 			secFilter.Children.Add(fRow2);
+			secFilter.Children.Add(fRow3);
 			mainPanel.Children.Add(CreateSectionCard(secFilter, 6));
 
 			// --- BOT module: account, ATM template, BOT on/off ---

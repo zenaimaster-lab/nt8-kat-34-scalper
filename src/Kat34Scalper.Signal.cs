@@ -2,7 +2,7 @@
  * Kat34Scalper.Signal.cs — Signal module (partial class Kat34Scalper).
  * Owns every signal sub-module; each sub-module evaluates its own state and fires
  * Draw + Bot on a trigger. New signals (A2, A3, ...) plug in as a new region here.
- *   A0 — EMA-ribbon fan (9/21/34/55/89/144/200): triangle marker + alert, gates A1 direction.
+ *   A0 — EMA-ribbon fan (9/21/34/55/89/144/200): independent triangle marker + alert.
  *   A1 — 89-34 pullback: arm beyond ema34 -> close-basis cross -> ema89 touch -> U-turn close.
  */
 
@@ -40,14 +40,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		#region Sub-module A0 — EMA-ribbon fan signal
 		// Returns the current primary fan direction (-1 sell / 0 none / +1 buy).
-		// 0 also when the sub-module is off — the Filter module then treats the fan gate as open.
+		// Signal rendering is controlled by cachedA0; returned direction remains available to A1 filters.
 		private int EvaluateA0Fan()
 		{
-			if (!cachedA0 || !FanFilterEnabled) return 0;
 			if (fanEmas == null || CurrentBars[0] < FanPeriods[FanPeriods.Length - 1] + FanSpreadLookback) return 0;
 
 			int dir = SeriesFanDirection(0);
-			if (dir != 0 && !a0Alerted)
+			if (dir != 0 && cachedA0 && !a0Alerted)
 			{
 				a0Alerted = true;
 				PlayAlertSound();
@@ -58,9 +57,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					Draw.TriangleDown(this, "K34S_A0_" + CurrentBar, false, 0, y, Brushes.OrangeRed);
 				Print(string.Format("[Kat34Scalper] A0 {0} fan @ bar {1}", dir > 0 ? "BUY" : "SELL", CurrentBar));
 			}
-			else if (dir == 0)
+			else if (dir == 0 || !cachedA0)
 			{
-				a0Alerted = false; // fan collapsed — re-arm the alert
+				a0Alerted = false; // fan collapsed or A0 signal disabled — re-arm on next enabled episode
 			}
 			return dir;
 		}

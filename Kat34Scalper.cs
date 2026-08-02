@@ -1,13 +1,13 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.28 (2026-08-02)
+ * Version: 0.29 (2026-08-02)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Module layout (partial classes):
  *   Kat34Scalper.cs            — main: state, OnStateChange, OnBarUpdate orchestration, settings
  *   src/Kat34ScalperLogic.cs   — pure signal/filter math + ATM parser (zero NT8 deps, xunit-tested)
  *   src/Kat34Scalper.Signal.cs — Signal module: sub-module A0 (EMA-ribbon fan) + sub-module A1 (89-34 pullback)
- *   src/Kat34Scalper.Filter.cs — Filter module: MTF fan, ADX, Volume, Time window gates
+ *   src/Kat34Scalper.Filter.cs — Filter module: A0 fan gate, MTF, ADX, Volume, Time window gates
  *   src/Kat34Scalper.Bot.cs    — Bot module: signal -> order (stop/limit conversion), migration, ATM brackets
  *   src/Kat34Scalper.Draw.cs   — Draw module: entry/SL/TP/trigger lines, arrows, labels, HUD (module-titled sections)
  *
@@ -87,7 +87,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.28";
+		public const string VERSION = "0.29";
 		public const string RELEASE_DATE = "2026-08-02";
 
 		// Indicator series (primary chart TF + optional MTF BarsArrays)
@@ -254,10 +254,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "Show Version Label", Order = 0, GroupName = "Parameters")]
 		public bool ShowVersion { get; set; }
 
-		// --- 1. Filters (A0 EMA-ribbon fan 9/21/34/55/89/144/200, MTF, market, time) ---
+		// --- 1. Filters (A0 fan gate for A1, MTF, market, time) ---
 		[NinjaScriptProperty]
 		[Display(Name = "A0 Fan Filter Enabled", Order = 1, GroupName = "1. Filters",
-			Description = "A1 signals need the 9/21/34/55/89/144/200 EMA ribbon fanned out in the signal direction.")]
+			Description = "Gates A1 only: A1 signals need the 9/21/34/55/89/144/200 EMA ribbon fanned out in the signal direction. Does not enable or disable the A0 fan signal marker.")]
 		public bool FanFilterEnabled { get; set; }
 
 		[NinjaScriptProperty]

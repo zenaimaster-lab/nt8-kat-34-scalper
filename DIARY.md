@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.29] — 2026-08-02
+- **A0 architecture separation**: `EvaluateA0Fan` always calculates and returns ribbon direction; `cachedA0` now controls only A0 triangle/alert rendering. `FanFilterEnabled` no longer suppresses A0 output.
+- **A1-only fan filter**: `PassFilters` gates A1 with `FanFilterEnabled` alone, so A1 fan filtering remains usable when the A0 visual signal toggle is off. HUD now places `A0 Fan` under FILTER while SIGNAL retains `A0 fan`.
+- **Defaults/docs**: all filter gates remain OFF by default; source and README explicitly distinguish A0 signal output from the A1 fan filter.
+- **Graphify entity mapping**: `Kat34Scalper.EvaluateA0Fan`, `Kat34Scalper.PassFilters`, `Kat34Scalper.BuildHud`, `Kat34Scalper.FanFilterEnabled`.
 ### [v0.28] — 2026-08-02
 - **A1 progression bug fixed**: `EvaluateA1` previously skipped `Kat34ScalperLogic.Update` whenever A0/fan filters returned `sellAllowed=false` or `buyAllowed=false`. A normal EMA pullback collapses the ribbon, so A1 froze before touch/U-turn and could never reach `DrawSignal`. Both A1 state machines now advance on every primary bar while 34/89 trend is valid; enabled filters gate completed signal emission.
 - **Graphify entity mapping**: `Kat34Scalper.EvaluateA1`, `Kat34ScalperLogic.Update`, `Kat34Scalper.DrawSignal`.

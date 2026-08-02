@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.28` (Released: `2026-08-02`)
+**Current Version**: `v0.29` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -15,19 +15,21 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | `src/Kat34Scalper.Bot.cs` | **Bot** | signal → order conversion (stop on valid side, limit when price ran past), ATM brackets, migration, trend-flip cancel |
 | `src/Kat34Scalper.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, arrows, labels, legacy drawing cleanup, version label, alert sound, HUD (sections titled SIGNAL / FILTER / BOT / DRAW) |
 
-Per bar the pipeline runs: **Signal** (A0) → **Filter** (gates) → **Signal** (A1) → fires **Draw** + **Bot**.
+Per bar the pipeline runs: **Signal** (A0 direction/marker) → **Filter** (A1-only gates) → **Signal** (A1) → fires **Draw** + **Bot**.
 
 ## Signals
 
-### 1. Filters (A0 fan + market gates)
-- **A0 fan**: EMAs 9/21/34/55/89/144/200 strictly ordered **and** spreading (EMA9↔EMA200 wider than `Fan Spread Lookback` bars ago, at least `Fan Min Spread (ticks)`). First bar of a fan episode draws a small triangle (buy blue below / sell orange above) and plays the `Alert Sound`. Re-arms when the fan collapses.
+### 1. Signal (A0 fan)
+- **A0 fan signal**: EMAs 9/21/34/55/89/144/200 strictly ordered **and** spreading (EMA9↔EMA200 wider than `Fan Spread Lookback` bars ago, at least `Fan Min Spread (ticks)`). First bar of a fan episode draws a small triangle (buy blue below / sell orange above) and plays the `Alert Sound` when the SIGNAL `A0 fan` toggle is ON. Re-arms when the fan collapses.
+
+### 2. Filters (A1-only gates)
+- **A0 Fan Filter**: when enabled, A1 requires the A0 ribbon direction; it never controls A0 marker/alert rendering. OFF by default.
 - **MTF**: optional 3m / 5m / 15m ribbons must fan in the same direction (per-TF ON/OFF in settings). A secondary data series is added **only** for enabled timeframes — with all MTF off (default) the chart keeps its single primary series and every other chart indicator (your EMAs) is completely untouched.
 - **Market**: ADX ≥ `ADX Min` (blocks sideways) and bar volume ≥ `Volume Min (x SMA)` × volume SMA (blocks dead bars).
 - **Time window**: `HH:mm` machine-local start/end; overnight wraps midnight; equal start/end disables.
-- **Every filter gate is OFF by default** (settings + HUD toggles start OFF) — A1 fires on trend alone out of the box. Enable gates one by one as needed.
+- **Every filter gate is OFF by default** (A0 Fan Filter, MTF, ADX, Volume, Time, and HUD toggles) — A1 fires on trend alone out of the box. Enable gates one by one as needed.
 - A1 (Sell/Buy) setup state progresses while 34/89 trend remains valid; A0 fan and other enabled gates decide whether a completed trigger is emitted.
-
-### 2. Signal (shared by Sell and Buy — mirrored mechanism)
+### A1 Signal (shared by Sell and Buy — mirrored mechanism)
 - **Context**: Fast EMA vs Slow EMA — Sell: fast below slow (downtrend); Buy: fast above slow.
 - **Sequence** (every step on close basis, wicks don't cross):
   1. **Armed**: price closes beyond the fast EMA (Sell: below / Buy: above).
@@ -59,7 +61,7 @@ Parameters group: `Show Version Label` — draws `Kat34Scalper vX.XX (date) [cha
 ## HUD
 TradeManager-style panel (same colors, sizes and structure): dark navy card `Argb(240,20,24,33)` on a draggable canvas (drag anywhere outside the buttons, clamped so it can't leave the chart), `⚡ KAT 34 SCALPER vX.XX` steel-blue header, and a status line (5 s auto-clear) that mirrors bot events — submits, migrations, cancels, fills. Each section carries a **module title** naming the module it controls:
 - **SIGNAL**: `A0 fan` + `A1 89-34` sub-module toggles, disabled `A2… | A3…` placeholders for future signal sub-modules.
-- **FILTER**: `MTF | ADX`, `Volume | Time window` toggles — blue ON / gray OFF, effective from the next bar.
+- **FILTER**: `A0 Fan | MTF`, `ADX | Volume`, `Time window` toggles — blue ON / gray OFF, effective from the next bar. All OFF by default.
 - **BOT**: `Acc:` row (account dropdown), ATM template dropdown (sorted, `None` = bare stop order), `⚡ BOT: ON/OFF` (default OFF; OFF cancels the pending entry immediately).
 - **DRAW**: `Arrow | Text` drawing toggles, dark `Clear` button.
 

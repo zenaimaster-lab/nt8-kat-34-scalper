@@ -1,3 +1,10 @@
+# Release Notes — v0.29 (2026-08-02)
+
+- **A0 signal/filter separation**: the SIGNAL `A0 fan` toggle now controls only A0 triangle/alert output. A0 direction is still calculated independently for A1 evaluation.
+- **A1-only A0 Fan Filter**: moved the `A0 Fan` toggle into the HUD FILTER section and made `FanFilterEnabled` gate A1 only; disabling the A0 signal no longer disables A1 fan filtering.
+- **Filter defaults**: A0 Fan Filter, MTF, ADX, Volume, and Time gates remain OFF by default.
+- Verification: 35/35 xunit, CompileCheck 0 errors, NT8 deployment/recompile accepted, Graphify updated.
+
 # Release Notes — v0.28 (2026-08-02)
 
 - **A1 setup progression fixed**: A1 state machines now advance on every primary bar while 34/89 trend is valid. Previously the A0/fan gate prevented state updates during ribbon compression, making touch/U-turn sequences impossible and leaving DrawSignal unreachable. Filters still gate completed signal emission.
