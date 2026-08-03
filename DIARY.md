@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.47] — 2026-08-02
+- **Fix — A4 Historical Backfill Clutter ("Chùm Signals")**:
+  - Root cause: `BackfillA4()` in `src/Kat34Scalper.Signal.A4.cs` previously looped over every historical bar in `A4HistoryDays` (thousands of bars) and created `KatSignalRecord` objects + chart drawings (`"BUY A4"` / `"SELL A4"`) on every past candle. Since A4 is an OCO prev-bar entry strategy that evaluates on every bar, this resulted in a dense wall/cluster of text labels and dashed lines stacked across the chart.
+  - Fix: Disabled historical backfill loop in `BackfillA4()`. A4 now strictly manages only the 1 active BUY line set and 1 active SELL line set for the current candle, clearing previous drawings when updating or toggling.
+- **Graphify entity mapping**: `Kat34Scalper.Signal.A4.cs` (`SetA4Signal`, `EvaluateA4`, `BackfillA4`, `ClearA4Drawings`).
+
 ### [v0.46] — 2026-08-02
 - **Fix — Dynamic Contract Quantity from Selected ATM Strategy**:
   - Root cause: `Kat34ScalperAtmParser` previously only extracted tick distances for StopLoss/Target/Triggers and skipped contract quantities (`EntryQuantity` / bracket `<Quantity>`). Order submission in `Kat34Scalper.Bot.cs` passed `BotOrderQuantity` (default 1) to `acc.CreateOrder(...)`. When `AtmStrategy.StartAtmStrategy(tpl, order)` was called, NT8 executed the entry order with its assigned quantity of 1 contract, ignoring contract quantities defined in the user's selected ATM template (e.g. 2ct, 3ct).
