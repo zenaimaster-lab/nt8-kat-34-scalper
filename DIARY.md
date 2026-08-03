@@ -19,6 +19,14 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.51] — 2026-08-02
+- **HUD Section Layout & Signal Button Labels Refactor**:
+  - HUD Section Reordering: Moved `BOT` section to the top position (directly after status header), followed by `FILTER`, `SIGNAL`, and `DRAW` sections.
+  - Signal Button Typography & Labels:
+    - Removed `: OFF` suffix text from toggles in `CreateFilterToggle`. Inactive buttons now rely purely on Gray background (`#2D3241`) with LightGray text, while active buttons use Light Blue background (`#007ACC`) with White text.
+    - Updated Signal button label styles to: `A1 (fan)`, `A2 (89-u-34)`, `A3 (34+8+Bounce)`, `A4 (OCO pre candle)`, and `A5 (8x34)`.
+  - Graphify entity mapping: `Kat34Scalper.Draw.cs` (`BuildHud`, `CreateFilterToggle`).
+
 ### [v0.50] — 2026-08-02
 - **HUD Button Dimensions & Typography Standard**:
   - Feature: Updated `CreateFilterToggle` in `src/Kat34Scalper.Draw.cs` with explicit optional height (`24`) and fontSize (`10`) parameters matching `nt8-kat-TradeManager`.

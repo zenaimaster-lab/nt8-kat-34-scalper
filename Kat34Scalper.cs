@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.50 (2026-08-02)
+ * Version: 0.51 (2026-08-02)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>

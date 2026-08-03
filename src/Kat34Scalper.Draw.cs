@@ -506,13 +506,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private Button CreateFilterToggle(string label, Func<bool> getter, Action<bool> setter, double height = 24, double fontSize = 10)
 		{
-			Button btn = CreateHudButton(getter() ? label : label + ": OFF", getter() ? hudOnBrush : hudOffBrush, null, height, fontSize);
+			Button btn = CreateHudButton(label, getter() ? hudOnBrush : hudOffBrush, null, height, fontSize);
 			btn.Foreground = getter() ? Brushes.White : Brushes.LightGray;
 			btn.Click += (s, e) =>
 			{
 				setter(!getter());
 				bool on = getter();
-				btn.Content = on ? label : label + ": OFF";
+				btn.Content = label;
 				btn.Background = on ? hudOnBrush : hudOffBrush;
 				btn.Foreground = on ? Brushes.White : Brushes.LightGray;
 			};
@@ -560,11 +560,27 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			while (src != null)
 			{
 				if (src is System.Windows.Controls.Primitives.ButtonBase
+					|| src is TextBox
 					|| src is ComboBox
 					|| src is System.Windows.Controls.Primitives.Selector
-					|| src is TextBox)
+					|| src is System.Windows.Controls.Primitives.Thumb)
 					return true;
 				src = GetHudParent(src);
+			}
+			return false;
+		}
+
+		private bool IsHudDragSource(DependencyObject source)
+		{
+			if (source == null || hudBorder == null) return false;
+			DependencyObject current = source;
+			while (current != null)
+			{
+				if (ReferenceEquals(current, hudBorder))
+					return !IsInteractiveVisual(source);
+				DependencyObject parent = GetHudParent(current);
+				if (ReferenceEquals(parent, current)) break;
+				current = parent;
 			}
 			return false;
 		}
@@ -575,8 +591,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (IsInteractiveVisual(e.OriginalSource as DependencyObject)) return;
 			hudDragStart = e.GetPosition(hudCanvas);
 			hudDragStartLeft = Canvas.GetLeft(hudBorder);
-			if (double.IsNaN(hudDragStartLeft)) hudDragStartLeft = 10;
 			hudDragStartTop = Canvas.GetTop(hudBorder);
+			if (double.IsNaN(hudDragStartLeft)) hudDragStartLeft = 10;
 			if (double.IsNaN(hudDragStartTop)) hudDragStartTop = 10;
 			isHudDragging = Mouse.Capture(hudBorder, CaptureMode.SubTree);
 			e.Handled = isHudDragging;
@@ -705,59 +721,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				Text = string.Empty
 			};
 			mainPanel.Children.Add(hudStatusText);
-
-			// --- SIGNAL module: independent sub-module toggles (A0 fan, A1 89-34) + future signal slots ---
-			// ON backfills the module's History Days window immediately; OFF removes only that module's drawings.
-			mainPanel.Children.Add(CreateModuleTitle("SIGNAL"));
-			var secSignal = new StackPanel();
-			Grid sRow = CreateTwoColGrid();
-			Button tA0 = CreateFilterToggle("A0 fan", () => cachedA0, v => SetA0Signal(v));
-			Grid.SetColumn(tA0, 0);
-			sRow.Children.Add(tA0);
-			Button tA1 = CreateFilterToggle("A1 89-34", () => cachedA1, v => SetA1Signal(v));
-			Grid.SetColumn(tA1, 2);
-			sRow.Children.Add(tA1);
-			secSignal.Children.Add(sRow);
-
-			Grid sRow2 = CreateTwoColGrid();
-			Button btnA2 = CreateFilterToggle("A2 34+8", () => cachedA2, v => SetA2Signal(v));
-			Grid.SetColumn(btnA2, 0);
-			sRow2.Children.Add(btnA2);
-			Button btnA3 = CreateFilterToggle("A3 8x34", () => cachedA3, v => SetA3Signal(v));
-			Grid.SetColumn(btnA3, 2);
-			sRow2.Children.Add(btnA3);
-			secSignal.Children.Add(sRow2);
-
-			Grid sRow3 = CreateTwoColGrid();
-			sRow3.Margin = new Thickness(0);
-			Button btnA4 = CreateFilterToggle("A4 OCO", () => cachedA4, v => SetA4Signal(v));
-			Grid.SetColumn(btnA4, 0);
-			sRow3.Children.Add(btnA4);
-			secSignal.Children.Add(sRow3);
-			mainPanel.Children.Add(CreateSectionCard(secSignal, 6));
-
-
-			// --- FILTER module: MTF, ADX, Volume, Time window (A0 fan gate removed) ---
-			mainPanel.Children.Add(CreateModuleTitle("FILTER"));
-			var secFilter = new StackPanel();
-			Grid fRow1 = CreateTwoColGrid();
-			Button tMtf = CreateFilterToggle("MTF", () => cachedMtf, v => cachedMtf = v);
-			Grid.SetColumn(tMtf, 0);
-			fRow1.Children.Add(tMtf);
-			Button tAdx = CreateFilterToggle("ADX", () => cachedAdx, v => cachedAdx = v);
-			Grid.SetColumn(tAdx, 2);
-			fRow1.Children.Add(tAdx);
-			Button tVol = CreateFilterToggle("Volume", () => cachedVol, v => cachedVol = v);
-			Grid fRow2 = CreateTwoColGrid();
-			fRow2.Margin = new Thickness(0);
-			Grid.SetColumn(tVol, 0);
-			fRow2.Children.Add(tVol);
-			Button tTime = CreateFilterToggle("Time window", () => cachedTime, v => cachedTime = v);
-			Grid.SetColumn(tTime, 2);
-			fRow2.Children.Add(tTime);
-			secFilter.Children.Add(fRow1);
-			secFilter.Children.Add(fRow2);
-			mainPanel.Children.Add(CreateSectionCard(secFilter, 6));
 
 			// --- BOT module: account, ATM template, BOT on/off ---
 			mainPanel.Children.Add(CreateModuleTitle("BOT"));
@@ -940,6 +903,58 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			secBot.Children.Add(dailyRiskGrid);
 			mainPanel.Children.Add(CreateSectionCard(secBot, 6));
+
+			// --- FILTER module: MTF, ADX, Volume, Time window (A0 fan gate removed) ---
+			mainPanel.Children.Add(CreateModuleTitle("FILTER"));
+			var secFilter = new StackPanel();
+			Grid fRow1 = CreateTwoColGrid();
+			Button tMtf = CreateFilterToggle("MTF", () => cachedMtf, v => cachedMtf = v);
+			Grid.SetColumn(tMtf, 0);
+			fRow1.Children.Add(tMtf);
+			Button tAdx = CreateFilterToggle("ADX", () => cachedAdx, v => cachedAdx = v);
+			Grid.SetColumn(tAdx, 2);
+			fRow1.Children.Add(tAdx);
+			Button tVol = CreateFilterToggle("Volume", () => cachedVol, v => cachedVol = v);
+			Grid fRow2 = CreateTwoColGrid();
+			fRow2.Margin = new Thickness(0);
+			Grid.SetColumn(tVol, 0);
+			fRow2.Children.Add(tVol);
+			Button tTime = CreateFilterToggle("Time window", () => cachedTime, v => cachedTime = v);
+			Grid.SetColumn(tTime, 2);
+			fRow2.Children.Add(tTime);
+			secFilter.Children.Add(fRow1);
+			secFilter.Children.Add(fRow2);
+			mainPanel.Children.Add(CreateSectionCard(secFilter, 6));
+
+			// --- SIGNAL module: independent sub-module toggles ---
+			// ON backfills the module's History Days window immediately; OFF removes only that module's drawings.
+			mainPanel.Children.Add(CreateModuleTitle("SIGNAL"));
+			var secSignal = new StackPanel();
+			Grid sRow = CreateTwoColGrid();
+			Button tA0 = CreateFilterToggle("A1 (fan)", () => cachedA0, v => SetA0Signal(v));
+			Grid.SetColumn(tA0, 0);
+			sRow.Children.Add(tA0);
+			Button tA1 = CreateFilterToggle("A2 (89-u-34)", () => cachedA1, v => SetA1Signal(v));
+			Grid.SetColumn(tA1, 2);
+			sRow.Children.Add(tA1);
+			secSignal.Children.Add(sRow);
+
+			Grid sRow2 = CreateTwoColGrid();
+			Button btnA2 = CreateFilterToggle("A3 (34+8+Bounce)", () => cachedA2, v => SetA2Signal(v));
+			Grid.SetColumn(btnA2, 0);
+			sRow2.Children.Add(btnA2);
+			Button btnA4 = CreateFilterToggle("A4 (OCO pre candle)", () => cachedA4, v => SetA4Signal(v));
+			Grid.SetColumn(btnA4, 2);
+			sRow2.Children.Add(btnA4);
+			secSignal.Children.Add(sRow2);
+
+			Grid sRow3 = CreateTwoColGrid();
+			sRow3.Margin = new Thickness(0);
+			Button btnA3 = CreateFilterToggle("A5 (8x34)", () => cachedA3, v => SetA3Signal(v));
+			Grid.SetColumn(btnA3, 0);
+			sRow3.Children.Add(btnA3);
+			secSignal.Children.Add(sRow3);
+			mainPanel.Children.Add(CreateSectionCard(secSignal, 6));
 
 			// --- DRAW module: Clear removes all drawings from this HUD (signals + A0 + A1 stages) ---
 			mainPanel.Children.Add(CreateModuleTitle("DRAW"));
