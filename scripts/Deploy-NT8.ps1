@@ -22,6 +22,15 @@ Get-ChildItem $indicators -Filter 'Kat8934*.cs' -ErrorAction SilentlyContinue | 
     Write-Host "removed legacy: $($_.Name)"
 }
 
+# Clean up orphaned Kat34Scalper files in NT8 Indicators folder that no longer exist in src\
+$targetLeaves = $files | ForEach-Object { Split-Path $_ -Leaf }
+Get-ChildItem $indicators -Filter 'Kat34Scalper*.cs' -ErrorAction SilentlyContinue | ForEach-Object {
+    if ($targetLeaves -notcontains $_.Name) {
+        Remove-Item $_.FullName -Force
+        Write-Host "removed orphan: $($_.Name)"
+    }
+}
+
 $deployTime = Get-Date
 foreach ($f in $files) {
     $src = Join-Path $repoRoot $f
