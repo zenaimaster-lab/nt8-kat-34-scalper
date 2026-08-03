@@ -131,6 +131,18 @@ namespace Kat34Scalper
 		}
 
 		/// <summary>
+		/// A3 (8cross34): EMA cross direction between the previous and current bar.
+		/// +1 = crossed up (was &lt;=, now &gt;), -1 = crossed down (was &gt;=, now &lt;), 0 = no cross.
+		/// An exact touch on the previous bar counts as "not yet crossed" (equals = still on the old side).
+		/// </summary>
+		public static int CrossDirection(double prevFast, double prevSlow, double fast, double slow)
+		{
+			if (prevFast <= prevSlow && fast > slow) return 1;
+			if (prevFast >= prevSlow && fast < slow) return -1;
+			return 0;
+		}
+
+		/// <summary>
 		/// Normalizes an ATM quick-set button label: trimmed, at most 3 characters, falling back to
 		/// the default letter when empty/whitespace. Same contract as KatTradeManager.
 		/// </summary>

@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.37 (2026-08-02)
+ * Version: 0.38 (2026-08-02)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -12,6 +12,7 @@
  *   src/Kat34Scalper.Signal.A0.cs — Signal sub-module A0: EMA-ribbon fan (independent)
  *   src/Kat34Scalper.Signal.A1.cs — Signal sub-module A1: 89-34 pullback (independent)
  *   src/Kat34Scalper.Signal.A2.cs — Signal sub-module A2: 34+8+Bounce ema34-touch pending entry (independent)
+ *   src/Kat34Scalper.Signal.A3.cs — Signal sub-module A3: 8cross34 (ema8 cross ema34 -> Buy/Sell, independent)
  *   src/Kat34Scalper.Filter.cs    — Filter module: MTF, ADX, Volume, Time window gates (A0 fan gate removed)
  *   src/Kat34Scalper.Bot.cs       — Bot module: signal -> order (stop/limit conversion), migration, ATM brackets
  *   src/Kat34Scalper.Draw.cs      — Draw module: entry/SL/TP/trigger lines, HUD (module-titled sections); arrows/text removed; Clear nukes all K34S_*; per-signal ownership prefix K34S_<OWNER>_
@@ -86,7 +87,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.37";
+		public const string VERSION = "0.38";
 		public const string RELEASE_DATE = "2026-08-02";
 
 		// Indicator series (primary chart TF + optional MTF BarsArrays)
@@ -159,9 +160,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			A2CondEma34Above89			= true;
 			A2CondEma89Above144			= true;
 			A2CondEma144Above200			= true;
-			A2EntryOffsetTicks			= 1;
-			A2StopDistanceTicks			= 60;
-			A2TargetDistanceTicks			= 120;
+		A2EntryOffsetTicks			= 1;
+		A2StopDistanceTicks			= 60;
+		A2TargetDistanceTicks			= 120;
+
+		// 3.6 Signal A3 defaults — OFF (8cross34: ema8 cross ema34 -> Buy/Sell)
+		A3Enabled					= false;
+		A3HistoryDays				= 3;
+		A3EntryOffsetTicks			= 1;
+		A3StopDistanceTicks			= 60;
+		A3TargetDistanceTicks			= 120;
 
 				// 5. Bot defaults
 				BotEnabled					= false;
@@ -233,14 +241,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 				Print(string.Format("[Kat34Scalper] v{0} ({1}) loaded on {2} {3} — all signals compute on THIS series.",
 					VERSION, RELEASE_DATE, Instrument.MasterInstrument.Name, ChartTimeframe()));
-			Print(string.Format("[Kat34Scalper][DIAG] A0Enabled={0}, A1Enabled={1}, A2Enabled={2}, FanFilterEnabled={3}, MaxSequenceBars={4}, LineLengthBars={5}",
-				A0Enabled, A1Enabled, A2Enabled, FanFilterEnabled, MaxSequenceBars, LineLengthBars));
-				cachedA0 = A0Enabled;
-				cachedA1 = A1Enabled;
-				cachedA2 = A2Enabled;
-				a0BackfillPending = A0Enabled;   // enabled at load -> draw the History Days window once
-				a1BackfillPending = A1Enabled;
-				a2BackfillPending = A2Enabled;
+			Print(string.Format("[Kat34Scalper][DIAG] A0Enabled={0}, A1Enabled={1}, A2Enabled={2}, A3Enabled={3}, FanFilterEnabled={4}, MaxSequenceBars={5}, LineLengthBars={6}",
+				A0Enabled, A1Enabled, A2Enabled, A3Enabled, FanFilterEnabled, MaxSequenceBars, LineLengthBars));
+			cachedA0 = A0Enabled;
+			cachedA1 = A1Enabled;
+			cachedA2 = A2Enabled;
+			cachedA3 = A3Enabled;
+			a0BackfillPending = A0Enabled;   // enabled at load -> draw the History Days window once
+			a1BackfillPending = A1Enabled;
+			a2BackfillPending = A2Enabled;
+			a3BackfillPending = A3Enabled;
 				cachedBotAtm = BotAtmTemplate ?? "";
 				cachedBotAccountName = BotAccountName ?? "";
 
@@ -281,6 +291,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			PassFilters(a0Dir, out sellAllowed, out buyAllowed);   // Filter module (fan gate, MTF, ADX, volume, time)
 			EvaluateA1(high, low, close, sellAllowed, buyAllowed); // Signal sub-module A1 (89-34 pullback)
 			EvaluateA2(high, low, close);                          // Signal sub-module A2 (34+8+Bounce ema34 touch)
+			EvaluateA3(high, low, close);                          // Signal sub-module A3 (8cross34)
 			ManageBotEntry(high, low, close);                      // Bot module (pending entry lifecycle)
 		}
 		#endregion
@@ -451,6 +462,32 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "Target Distance (ticks)", Order = 9, GroupName = "3.5 Signal A2 — 34+8+Bounce",
 			Description = "Fallback when the selected ATM template defines no Target.")]
 		public int A2TargetDistanceTicks { get; set; }
+
+		// --- 3.6 Signal A3 — 8cross34 (docs/SIGNALS.md; ema8 cross ema34 -> Buy/Sell) ---
+		[NinjaScriptProperty]
+		[Display(Name = "Enabled", Order = 1, GroupName = "3.6 Signal A3 — 8cross34",
+			Description = "Default OFF. When switched ON the A3 cross signals are computed and drawn over History Days immediately.")]
+		public bool A3Enabled { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "History Days", Order = 2, GroupName = "3.6 Signal A3 — 8cross34",
+			Description = "How many days back the A3 cross signals are computed and drawn when A3 is switched ON.")]
+		public int A3HistoryDays { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Entry Offset (ticks)", Order = 3, GroupName = "3.6 Signal A3 — 8cross34",
+			Description = "Buy entry above the cross candle's high / Sell entry below its low.")]
+		public int A3EntryOffsetTicks { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Stop Distance (ticks)", Order = 4, GroupName = "3.6 Signal A3 — 8cross34",
+			Description = "Fallback when the selected ATM template defines no StopLoss.")]
+		public int A3StopDistanceTicks { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Target Distance (ticks)", Order = 5, GroupName = "3.6 Signal A3 — 8cross34",
+			Description = "Fallback when the selected ATM template defines no Target.")]
+		public int A3TargetDistanceTicks { get; set; }
 
 		// --- 5. Bot (semi-auto — trades only while the HUD BOT button is ON) ---
 		[NinjaScriptProperty]

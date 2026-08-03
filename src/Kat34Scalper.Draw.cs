@@ -91,6 +91,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			string owner = record.Owner ?? "A1";
 			if (owner == "A1" && !cachedA1) return;
 			if (owner == "A2" && !cachedA2) return;
+			if (owner == "A3" && !cachedA3) return;
 
 			Brush entryBrush = new SolidColorBrush(record.IsBuy ? BuyEntryLineColor : SellEntryLineColor);
 			Brush slBrush = new SolidColorBrush(SLLineColor);
@@ -711,8 +712,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Button btnA2 = CreateFilterToggle("A2 34+8", () => cachedA2, v => SetA2Signal(v));
 			Grid.SetColumn(btnA2, 0);
 			sRow2.Children.Add(btnA2);
-			Button btnA3 = CreateHudButton("A3…", hudOffBrush, null);
-			btnA3.IsEnabled = false;
+			Button btnA3 = CreateFilterToggle("A3 8x34", () => cachedA3, v => SetA3Signal(v));
 			Grid.SetColumn(btnA3, 2);
 			sRow2.Children.Add(btnA3);
 			secSignal.Children.Add(sRow2);

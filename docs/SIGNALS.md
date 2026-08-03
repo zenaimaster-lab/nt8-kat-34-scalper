@@ -138,3 +138,26 @@ trước/khi code. Khi thêm signal mới (A2, A3...): copy template, điền đ
 - Text `Buy A2` dưới low nến entry (Buy Text Color) / `Sell A2` trên high (Sell Text Color); khi Migrate text dời sang nến entry mới.
 - Cancel → xóa lines + text của setup đó. Filled → lines fade theo `Line Length`, text ở lại nến entry.
 - **Ownership prefix:** `K34S_A2_`. A2 OFF chỉ xóa prefix này + records owner `A2`. Clear HUD xóa toàn bộ `K34S_*`.
+
+---
+
+## A3 — 8cross34
+
+- File: `src/Kat34Scalper.Signal.A3.cs` | Settings group: `3.6 Signal A3 — 8cross34` | HUD toggle: SIGNAL › `A3 8x34`
+- Mục đích: bắt moment EMA 8 cắt EMA 34 — cross lên = BUY, cross xuống = SELL.
+- Settings: `Enabled` (false), `History Days` (3), `Entry Offset (ticks)` (1), `Stop Distance (ticks)` (60, fallback), `Target Distance (ticks)` (120, fallback).
+- Stateless: event 1 bar, không sequence, không stage markers, không filters. EMA 34 lấy cố định từ fan (`fanEmas[0][2]`) — độc lập với `Fast EMA Period` của A1.
+
+### Bảng giai đoạn (stages)
+
+| Stage | Marker | Điều kiện VÀO | Hành động |
+|-------|--------|----------------|-----------|
+| idle | — | mọi bar (sau warmup 35 bars) | so sánh ema8 vs ema34 bar trước và bar hiện tại |
+| cross up | — | `ema8[1] <= ema34[1]` VÀ `ema8[0] > ema34[0]` | fire BUY |
+| cross down | — | `ema8[1] >= ema34[1]` VÀ `ema8[0] < ema34[0]` | fire SELL |
+
+- Chạm đúng (equal) ở bar trước tính là CHƯA cross — vẫn phía cũ.
+- Entry: stop tại cực trị bar cross — buy = high + `Entry Offset`, sell = low - `Entry Offset`.
+- SL/TP: từ ATM template nếu có, fallback `Stop/Target Distance`.
+- Bot: cross ngược chiều cancel pending entry của chính A3 trước; entry mới submit khi order cũ terminal (cross hiếm nên case này là ngoại lệ). Backfill/replay KHÔNG bắn order.
+- **Ownership prefix:** `K34S_A3_<B/S>_`. A3 OFF chỉ xóa prefix này. Clear HUD xóa toàn bộ `K34S_*`.

@@ -505,6 +505,34 @@ public class Kat34ScalperLogicTests
 			actions);
 	}
 
+	// --- A3 (8cross34): EMA cross direction ---
+	[Fact]
+	public void Cross_CrossUp_ReturnsPlus1()
+	{
+		Assert.Equal(1, Kat34ScalperLogic.CrossDirection(99.9, 100.0, 100.1, 100.0));
+	}
+
+	[Fact]
+	public void Cross_CrossDown_ReturnsMinus1()
+	{
+		Assert.Equal(-1, Kat34ScalperLogic.CrossDirection(100.1, 100.0, 99.9, 100.0));
+	}
+
+	[Fact]
+	public void Cross_NoCross_ReturnsZero()
+	{
+		Assert.Equal(0, Kat34ScalperLogic.CrossDirection(100.1, 100.0, 100.2, 100.0)); // stays above
+		Assert.Equal(0, Kat34ScalperLogic.CrossDirection(99.9, 100.0, 99.8, 100.0));   // stays below
+	}
+
+	[Fact]
+	public void Cross_TouchOnPreviousBar_CountsAsOldSide()
+	{
+		// prev fast == slow (touch, not yet crossed) -> a move above is still a cross up
+		Assert.Equal(1, Kat34ScalperLogic.CrossDirection(100.0, 100.0, 100.1, 100.0));
+		Assert.Equal(-1, Kat34ScalperLogic.CrossDirection(100.0, 100.0, 99.9, 100.0));
+	}
+
 	// --- ATM quick-set button labels ---
 	[Fact]
 	public void AtmSetName_WithinLimit_Kept()

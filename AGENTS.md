@@ -46,10 +46,11 @@ On every code change, BEFORE closing session:
 6. **Deploy NT8 (MANDATORY FULL SYNC)**: copy ALL source `.cs` files (`Kat34Scalper.cs` AND `src/*.cs`) to `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\` with force overwrite (`scripts\Deploy-NT8.ps1` does this + verifies recompile):
    - `Kat34Scalper.cs` (main: lifecycle, settings, orchestration)
    - `src\Kat34ScalperLogic.cs` (pure logic, xunit-tested)
-   - `src\Kat34Scalper.Signal.cs` (Signal module: A0 fan + A1 89-34 sub-modules)
+   - `src\Kat34Scalper.Signal.cs` (Signal shared helpers: backfill window, FlushBackfill)
+   - `src\Kat34Scalper.Signal.A0.cs` / `.A1.cs` / `.A2.cs` / `.A3.cs` (independent signal sub-modules)
    - `src\Kat34Scalper.Filter.cs` (Filter module: MTF, ADX, Volume, Time)
    - `src\Kat34Scalper.Bot.cs` (Bot module: order ops, stop/limit, ATM)
-   - `src\Kat34Scalper.Draw.cs` (Draw module: lines/arrows/text + HUD)
+   - `src\Kat34Scalper.Draw.cs` (Draw module: lines + ATM triggers + HUD)
 7. **Git sync**:
    - `git add .`
    - `git commit -m "vX.XX (YYYY-MM-DD): Description"`
@@ -63,4 +64,4 @@ On every code change, BEFORE closing session:
 ## Version Tracking
 - Code versions: Kat34Scalper.cs VERSION constant
 - Doc versions: README.md, DIARY.md
-- **Current: v0.37 (2026-08-02)**
+- **Current: v0.38 (2026-08-02)**

@@ -4,6 +4,7 @@
  *   src/Kat34Scalper.Signal.A0.cs — A0: EMA-ribbon fan (default OFF, backfill History Days)
  *   src/Kat34Scalper.Signal.A1.cs — A1: 89-34 pullback (default OFF, backfill History Days)
  *   src/Kat34Scalper.Signal.A2.cs — A2: 34+8+Bounce ema34 touch (default OFF, backfill History Days)
+ *   src/Kat34Scalper.Signal.A3.cs — A3: 8cross34 ema cross (default OFF, backfill History Days)
  * Stage names per signal are specified in docs/SIGNALS.md.
  * New signals (A2, A3, ...) plug in as a new Kat34Scalper.Signal.AX.cs file.
  */
@@ -57,6 +58,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				a2BackfillPending = false;
 				if (ema8 != null && fanEmas != null) BackfillA2();
+			}
+			if (a3BackfillPending)
+			{
+				a3BackfillPending = false;
+				if (ema8 != null && fanEmas != null) BackfillA3();
 			}
 		}
 	}
