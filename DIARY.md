@@ -19,6 +19,13 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.42] — 2026-08-02
+- **Signal A4 OCO Previous Candle Anchoring Fix**: Fixed critical bug where `a4ActiveBuyPrice` and `a4ActiveSellPrice` were using `SelectA4BuyPrice` (`Math.Min`) and `SelectA4SellPrice` (`Math.Max`) across persistent state over historical bars without resetting per candle. This caused Buy entry to drift to the lowest low and Sell entry to drift to the highest high in chart history (orders placed very far away).
+- **Direct Previous Candle Calculation**: `EvaluateA4` and `BackfillA4` now anchor directly to the previous candle of the current timeframe (`Highs[0][1] + offset` for BUY and `Lows[0][1] - offset` for SELL).
+- **New Candle OCO Update**: `TrySubmitA4BotOcoEntries` now automatically cancels active working A4 OCO orders when a new candle opens and places the updated OCO pair for the newly closed candle.
+- **Validation**: 55/55 xunit tests passing; CompileCheck 0 errors; NT8 recompile via `Deploy-NT8.ps1`.
+- **Graphify entity mapping**: `Kat34Scalper.Signal.A4.cs` (`EvaluateA4`, `BackfillA4`), `Kat34Scalper.Bot.cs` (`TrySubmitA4BotOcoEntries`).
+
 ### [v0.41] — 2026-08-02
 - **BotEnabled & cachedBotOn Synchronization Fix**: Fixed bug where clicking `BOT: ON` in the HUD set `cachedBotOn = true`, but NinjaScript parameter `BotEnabled` remained `false` (the default setting), silently blocking `TrySubmitBotEntry` (`if (!cachedBotOn || !BotEnabled ...)`).
 - **HUD Initialization**: `cachedBotOn` is now initialized from `BotEnabled` in `DataLoaded`. Toggling `BOT` in the HUD now synchronizes `BotEnabled = cachedBotOn`, ensuring orders are submitted when BOT is ON without requiring manual setting changes.

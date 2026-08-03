@@ -58,23 +58,23 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double prevHigh = Highs[0][1];
 			double prevLow = Lows[0][1];
 
-			double candidateBuy = prevHigh + A4EntryOffsetTicks * TickSize;
-			double candidateSell = prevLow - A4EntryOffsetTicks * TickSize;
+			double buyPrice = prevHigh + A4EntryOffsetTicks * TickSize;
+			double sellPrice = prevLow - A4EntryOffsetTicks * TickSize;
 
-			a4ActiveBuyPrice = Kat34ScalperLogic.SelectA4BuyPrice(a4ActiveBuyPrice, candidateBuy);
-			a4ActiveSellPrice = Kat34ScalperLogic.SelectA4SellPrice(a4ActiveSellPrice, candidateSell);
+			a4ActiveBuyPrice = buyPrice;
+			a4ActiveSellPrice = sellPrice;
 
-			// Draw Buy signal line (refExtreme = a4ActiveBuyPrice - offset)
-			double refBuyExtreme = a4ActiveBuyPrice - A4EntryOffsetTicks * TickSize;
+			// Draw Buy signal line (refExtreme = prevHigh)
+			double refBuyExtreme = prevHigh;
 			DrawSignal(true, CurrentBar, refBuyExtreme, refBuyExtreme, 0, 0,
 				A4EntryOffsetTicks, A4StopDistanceTicks, A4TargetDistanceTicks, false, "A4");
 
-			// Draw Sell signal line (refExtreme = a4ActiveSellPrice + offset)
-			double refSellExtreme = a4ActiveSellPrice + A4EntryOffsetTicks * TickSize;
+			// Draw Sell signal line (refExtreme = prevLow)
+			double refSellExtreme = prevLow;
 			DrawSignal(false, CurrentBar, refSellExtreme, refSellExtreme, 0, 0,
 				A4EntryOffsetTicks, A4StopDistanceTicks, A4TargetDistanceTicks, false, "A4");
 
-			TrySubmitA4BotOcoEntries(a4ActiveBuyPrice, a4ActiveSellPrice);
+			TrySubmitA4BotOcoEntries(buyPrice, sellPrice);
 		}
 
 		// A4 switched OFF: drop A4-owned signal records + every K34S_A4_* drawing.
@@ -90,8 +90,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			int start = Math.Min(FindHistoryStartBarsAgo(A4HistoryDays), CurrentBars[0] - 1);
 			if (start < 0) return;
 			int signals = 0;
-			double runningBuy = 0;
-			double runningSell = 0;
 
 			for (int ago = start; ago >= 0; ago--)
 			{
@@ -99,19 +97,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				double pHigh = Highs[0][ago + 1];
 				double pLow = Lows[0][ago + 1];
 
-				double cBuy = pHigh + A4EntryOffsetTicks * TickSize;
-				double cSell = pLow - A4EntryOffsetTicks * TickSize;
-
-				runningBuy = Kat34ScalperLogic.SelectA4BuyPrice(runningBuy, cBuy);
-				runningSell = Kat34ScalperLogic.SelectA4SellPrice(runningSell, cSell);
-
 				int bar = CurrentBars[0] - ago;
-				double refBuy = runningBuy - A4EntryOffsetTicks * TickSize;
-				double refSell = runningSell + A4EntryOffsetTicks * TickSize;
 
-				DrawSignal(true, bar, refBuy, refBuy, 0, 0,
+				DrawSignal(true, bar, pHigh, pHigh, 0, 0,
 					A4EntryOffsetTicks, A4StopDistanceTicks, A4TargetDistanceTicks, true, "A4");
-				DrawSignal(false, bar, refSell, refSell, 0, 0,
+				DrawSignal(false, bar, pLow, pLow, 0, 0,
 					A4EntryOffsetTicks, A4StopDistanceTicks, A4TargetDistanceTicks, true, "A4");
 				signals += 2;
 			}

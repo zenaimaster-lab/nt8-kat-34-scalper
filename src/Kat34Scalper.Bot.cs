@@ -97,6 +97,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				&& pendingA4SellOrder != null && pendingA4SellPrice == sellPrice)
 				return;
 
+			if (pendingA4BuyOrder != null || pendingA4SellOrder != null)
+			{
+				CancelA4BotOrders("A4 OCO price update for new candle");
+			}
+
 			string ocoId = "K34S_A4_OCO_" + DateTime.Now.Ticks;
 
 			bool useBuyStop = Kat34ScalperLogic.UseStopOrder(true, buyPrice, Closes[0][0]);
