@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.50] — 2026-08-02
+- **HUD Button Dimensions & Typography Standard**:
+  - Feature: Updated `CreateFilterToggle` in `src/Kat34Scalper.Draw.cs` with explicit optional height (`24`) and fontSize (`10`) parameters matching `nt8-kat-TradeManager`.
+  - HUD UI: Ensured all Signals (`A0 fan`, `A1 89-34`, `A2 34+8`, `A3 8x34`, `A4 OCO`), Filters (`MTF`, `ADX`, `Volume`, `Time window`), `Max DD`, and `Max Profit` buttons use standardized height (24px) and font size (10pt).
+  - Graphify entity mapping: `Kat34Scalper.Draw.cs` (`CreateFilterToggle`, `CreateHudButton`, `BuildHud`).
+
 ### [v0.49] — 2026-08-02
 - **Daily Max DD & Max Net Profit Protection (Ported from nt8-kat-TradeManager)**:
   - Feature: Added Daily Max Drawdown (`Max DD`) and Daily Max Net Profit (`Max Profit`) protection buttons and calculation logic identical to `nt8-kat-TradeManager`.

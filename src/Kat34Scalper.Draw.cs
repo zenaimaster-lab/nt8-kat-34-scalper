@@ -504,9 +504,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			grid.Children.Add(input);
 		}
 
-		private Button CreateFilterToggle(string label, Func<bool> getter, Action<bool> setter)
+		private Button CreateFilterToggle(string label, Func<bool> getter, Action<bool> setter, double height = 24, double fontSize = 10)
 		{
-			Button btn = CreateHudButton(getter() ? label : label + ": OFF", getter() ? hudOnBrush : hudOffBrush, null);
+			Button btn = CreateHudButton(getter() ? label : label + ": OFF", getter() ? hudOnBrush : hudOffBrush, null, height, fontSize);
 			btn.Foreground = getter() ? Brushes.White : Brushes.LightGray;
 			btn.Click += (s, e) =>
 			{
