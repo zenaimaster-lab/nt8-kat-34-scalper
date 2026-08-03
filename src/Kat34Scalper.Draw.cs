@@ -844,12 +844,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			secBot.Children.Add(atmSetGrid);
 			UpdateAtmSetButtons();
 
-			Button btnBot = CreateHudButton("BOT: OFF", hudOffBrush, null, 26, 11);
-			btnBot.Foreground = Brushes.LightGray;
+			Button btnBot = CreateHudButton(cachedBotOn ? "⚡ BOT: ON" : "BOT: OFF", cachedBotOn ? hudOnBrush : hudOffBrush, null, 26, 11);
+			btnBot.Foreground = cachedBotOn ? Brushes.White : Brushes.LightGray;
 			btnBot.Margin = new Thickness(0);
 			btnBot.Click += (s, e) =>
 			{
 				cachedBotOn = !cachedBotOn;
+				BotEnabled = cachedBotOn;
 				btnBot.Content = cachedBotOn ? "⚡ BOT: ON" : "BOT: OFF";
 				btnBot.Background = cachedBotOn ? hudOnBrush : hudOffBrush;
 				btnBot.Foreground = cachedBotOn ? Brushes.White : Brushes.LightGray;

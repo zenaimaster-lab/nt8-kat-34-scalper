@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.41] — 2026-08-02
+- **BotEnabled & cachedBotOn Synchronization Fix**: Fixed bug where clicking `BOT: ON` in the HUD set `cachedBotOn = true`, but NinjaScript parameter `BotEnabled` remained `false` (the default setting), silently blocking `TrySubmitBotEntry` (`if (!cachedBotOn || !BotEnabled ...)`).
+- **HUD Initialization**: `cachedBotOn` is now initialized from `BotEnabled` in `DataLoaded`. Toggling `BOT` in the HUD now synchronizes `BotEnabled = cachedBotOn`, ensuring orders are submitted when BOT is ON without requiring manual setting changes.
+- **Validation**: 55/55 xunit tests passing; CompileCheck 0 errors; NT8 recompile via `Deploy-NT8.ps1`.
+- **Graphify entity mapping**: `Kat34Scalper.cs` (`DataLoaded`), `Kat34Scalper.Draw.cs` (`btnBot.Click`).
+
 ### [v0.40] — 2026-08-02
 - **Signal sub-module A4 (OCO Prev Bar) — new independent signal**: Always creates a BUY signal at previous bar High (`Highs[0][1] + Entry Offset`) and a SELL signal at previous bar Low (`Lows[0][1] - Entry Offset`).
 - **OCO Order Pair Execution & Limit Conversion**: Submits BUY and SELL entry orders simultaneously as an OCO (One-Cancels-Other) order pair when BOT is ON. When one order fills, the remaining active order is automatically cancelled via `ManageA4BotEntry()`. Converts pending StopMarket orders to Limit orders if market price has already run past the trigger price (`Kat34ScalperLogic.UseStopOrder`).
