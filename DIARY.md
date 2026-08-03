@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.54] — 2026-08-02
+- **Single Line HUD Status Slot**:
+  - Updated `hudStatusText` in `src/Kat34Scalper.Draw.cs` (`BuildHud()`) to `Height = 16`, `MinHeight = 16`, `MaxHeight = 16`, `TextTrimming = CharacterEllipsis`, `TextWrapping = NoWrap`, reducing the status area height from 2 lines (32px) to 1 single line slot (16px).
+  - Graphify entity mapping: `Kat34Scalper.Draw.cs` (`BuildHud`, `hudStatusText`).
+
 ### [v0.53] — 2026-08-02
 - **HUD Section Layout Adjustment**:
   - Moved `SIGNAL` section above `FILTER` section in `src/Kat34Scalper.Draw.cs` (`BuildHud()`), so section order is: `BOT` → `SIGNAL` → `FILTER` → `DRAW`.

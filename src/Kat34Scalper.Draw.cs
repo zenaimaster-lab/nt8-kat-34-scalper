@@ -733,10 +733,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				Foreground = Brushes.White,
 				FontSize = 10,
 				Margin = new Thickness(0, 0, 0, 6),
-				Height = 32,
-				MinHeight = 32,
-				MaxHeight = 32,
-				TextWrapping = TextWrapping.Wrap,
+				Height = 16,
+				MinHeight = 16,
+				MaxHeight = 16,
+				TextTrimming = TextTrimming.CharacterEllipsis,
+				TextWrapping = TextWrapping.NoWrap,
 				Text = string.Empty
 			};
 			mainPanel.Children.Add(hudStatusText);
