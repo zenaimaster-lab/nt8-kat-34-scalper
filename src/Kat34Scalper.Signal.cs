@@ -64,6 +64,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				a3BackfillPending = false;
 				if (ema8 != null && fanEmas != null) BackfillA3();
 			}
+			if (a4BackfillPending)
+			{
+				a4BackfillPending = false;
+				BackfillA4();
+			}
 		}
+
 	}
 }

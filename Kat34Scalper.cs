@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.39 (2026-08-02)
+ * Version: 0.40 (2026-08-02)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -13,9 +13,11 @@
  *   src/Kat34Scalper.Signal.A1.cs — Signal sub-module A1: 89-34 pullback (independent)
  *   src/Kat34Scalper.Signal.A2.cs — Signal sub-module A2: 34+8+Bounce ema34-touch pending entry (independent)
  *   src/Kat34Scalper.Signal.A3.cs — Signal sub-module A3: 8cross34 (ema8 cross ema34 -> Buy/Sell, independent)
+ *   src/Kat34Scalper.Signal.A4.cs — Signal sub-module A4: OCO previous bar High/Low (independent)
  *   src/Kat34Scalper.Filter.cs    — Filter module: MTF, ADX, Volume, Time window gates (A0 fan gate removed)
  *   src/Kat34Scalper.Bot.cs       — Bot module: signal -> order (stop/limit conversion), migration, ATM brackets
  *   src/Kat34Scalper.Draw.cs      — Draw module: entry/SL/TP/trigger lines, HUD (module-titled sections); arrows/text removed; Clear nukes all K34S_*; per-signal ownership prefix K34S_<OWNER>_
+
  *
  * Signal stages are specified per signal in docs/SIGNALS.md (A0, A1-arm/pull/pull-T/U, ...).
  *
@@ -87,8 +89,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.39";
+		public const string VERSION = "0.40";
 		public const string RELEASE_DATE = "2026-08-02";
+
 
 		// Indicator series (primary chart TF + optional MTF BarsArrays)
 		private EMA fastEma;
@@ -171,6 +174,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		A3StopDistanceTicks			= 60;
 		A3TargetDistanceTicks			= 120;
 
+		// 3.7 Signal A4 defaults — OFF (OCO Prev Bar: BUY Stop High[1], SELL Stop Low[1])
+		A4Enabled					= false;
+		A4HistoryDays				= 3;
+		A4EntryOffsetTicks			= 1;
+		A4StopDistanceTicks			= 60;
+		A4TargetDistanceTicks			= 120;
+
+
 				// 5. Bot defaults
 				BotEnabled					= false;
 				BotOrderQuantity			= 1;
@@ -241,16 +252,19 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 				Print(string.Format("[Kat34Scalper] v{0} ({1}) loaded on {2} {3} — all signals compute on THIS series.",
 					VERSION, RELEASE_DATE, Instrument.MasterInstrument.Name, ChartTimeframe()));
-			Print(string.Format("[Kat34Scalper][DIAG] A0Enabled={0}, A1Enabled={1}, A2Enabled={2}, A3Enabled={3}, FanFilterEnabled={4}, MaxSequenceBars={5}, LineLengthBars={6}",
-				A0Enabled, A1Enabled, A2Enabled, A3Enabled, FanFilterEnabled, MaxSequenceBars, LineLengthBars));
+			Print(string.Format("[Kat34Scalper][DIAG] A0Enabled={0}, A1Enabled={1}, A2Enabled={2}, A3Enabled={3}, A4Enabled={4}, FanFilterEnabled={5}, MaxSequenceBars={6}, LineLengthBars={7}",
+				A0Enabled, A1Enabled, A2Enabled, A3Enabled, A4Enabled, FanFilterEnabled, MaxSequenceBars, LineLengthBars));
 			cachedA0 = A0Enabled;
 			cachedA1 = A1Enabled;
 			cachedA2 = A2Enabled;
 			cachedA3 = A3Enabled;
+			cachedA4 = A4Enabled;
 			a0BackfillPending = A0Enabled;   // enabled at load -> draw the History Days window once
 			a1BackfillPending = A1Enabled;
 			a2BackfillPending = A2Enabled;
 			a3BackfillPending = A3Enabled;
+			a4BackfillPending = A4Enabled;
+
 				cachedBotAtm = BotAtmTemplate ?? "";
 				cachedBotAccountName = BotAccountName ?? "";
 
@@ -292,7 +306,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			EvaluateA1(high, low, close, sellAllowed, buyAllowed); // Signal sub-module A1 (89-34 pullback)
 			EvaluateA2(high, low, close);                          // Signal sub-module A2 (34+8+Bounce ema34 touch)
 			EvaluateA3(high, low, close);                          // Signal sub-module A3 (8cross34)
+			EvaluateA4(high, low, close);                          // Signal sub-module A4 (OCO prev bar)
 			ManageBotEntry(high, low, close);                      // Bot module (pending entry lifecycle)
+
 		}
 		#endregion
 
@@ -488,6 +504,33 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "Target Distance (ticks)", Order = 5, GroupName = "3.6 Signal A3 — 8cross34",
 			Description = "Fallback when the selected ATM template defines no Target.")]
 		public int A3TargetDistanceTicks { get; set; }
+
+		// --- 3.7 Signal A4 — OCO Prev Bar ---
+		[NinjaScriptProperty]
+		[Display(Name = "Enabled", Order = 1, GroupName = "3.7 Signal A4 — OCO Prev Bar",
+			Description = "Default OFF. When switched ON the A4 OCO signals (BUY stop High[1], SELL stop Low[1]) are computed and drawn over History Days immediately.")]
+		public bool A4Enabled { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "History Days", Order = 2, GroupName = "3.7 Signal A4 — OCO Prev Bar",
+			Description = "How many days back the A4 signals are computed and drawn when A4 is switched ON.")]
+		public int A4HistoryDays { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Entry Offset (ticks)", Order = 3, GroupName = "3.7 Signal A4 — OCO Prev Bar",
+			Description = "Buy entry above previous high / Sell entry below previous low.")]
+		public int A4EntryOffsetTicks { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Stop Distance (ticks)", Order = 4, GroupName = "3.7 Signal A4 — OCO Prev Bar",
+			Description = "Fallback when the selected ATM template defines no StopLoss.")]
+		public int A4StopDistanceTicks { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Target Distance (ticks)", Order = 5, GroupName = "3.7 Signal A4 — OCO Prev Bar",
+			Description = "Fallback when the selected ATM template defines no Target.")]
+		public int A4TargetDistanceTicks { get; set; }
+
 
 		// --- 5. Bot (semi-auto — trades only while the HUD BOT button is ON) ---
 		[NinjaScriptProperty]

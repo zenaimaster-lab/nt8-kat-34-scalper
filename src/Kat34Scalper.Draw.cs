@@ -92,6 +92,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (owner == "A1" && !cachedA1) return;
 			if (owner == "A2" && !cachedA2) return;
 			if (owner == "A3" && !cachedA3) return;
+			if (owner == "A4" && !cachedA4) return;
 
 			Brush entryBrush = new SolidColorBrush(record.IsBuy ? BuyEntryLineColor : SellEntryLineColor);
 			Brush slBrush = new SolidColorBrush(SLLineColor);
@@ -708,7 +709,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			secSignal.Children.Add(sRow);
 
 			Grid sRow2 = CreateTwoColGrid();
-			sRow2.Margin = new Thickness(0);
 			Button btnA2 = CreateFilterToggle("A2 34+8", () => cachedA2, v => SetA2Signal(v));
 			Grid.SetColumn(btnA2, 0);
 			sRow2.Children.Add(btnA2);
@@ -716,7 +716,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Grid.SetColumn(btnA3, 2);
 			sRow2.Children.Add(btnA3);
 			secSignal.Children.Add(sRow2);
+
+			Grid sRow3 = CreateTwoColGrid();
+			sRow3.Margin = new Thickness(0);
+			Button btnA4 = CreateFilterToggle("A4 OCO", () => cachedA4, v => SetA4Signal(v));
+			Grid.SetColumn(btnA4, 0);
+			sRow3.Children.Add(btnA4);
+			secSignal.Children.Add(sRow3);
 			mainPanel.Children.Add(CreateSectionCard(secSignal, 6));
+
 
 			// --- FILTER module: MTF, ADX, Volume, Time window (A0 fan gate removed) ---
 			mainPanel.Children.Add(CreateModuleTitle("FILTER"));

@@ -19,7 +19,18 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.40] — 2026-08-02
+- **Signal sub-module A4 (OCO Prev Bar) — new independent signal**: Always creates a BUY signal at previous bar High (`Highs[0][1] + Entry Offset`) and a SELL signal at previous bar Low (`Lows[0][1] - Entry Offset`).
+- **OCO Order Pair Execution & Limit Conversion**: Submits BUY and SELL entry orders simultaneously as an OCO (One-Cancels-Other) order pair when BOT is ON. When one order fills, the remaining active order is automatically cancelled via `ManageA4BotEntry()`. Converts pending StopMarket orders to Limit orders if market price has already run past the trigger price (`Kat34ScalperLogic.UseStopOrder`).
+- **Level Prioritization**: Maximum 1 BUY and 1 SELL signal simultaneously. Always prioritizes the **LOWEST** BUY level (`SelectA4BuyPrice`) and the **HIGHEST** SELL level (`SelectA4SellPrice`). Added 2 unit tests in `Kat34ScalperLogicTests.cs`.
+- **New file `src/Kat34Scalper.Signal.A4.cs`**: `cachedA4`/`a4BackfillPending`, `SetA4Signal`, `EvaluateA4`, `ClearA4Drawings` (prefix `K34S_A4_`), `BackfillA4`.
+- **Settings group `3.7 Signal A4 — OCO Prev Bar`**: `A4Enabled` (false), `A4HistoryDays` (3), `A4EntryOffsetTicks` (1), `A4StopDistanceTicks` (60), `A4TargetDistanceTicks` (120). Main: defaults, DataLoaded cached/backfill wiring, DIAG print, `EvaluateA4` in the OnBarUpdate pipeline, `FlushBackfill` A4 branch, `RenderSignal` owner gate for A4.
+- **HUD**: Added `A4 OCO` toggle button in the SIGNAL section of the HUD.
+- **Validation**: 55/55 xunit tests passing; CompileCheck 0 errors; NT8 recompile via Deploy-NT8.ps1.
+- **Graphify entity mapping**: `Kat34ScalperLogic.SelectA4BuyPrice/SelectA4SellPrice`, `Kat34Scalper.Signal.A4.cs` (`SetA4Signal`, `EvaluateA4`, `ClearA4Drawings`, `BackfillA4`), `Kat34Scalper.A4Enabled/A4HistoryDays/A4EntryOffsetTicks/A4StopDistanceTicks/A4TargetDistanceTicks`, `TrySubmitA4BotOcoEntries`, `ManageA4BotEntry`, `FlushBackfill` (A4 branch), `RenderSignal` (A4 owner gate).
+
 ### [v0.39] — 2026-08-02
+
 - **Fix — BOT ignored the HUD signal toggles**: user report: "BOT ON chỉ chạy mỗi A1 dù A1 đang OFF". Root cause (2 parts): (a) switching a signal OFF cleared its drawings but never cancelled its **pending bot order** — the stale A1 order stayed working and could still fill; (b) that surviving order held the single bot order slot (`pendingOrder != null` blocks every other signal), so A2/A3 could never submit. Fixes, all in the Bot module + the three `SetAXSignal` OFF branches: new `SignalOwnerEnabled(owner)` gates `TrySubmitBotEntry` (an OFF owner never submits); new `CancelSignalBotEntry(owner, reason)` cancels the pending order of a signal being switched OFF and clears `pendingMigrate` (OFF must not re-place a migrating order); the migration re-place in `ManageBotEntry` now re-checks `SignalOwnerEnabled(pendingOrderOwner)`. Result: BOT ON trades **every signal switched ON** on the selected account + ATM; an OFF signal can neither open a new entry nor fill a stale one. HUD BOT ON status text now reads "every signal switched ON auto-submits entries". One-bot-order-at-a-time design unchanged.
 - **Validation**: 53/53 xunit; CompileCheck 0 errors; NT8 recompile via Deploy-NT8.ps1.
 - **Graphify entity mapping**: `Kat34Scalper.SignalOwnerEnabled`, `Kat34Scalper.CancelSignalBotEntry`, `Kat34Scalper.TrySubmitBotEntry` (owner gate), `Kat34Scalper.ManageBotEntry` (owner gate on re-place), `SetA1Signal/SetA2Signal/SetA3Signal` (OFF cancels owned pending).

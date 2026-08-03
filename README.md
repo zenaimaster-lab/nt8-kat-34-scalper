@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.39` (Released: `2026-08-02`)
+**Current Version**: `v0.40` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -15,6 +15,7 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 || `src/Kat34Scalper.Signal.A1.cs` | **Signal A1** | independent sub-module: 89-34 pullback (own toggle, settings group, drawings, backfill) |
 || `src/Kat34Scalper.Signal.A2.cs` | **Signal A2** | independent sub-module: 34+8+Bounce ema34-touch pending entry (own toggle, settings group, drawings, backfill) |
 || `src/Kat34Scalper.Signal.A3.cs` | **Signal A3** | independent sub-module: 8cross34 — ema8 cross ema34 → Buy/Sell (own toggle, settings group, drawings, backfill) |
+|| `src/Kat34Scalper.Signal.A4.cs` | **Signal A4** | independent sub-module: OCO previous bar High/Low — Buy Stop High[1], Sell Stop Low[1] (own toggle, settings group, drawings, backfill) |
 | `src/Kat34Scalper.Filter.cs` | **Filter** | gates: fan direction, MTF (3m/5m/15m), ADX, Volume, Time window (+ per-bar `*At(barsAgo)` variants for backfill replay) |
 | `src/Kat34Scalper.Bot.cs` | **Bot** | signal → order conversion (stop on valid side, limit when price ran past), ATM brackets, migration, trend-flip cancel |
 | `src/Kat34Scalper.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, arrows, labels, legacy drawing cleanup, version label, alert sound, HUD (sections titled SIGNAL / FILTER / BOT / DRAW) |
@@ -58,6 +59,13 @@ Every signal sub-module is **independent and default OFF**; its stages are speci
 - **Trigger**: EMA 8 crosses **up** through EMA 34 → **BUY**; crosses **down** → **SELL**. Cross = previous bar on one side, current bar on the other (an exact touch on the previous bar counts as the old side).
 - **Stateless**: single-bar event — no sequence, no stage markers, no filters. EMA 34 is the fixed 34 from the ribbon (independent of A1's Fast EMA Period).
 - **Entry**: stop at the cross candle's extreme — buy = high + `Entry Offset`, sell = low − `Entry Offset`. An opposite cross cancels A3's own pending bot entry.
+
+### A4 Signal (OCO Prev Bar — shared by Sell and Buy)
+- **Trigger**: Always creates a BUY signal at previous bar High (`Highs[0][1] + Entry Offset`) and a SELL signal at previous bar Low (`Lows[0][1] - Entry Offset`).
+- **OCO Pair**: Submits BUY and SELL entry orders simultaneously as an OCO (One-Cancels-Other) order pair when BOT is ON. When one order fills, the remaining active order is automatically cancelled.
+- **Stop-to-Limit Conversion**: Converts pending StopMarket orders to Limit orders if market price has already run past the trigger price.
+- **Level Prioritization**: Maximum 1 BUY and 1 SELL signal simultaneously. Always prioritizes the **LOWEST** BUY level and the **HIGHEST** SELL level.
+
 
 ## Bot (semi-auto)
 - Trades **only** while the HUD **BOT: ON** button is active (off by default) *and* `Bot Enabled` is set — never runs on its own. Switching BOT OFF cancels the pending entry immediately.

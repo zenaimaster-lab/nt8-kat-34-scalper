@@ -563,4 +563,22 @@ public class Kat34ScalperLogicTests
 		Assert.Equal("TP", Kat34ScalperLogic.NormalizeAtmSetName("  TP ", "F"));
 		Assert.Equal("ABC", Kat34ScalperLogic.NormalizeAtmSetName(" ABCD ", "F"));
 	}
+
+	// --- A4 (OCO) price prioritization tests ---
+	[Fact]
+	public void A4_SelectBuyPrice_PrioritizesLowestBuy()
+	{
+		Assert.Equal(100.0, Kat34ScalperLogic.SelectA4BuyPrice(0, 100.0));
+		Assert.Equal(98.0, Kat34ScalperLogic.SelectA4BuyPrice(100.0, 98.0));
+		Assert.Equal(98.0, Kat34ScalperLogic.SelectA4BuyPrice(98.0, 102.0));
+	}
+
+	[Fact]
+	public void A4_SelectSellPrice_PrioritizesHighestSell()
+	{
+		Assert.Equal(100.0, Kat34ScalperLogic.SelectA4SellPrice(0, 100.0));
+		Assert.Equal(102.0, Kat34ScalperLogic.SelectA4SellPrice(100.0, 102.0));
+		Assert.Equal(102.0, Kat34ScalperLogic.SelectA4SellPrice(102.0, 98.0));
+	}
 }
+

@@ -317,7 +317,25 @@ namespace Kat34Scalper
 				return KatA2Action.None;
 			}
 		}
+
+		/// <summary>
+		/// A4 (OCO) price prioritization rules.
+		/// Buy: always select the lowest buy level (closer/better entry).
+		/// Sell: always select the highest sell level (closer/better entry).
+		/// </summary>
+		public static double SelectA4BuyPrice(double existingBuy, double candidateBuy)
+		{
+			if (existingBuy <= 0) return candidateBuy;
+			return Math.Min(existingBuy, candidateBuy);
+		}
+
+		public static double SelectA4SellPrice(double existingSell, double candidateSell)
+		{
+			if (existingSell <= 0) return candidateSell;
+			return Math.Max(existingSell, candidateSell);
+		}
 	}
+
 
 	/// <summary>Parsed SL/TP and trailing-SL trigger levels (ticks) from an NT8 ATM strategy template.</summary>
 	public sealed class Kat34ScalperAtmData
