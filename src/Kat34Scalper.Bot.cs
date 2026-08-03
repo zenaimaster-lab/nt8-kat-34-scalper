@@ -289,6 +289,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			EvaluateDailyRiskLimits();
 			TrySubmitPendingRevert();
+			CleanupFlatOrphans();
 
 			Account acc = ResolveBotAccount();
 			if (acc != null && !HasOpenPosition(acc))
@@ -430,6 +431,70 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			return System.Threading.Volatile.Read(ref closeInFlight) != 0;
 		}
 
+		private void CancelWorkingOrdersForInstrument(Account acc)
+		{
+			if (acc == null || Instrument == null || acc.Orders == null) return;
+			System.Collections.Generic.List<Order> toCancel = new System.Collections.Generic.List<Order>();
+			try
+			{
+				lock (acc.Orders)
+				{
+					foreach (Order o in acc.Orders)
+					{
+						if (o == null || o.Instrument == null || o.Instrument.FullName != Instrument.FullName) continue;
+						if (IsActiveOrderState(o.OrderState))
+							toCancel.Add(o);
+					}
+				}
+				if (toCancel.Count > 0)
+				{
+					foreach (Order o in toCancel)
+					{
+						try { acc.Cancel(new[] { o }); } catch { }
+					}
+					Print(string.Format("[Kat34Scalper] Cancelled {0} working order(s) for {1}.", toCancel.Count, Instrument.FullName));
+				}
+			}
+			catch (Exception ex)
+			{
+				Print(string.Format("[Kat34Scalper] Error cancelling working orders: {0}", ex.Message));
+			}
+		}
+
+		private void CleanupFlatOrphans()
+		{
+			Account acc = ResolveBotAccount();
+			if (acc == null || Instrument == null || acc.Orders == null) return;
+
+			Position pos = GetInstrumentPosition();
+			if (pos != null && pos.MarketPosition != MarketPosition.Flat) return;
+
+			System.Collections.Generic.List<Order> orphans = new System.Collections.Generic.List<Order>();
+			try
+			{
+				lock (acc.Orders)
+				{
+					foreach (Order o in acc.Orders)
+					{
+						if (o == null || o.Instrument == null || o.Instrument.FullName != Instrument.FullName) continue;
+						if (!IsActiveOrderState(o.OrderState)) continue;
+						if (pendingOrder != null && o == pendingOrder) continue;
+						orphans.Add(o);
+					}
+				}
+
+				if (orphans.Count > 0)
+				{
+					foreach (Order orphan in orphans)
+					{
+						try { acc.Cancel(new[] { orphan }); } catch { }
+					}
+					Print(string.Format("[Kat34Scalper] Flat cleanup: cancelled {0} orphan working order(s).", orphans.Count));
+				}
+			}
+			catch { }
+		}
+
 		private bool PlaceMarketOrder(OrderAction action)
 		{
 			return PlaceMarketOrder(action, 0);
@@ -461,6 +526,32 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			try
 			{
 				int qty = quantityOverride > 0 ? quantityOverride : GetEffectiveBotQuantity();
+				Position pos = GetInstrumentPosition();
+				bool isLong = pos != null && pos.MarketPosition == MarketPosition.Long;
+				bool isShort = pos != null && pos.MarketPosition == MarketPosition.Short;
+				bool isOpposite = (isLong && action == OrderAction.Sell) || (isShort && action == OrderAction.Buy);
+
+				if (isOpposite)
+				{
+					// Opposite market order click while in position -> cancel all existing working SL/TP orders first
+					CancelWorkingOrdersForInstrument(acc);
+
+					// If quantity is closing the position (<= pos.Quantity), submit bare market close order without launching new ATM strategy
+					if (qty <= pos.Quantity)
+					{
+						Order closeOrder = acc.CreateOrder(Instrument, action, OrderType.Market, OrderEntry.Manual,
+							TimeInForce.Gtc, qty, 0, 0, "", action == OrderAction.Buy ? "MarketBuyClose" : "MarketSellClose",
+							NinjaTrader.Core.Globals.MaxDate, null);
+						if (closeOrder != null)
+						{
+							acc.Submit(new[] { closeOrder });
+							Print(string.Format("[Kat34Scalper] Market close submitted: {0} qty={1}", action, qty));
+							ShowHudStatus(string.Format("{0} market close executed", action), Brushes.LightGreen);
+							return true;
+						}
+					}
+				}
+
 				string tpl = cachedBotAtm;
 				bool hasAtm = HasAtmTemplate(tpl);
 				string entryName = hasAtm ? "Entry" : (action == OrderAction.Buy ? "MarketBuy" : "MarketSell");

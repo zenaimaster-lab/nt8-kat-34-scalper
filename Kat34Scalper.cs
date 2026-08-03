@@ -89,7 +89,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.57";
+		public const string VERSION = "0.58";
 		public const string RELEASE_DATE = "2026-08-03";
 
 

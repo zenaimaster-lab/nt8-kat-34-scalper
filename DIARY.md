@@ -19,6 +19,15 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.58] — 2026-08-03
+- **Fix Orphan Working Orders & Opposite Market Order Execution**:
+  - Resolved issue where clicking `SELL market` while Long (or `BUY market` while Short) left orphan SL/TP orders on the chart when position flattened or closed.
+  - Implemented `CancelWorkingOrdersForInstrument(acc)` in `src/Kat34Scalper.Bot.cs` to cancel all existing working orders for the instrument before executing opposite market orders.
+  - Updated `PlaceMarketOrder(...)`: if the market order is opposite and closes the position (`qty <= pos.Quantity`), submits a clean market close order without launching a new ATM strategy (preventing new orphan brackets on a 0-contract position).
+  - Added `CleanupFlatOrphans()` running on bar/watchdog updates: automatically detects when position is Flat (0 contracts) and cancels any orphan working Stop/Limit bracket orders on the account for that instrument.
+  - Added `ShouldCancelFlatOrphans` helper to `src/Kat34ScalperLogic.cs` and unit test in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs` (58/58 tests passing).
+  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Bot.cs`, `src/Kat34ScalperLogic.cs`, `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs`.
+
 ### [v0.57] — 2026-08-03
 - **Port Buy/Sell Market, BE, Revert Buttons & Trading Logic from Trade Manager**:
   - Added 4 HUD buttons placed directly above `Close/flatten`: `SELL market`, `BUY market` (row 1, height=48, font=12), `BE`, `Revert` (row 2, height=33, font=12).

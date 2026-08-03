@@ -387,6 +387,12 @@ namespace Kat34Scalper
 			if (stopPrice <= 0 || currentPrice <= 0) return false;
 			return isLong ? stopPrice < currentPrice : stopPrice > currentPrice;
 		}
+
+		/// <summary>Returns true if position is Flat and active working orders exist that should be cleaned up.</summary>
+		public static bool ShouldCancelFlatOrphans(bool isFlat, bool hasWorkingOrders, bool hasPendingEntry)
+		{
+			return isFlat && hasWorkingOrders && !hasPendingEntry;
+		}
 	}
 
 

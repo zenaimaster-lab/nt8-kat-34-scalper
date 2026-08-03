@@ -596,5 +596,16 @@ public class Kat34ScalperLogicTests
 		Assert.False(Kat34ScalperLogic.IsStopOnValidSide(true, 19990.0, 0));
 	}
 	#endregion
+
+	#region ShouldCancelFlatOrphans
+	[Fact]
+	public void ShouldCancelFlatOrphans_Behavior()
+	{
+		Assert.True(Kat34ScalperLogic.ShouldCancelFlatOrphans(true, true, false));
+		Assert.False(Kat34ScalperLogic.ShouldCancelFlatOrphans(false, true, false));
+		Assert.False(Kat34ScalperLogic.ShouldCancelFlatOrphans(true, false, false));
+		Assert.False(Kat34ScalperLogic.ShouldCancelFlatOrphans(true, true, true));
+	}
+	#endregion
 }
 
