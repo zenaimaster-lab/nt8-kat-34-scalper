@@ -25,61 +25,26 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private volatile bool cachedTime;
 
 		// Live entry point (current bar) with the gate-transition diagnostic print.
-		private void PassFilters(int a0Dir, out bool sellAllowed, out bool buyAllowed)
+		private void PassFilters(out bool sellAllowed, out bool buyAllowed)
 		{
-			PassFiltersAt(0, a0Dir, out sellAllowed, out buyAllowed);
-			if (!diagnosticGateInitialized || diagnosticA0Dir != a0Dir ||
+			PassFiltersAt(0, out sellAllowed, out buyAllowed);
+			if (!diagnosticGateInitialized ||
 				diagnosticSellAllowed != sellAllowed || diagnosticBuyAllowed != buyAllowed)
 			{
 				diagnosticGateInitialized = true;
-				diagnosticA0Dir = a0Dir;
 				diagnosticSellAllowed = sellAllowed;
 				diagnosticBuyAllowed = buyAllowed;
-				Print(string.Format("[Kat34Scalper][GATE] bar {0} A0={1}, fanFilter={2}, cachedA0={3}, sellAllowed={4}, buyAllowed={5}, mtf={6}, adx={7}, vol={8}, time={9}",
-					CurrentBar, a0Dir, FanFilterEnabled, cachedA0, sellAllowed, buyAllowed, cachedMtf, cachedAdx, cachedVol, cachedTime));
+				Print(string.Format("[Kat34Scalper][GATE] bar {0} sellAllowed={1}, buyAllowed={2}, adx={3}, vol={4}, time={5}",
+					CurrentBar, sellAllowed, buyAllowed, cachedAdx, cachedVol, cachedTime));
 			}
 		}
 
-		// MTF + market + time at any bar (barsAgo 0 = live, >0 = backfill replay).
-		// A0 fan filter removed: A1 no longer gated by primary fan direction (A0 signal still computes fan for its markers).
-		private void PassFiltersAt(int barsAgo, int a0Dir, out bool sellAllowed, out bool buyAllowed)
+		// Market + time at any bar (barsAgo 0 = live, >0 = backfill replay).
+		private void PassFiltersAt(int barsAgo, out bool sellAllowed, out bool buyAllowed)
 		{
-			bool pass = MtfPassAt(a0Dir, barsAgo) && MarketPassAt(barsAgo) && TimePassAt(barsAgo);
+			bool pass = MarketPassAt(barsAgo) && TimePassAt(barsAgo);
 			sellAllowed = pass;
 			buyAllowed  = pass;
-		}
-
-		// Ribbon direction of one BarsArray series at the current bar (+1 buy fan / -1 sell fan / 0 none).
-		// Still computed for A0 signal markers; no longer used to gate A1.
-		private int SeriesFanDirection(int s)
-		{
-			return SeriesFanDirectionAt(s, 0);
-		}
-
-		// Ribbon direction of one BarsArray series at any bar.
-		private int SeriesFanDirectionAt(int s, int barsAgo)
-		{
-			if (fanEmas == null || CurrentBars[s] < FanPeriods[FanPeriods.Length - 1] + FanSpreadLookback + barsAgo) return 0;
-			double[] now = new double[FanPeriods.Length];
-			double[] prev = new double[FanPeriods.Length];
-			for (int p = 0; p < FanPeriods.Length; p++)
-			{
-				now[p] = fanEmas[s][p][barsAgo];
-				prev[p] = fanEmas[s][p][barsAgo + FanSpreadLookback];
-			}
-			return Kat34ScalperLogic.FanDirection(now, prev, FanMinSpreadTicks, TickSize);
-		}
-
-		private bool MtfPassAt(int dir, int barsAgo)
-		{
-			if (!cachedMtf || dir == 0) return true;
-			// ponytail: replay skips the MTF leg (primary barsAgo has no cheap mapping onto the
-			// 3m/5m/15m series). Upgrade path: map via BarsArray[bip].GetBar(Times[0][barsAgo]).
-			if (barsAgo > 0) return true;
-			if (bip3m > 0  && SeriesFanDirection(bip3m) != dir) return false;
-			if (bip5m > 0  && SeriesFanDirection(bip5m) != dir) return false;
-			if (bip15m > 0 && SeriesFanDirection(bip15m) != dir) return false;
-			return true;
 		}
 
 		private bool MarketPassAt(int barsAgo)

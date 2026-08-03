@@ -34,7 +34,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		// --- A2 sub-module state ---
 		private volatile bool cachedA2 = false;   // HUD toggle: A2 on/off (default OFF)
 		private volatile bool a2BackfillPending;  // set on enable; consumed once by FlushBackfill
-		private EMA ema8;                          // fixed period 8 (fanEmas starts at 9)
 		private readonly KatA2State a2SellState = new KatA2State();
 		private readonly KatA2State a2BuyState = new KatA2State();
 		private KatSignalRecord a2SellRecord;     // live pending-entry drawing (null when inactive)
@@ -89,8 +88,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private void EvaluateA2(double high, double low, double close)
 		{
-			if (!cachedA2 || ema8 == null || fanEmas == null) return;
-			if (CurrentBars[0] < FanPeriods[FanPeriods.Length - 1]) return; // ema200 warmup
+			if (!cachedA2 || fastEma == null || slowEma == null || ema144 == null || ema200 == null) return;
+			if (CurrentBars[0] < 200) return; // ema200 warmup
 			Account acc = ResolveBotAccount();
 			if (IsSignalInTrade("A2") || HasOpenPosition(acc)) return;
 			RunA2Bar(0, false, a2SellState, a2BuyState,
@@ -106,10 +105,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double low = Lows[0][ago];
 			double close = Closes[0][ago];
 			double e8 = ema8[ago];
-			double e34 = fanEmas[0][2][ago];
-			double e89 = fanEmas[0][4][ago];
-			double e144 = fanEmas[0][5][ago];
-			double e200 = fanEmas[0][6][ago];
+			double e34 = fastEma[ago];
+			double e89 = slowEma[ago];
+			double e144 = ema144[ago];
+			double e200 = ema200[ago];
 
 			bool sellTrend = A2SellTrendOk(e8, e34, e89, e144, e200);
 			bool buyTrend = A2BuyTrendOk(e8, e34, e89, e144, e200);
@@ -217,7 +216,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		// No bot orders and no alert sounds during replay. Temp states + drawing refs sync to live.
 		private void BackfillA2()
 		{
-			int warm = FanPeriods[FanPeriods.Length - 1];
+			int warm = 200;
 			int start = Math.Min(FindHistoryStartBarsAgo(A2HistoryDays), CurrentBars[0] - warm);
 			if (start < 0) return;
 			var tmpSell = new KatA2State();

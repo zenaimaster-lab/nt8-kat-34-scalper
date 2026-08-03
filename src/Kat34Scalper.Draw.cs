@@ -91,8 +91,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			string owner = record.Owner ?? "A1";
 			if (owner == "A1" && !cachedA1) return;
 			if (owner == "A2" && !cachedA2) return;
-			if (owner == "A3" && !cachedA3) return;
-			if (owner == "A4" && !cachedA4) return;
 
 			Brush entryBrush = new SolidColorBrush(record.IsBuy ? BuyEntryLineColor : SellEntryLineColor);
 			Brush slBrush = new SolidColorBrush(SLLineColor);
@@ -317,8 +315,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				a2BuyTextTag = null;
 				a2SellState.Reset();
 				a2BuyState.Reset();
-				a4ActiveBuyPrice = 0;
-				a4ActiveSellPrice = 0;
 
 				var doomed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 				foreach (IDrawingTool tool in DrawObjects)
@@ -898,7 +894,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (IsDailyRiskBreached(out string breachReason))
 				{
 					ShowHudStatus(breachReason, Brushes.OrangeRed);
-					TriggerCustomEvent(o => { CancelPendingBotOrder(breachReason); CancelA4BotOrders(breachReason); }, null);
+					TriggerCustomEvent(o => { CancelPendingBotOrder(breachReason); }, null);
 				}
 				else
 				{
@@ -923,7 +919,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (IsDailyRiskBreached(out string breachReason))
 				{
 					ShowHudStatus(breachReason, Brushes.OrangeRed);
-					TriggerCustomEvent(o => { CancelPendingBotOrder(breachReason); CancelA4BotOrders(breachReason); }, null);
+					TriggerCustomEvent(o => { CancelPendingBotOrder(breachReason); }, null);
 				}
 				else
 				{
@@ -941,29 +937,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			mainPanel.Children.Add(CreateModuleTitle("SIGNAL"));
 			var secSignal = new StackPanel();
 			Grid sRow = CreateTwoColGrid();
-			Button tA0 = CreateFilterToggle("A1 (fan)", () => cachedA0, v => SetA0Signal(v));
-			Grid.SetColumn(tA0, 0);
-			sRow.Children.Add(tA0);
-			Button tA1 = CreateFilterToggle("A2 (89-u-34)", () => cachedA1, v => SetA1Signal(v));
-			Grid.SetColumn(tA1, 2);
-			sRow.Children.Add(tA1);
+			sRow.Margin = new Thickness(0);
+			Button btnA1 = CreateFilterToggle("A1 (89-34)", () => cachedA1, v => SetA1Signal(v));
+			Grid.SetColumn(btnA1, 0);
+			sRow.Children.Add(btnA1);
+			Button btnA2 = CreateFilterToggle("A2 (34+8)", () => cachedA2, v => SetA2Signal(v));
+			Grid.SetColumn(btnA2, 2);
+			sRow.Children.Add(btnA2);
 			secSignal.Children.Add(sRow);
-
-			Grid sRow2 = CreateTwoColGrid();
-			Button btnA2 = CreateFilterToggle("A3 (34+8+Bounce)", () => cachedA2, v => SetA2Signal(v));
-			Grid.SetColumn(btnA2, 0);
-			sRow2.Children.Add(btnA2);
-			Button btnA4 = CreateFilterToggle("A4 (OCO pre candle)", () => cachedA4, v => SetA4Signal(v));
-			Grid.SetColumn(btnA4, 2);
-			sRow2.Children.Add(btnA4);
-			secSignal.Children.Add(sRow2);
-
-			Grid sRow3 = CreateTwoColGrid();
-			sRow3.Margin = new Thickness(0);
-			Button btnA3 = CreateFilterToggle("A5 (8x34)", () => cachedA3, v => SetA3Signal(v));
-			Grid.SetColumn(btnA3, 0);
-			sRow3.Children.Add(btnA3);
-			secSignal.Children.Add(sRow3);
 			mainPanel.Children.Add(CreateSectionCard(secSignal, 6));
 
 			// --- FILTER module: MTF, ADX, Volume, Time window (A0 fan gate removed) ---

@@ -90,32 +90,6 @@ namespace Kat34Scalper
 		}
 
 		/// <summary>
-		/// A0 ribbon fan. emasNow/emasPrev ordered fastest to slowest (9,21,34,55,89,144,200).
-		/// Returns +1 = buy fan (ascending, spreading, wide enough), -1 = sell fan, 0 = no fan.
-		/// Fan = strict order + total spread wider than lookback + at least minSpreadTicks.
-		/// </summary>
-		public static int FanDirection(double[] emasNow, double[] emasPrev, int minSpreadTicks, double tickSize)
-		{
-			if (emasNow == null || emasPrev == null || emasNow.Length < 2 || emasPrev.Length != emasNow.Length)
-				return 0;
-
-			int n = emasNow.Length;
-			bool up = true, down = true;
-			for (int i = 0; i < n - 1; i++)
-			{
-				if (emasNow[i] <= emasNow[i + 1]) up = false;
-				if (emasNow[i] >= emasNow[i + 1]) down = false;
-			}
-			if (!up && !down) return 0;
-
-			double spreadNow = Math.Abs(emasNow[0] - emasNow[n - 1]);
-			double spreadPrev = Math.Abs(emasPrev[0] - emasPrev[n - 1]);
-			if (spreadNow <= spreadPrev) return 0;          // must be spreading out
-			if (spreadNow < minSpreadTicks * tickSize) return 0;
-			return up ? 1 : -1;
-		}
-
-		/// <summary>
 		/// A1 effective entry from the two candidates: sell takes the higher stop (max), buy the lower (min).
 		/// Sell stops sit below the candidate lows; buy stops above the candidate highs.
 		/// </summary>
@@ -134,18 +108,6 @@ namespace Kat34Scalper
 		public static bool UseStopOrder(bool isBuy, double triggerPrice, double currentPrice)
 		{
 			return isBuy ? triggerPrice > currentPrice : triggerPrice < currentPrice;
-		}
-
-		/// <summary>
-		/// A3 (8cross34): EMA cross direction between the previous and current bar.
-		/// +1 = crossed up (was &lt;=, now &gt;), -1 = crossed down (was &gt;=, now &lt;), 0 = no cross.
-		/// An exact touch on the previous bar counts as "not yet crossed" (equals = still on the old side).
-		/// </summary>
-		public static int CrossDirection(double prevFast, double prevSlow, double fast, double slow)
-		{
-			if (prevFast <= prevSlow && fast > slow) return 1;
-			if (prevFast >= prevSlow && fast < slow) return -1;
-			return 0;
 		}
 
 		/// <summary>

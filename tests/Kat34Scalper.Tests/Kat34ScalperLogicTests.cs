@@ -144,52 +144,6 @@ public class Kat34ScalperLogicTests
 		Assert.Equal(1, s.Phase);
 	}
 
-	// --- A0 EMA-ribbon fan ---
-	private static readonly double[] BuyFanNow  = { 110, 108, 106, 104, 102, 100, 98 };  // 9>21>34>55>89>144>200
-	private static readonly double[] BuyFanPrev = { 106, 105, 104, 103, 102, 101, 100 }; // narrower spread (10 vs 12)
-
-	[Fact]
-	public void Fan_BuyOrderedSpreadingWide_ReturnsPlus1()
-	{
-		Assert.Equal(1, Kat34ScalperLogic.FanDirection(BuyFanNow, BuyFanPrev, 20, 0.25)); // spread 12 >= 5
-	}
-
-	[Fact]
-	public void Fan_SellOrderedSpreadingWide_ReturnsMinus1()
-	{
-		double[] now  = { 98, 100, 102, 104, 106, 108, 110 };
-		double[] prev = { 100, 101, 102, 103, 104, 105, 106 };
-		Assert.Equal(-1, Kat34ScalperLogic.FanDirection(now, prev, 20, 0.25));
-	}
-
-	[Fact]
-	public void Fan_Unordered_ReturnsZero()
-	{
-		double[] messy = { 110, 108, 112, 104, 102, 100, 98 }; // 34 above 21
-		Assert.Equal(0, Kat34ScalperLogic.FanDirection(messy, BuyFanPrev, 20, 0.25));
-	}
-
-	[Fact]
-	public void Fan_NotSpreading_ReturnsZero()
-	{
-		Assert.Equal(0, Kat34ScalperLogic.FanDirection(BuyFanNow, BuyFanNow, 20, 0.25)); // same spread
-	}
-
-	[Fact]
-	public void Fan_TooNarrow_ReturnsZero()
-	{
-		double[] now  = { 101, 100.9, 100.8, 100.7, 100.6, 100.5, 100 }; // spread 1 < 5
-		double[] prev = { 100.5, 100.4, 100.3, 100.2, 100.1, 100.05, 100 };
-		Assert.Equal(0, Kat34ScalperLogic.FanDirection(now, prev, 20, 0.25));
-	}
-
-	[Fact]
-	public void Fan_NullOrShort_ReturnsZero()
-	{
-		Assert.Equal(0, Kat34ScalperLogic.FanDirection(null, BuyFanPrev, 20, 0.25));
-		Assert.Equal(0, Kat34ScalperLogic.FanDirection(new double[] { 1 }, new double[] { 1 }, 20, 0.25));
-	}
-
 	// --- Market filter ---
 	[Fact]
 	public void Market_AdxTooLow_Blocked()
@@ -515,34 +469,6 @@ public class Kat34ScalperLogicTests
 			actions);
 	}
 
-	// --- A3 (8cross34): EMA cross direction ---
-	[Fact]
-	public void Cross_CrossUp_ReturnsPlus1()
-	{
-		Assert.Equal(1, Kat34ScalperLogic.CrossDirection(99.9, 100.0, 100.1, 100.0));
-	}
-
-	[Fact]
-	public void Cross_CrossDown_ReturnsMinus1()
-	{
-		Assert.Equal(-1, Kat34ScalperLogic.CrossDirection(100.1, 100.0, 99.9, 100.0));
-	}
-
-	[Fact]
-	public void Cross_NoCross_ReturnsZero()
-	{
-		Assert.Equal(0, Kat34ScalperLogic.CrossDirection(100.1, 100.0, 100.2, 100.0)); // stays above
-		Assert.Equal(0, Kat34ScalperLogic.CrossDirection(99.9, 100.0, 99.8, 100.0));   // stays below
-	}
-
-	[Fact]
-	public void Cross_TouchOnPreviousBar_CountsAsOldSide()
-	{
-		// prev fast == slow (touch, not yet crossed) -> a move above is still a cross up
-		Assert.Equal(1, Kat34ScalperLogic.CrossDirection(100.0, 100.0, 100.1, 100.0));
-		Assert.Equal(-1, Kat34ScalperLogic.CrossDirection(100.0, 100.0, 99.9, 100.0));
-	}
-
 	// --- ATM quick-set button labels ---
 	[Fact]
 	public void AtmSetName_WithinLimit_Kept()
@@ -572,23 +498,6 @@ public class Kat34ScalperLogicTests
 	{
 		Assert.Equal("TP", Kat34ScalperLogic.NormalizeAtmSetName("  TP ", "F"));
 		Assert.Equal("ABC", Kat34ScalperLogic.NormalizeAtmSetName(" ABCD ", "F"));
-	}
-
-	// --- A4 (OCO) price prioritization tests ---
-	[Fact]
-	public void A4_SelectBuyPrice_PrioritizesLowestBuy()
-	{
-		Assert.Equal(100.0, Kat34ScalperLogic.SelectA4BuyPrice(0, 100.0));
-		Assert.Equal(98.0, Kat34ScalperLogic.SelectA4BuyPrice(100.0, 98.0));
-		Assert.Equal(98.0, Kat34ScalperLogic.SelectA4BuyPrice(98.0, 102.0));
-	}
-
-	[Fact]
-	public void A4_SelectSellPrice_PrioritizesHighestSell()
-	{
-		Assert.Equal(100.0, Kat34ScalperLogic.SelectA4SellPrice(0, 100.0));
-		Assert.Equal(102.0, Kat34ScalperLogic.SelectA4SellPrice(100.0, 102.0));
-		Assert.Equal(102.0, Kat34ScalperLogic.SelectA4SellPrice(102.0, 98.0));
 	}
 
 	// --- Daily Risk (Max DD & Max Profit) tests ---

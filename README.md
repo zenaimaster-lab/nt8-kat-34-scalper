@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.55` (Released: `2026-08-02`)
+**Current Version**: `v0.56` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -11,14 +11,11 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | `Kat34Scalper.cs` | **Main** | lifecycle (`OnStateChange`), settings (NinjaScript properties), per-bar orchestration |
 | `src/Kat34ScalperLogic.cs` | **Pure logic** | signal state machines + filter math + ATM parser — zero NT8 deps, xunit-tested |
 | `src/Kat34Scalper.Signal.cs` | **Signal (shared)** | backfill window helper, shared diagnostics |
-| `src/Kat34Scalper.Signal.A0.cs` | **Signal A0** | independent sub-module: EMA-ribbon fan (own toggle, settings group, drawings, backfill) |
-|| `src/Kat34Scalper.Signal.A1.cs` | **Signal A1** | independent sub-module: 89-34 pullback (own toggle, settings group, drawings, backfill) |
-|| `src/Kat34Scalper.Signal.A2.cs` | **Signal A2** | independent sub-module: 34+8+Bounce ema34-touch pending entry (own toggle, settings group, drawings, backfill) |
-|| `src/Kat34Scalper.Signal.A3.cs` | **Signal A3** | independent sub-module: 8cross34 — ema8 cross ema34 → Buy/Sell (own toggle, settings group, drawings, backfill) |
-|| `src/Kat34Scalper.Signal.A4.cs` | **Signal A4** | independent sub-module: OCO previous bar High/Low — Buy Stop High[1], Sell Stop Low[1] (own toggle, settings group, drawings, backfill) |
-| `src/Kat34Scalper.Filter.cs` | **Filter** | gates: fan direction, MTF (3m/5m/15m), ADX, Volume, Time window (+ per-bar `*At(barsAgo)` variants for backfill replay) |
-| `src/Kat34Scalper.Bot.cs` | **Bot** | signal → order conversion (stop on valid side, limit when price ran past), ATM brackets, migration, trend-flip cancel |
-| `src/Kat34Scalper.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, arrows, labels, legacy drawing cleanup, version label, alert sound, HUD (sections titled SIGNAL / FILTER / BOT / DRAW) |
+| `src/Kat34Scalper.Signal.A1.cs` | **Signal A1** | independent sub-module: 89-34 pullback (`A1 (89-34)` — own toggle, settings group, drawings, backfill) |
+| `src/Kat34Scalper.Signal.A2.cs` | **Signal A2** | independent sub-module: 34+8+Bounce ema34-touch pending entry (`A2 (34+8)` — own toggle, settings group, drawings, backfill) |
+| `src/Kat34Scalper.Filter.cs` | **Filter** | gates: ADX, Volume, Time window (+ per-bar `*At(barsAgo)` variants for backfill replay) |
+| `src/Kat34Scalper.Bot.cs` | **Bot** | signal → order conversion (stop on valid side, limit when price ran past), ATM brackets, migration, trend-flip cancel, Close/Flatten |
+| `src/Kat34Scalper.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, labels, version label, alert sound, HUD (sections titled SIGNAL / FILTER / BOT / DRAW) |
 
 Every signal sub-module is **independent and default OFF**; its stages are specified in **`docs/SIGNALS.md`** (the standard every new signal must follow). Per bar the pipeline runs: **Signal A0** (direction/marker) → **Filter** (A1-only gates) → **Signal A1** → fires **Draw** + **Bot**.
 

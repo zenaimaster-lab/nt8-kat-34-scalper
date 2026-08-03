@@ -19,6 +19,15 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.56] — 2026-08-02
+- **Signal A0, A3, A4 Removal & Signal Numbering Enforcement**:
+  - Removed deleted signals: Signal A0 (fan), Signal A3 (8cross34), and Signal A4 (OCO pre-candle). Deleted `src/Kat34Scalper.Signal.A0.cs`, `src/Kat34Scalper.Signal.A3.cs`, `src/Kat34Scalper.Signal.A4.cs`.
+  - Strictly preserved remaining signal names and numbers: `A1` (`A1 89-34`) and `A2` (`A2 34+8`).
+  - Cleaned up HUD buttons in `src/Kat34Scalper.Draw.cs` (`secSignal`) to display only `A1 (89-34)` and `A2 (34+8)` buttons.
+  - Simplified filter gating in `src/Kat34Scalper.Filter.cs` and `src/Kat34Scalper.Signal.cs`.
+  - Updated unit tests in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs` (49/49 tests passing).
+  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Signal.cs`, `src/Kat34Scalper.Signal.A1.cs`, `src/Kat34Scalper.Signal.A2.cs`, `src/Kat34Scalper.Filter.cs`, `src/Kat34Scalper.Bot.cs`, `src/Kat34Scalper.Draw.cs`.
+
 ### [v0.55] — 2026-08-02
 - **Close/Flatten Button in HUD**:
   - Added `Close/flatten` button in `src/Kat34Scalper.Draw.cs` (`BuildHud()`) underneath `BOT ON/OFF` button in `secBot` panel, styled using TradeManager design system (`height=33`, `fontSize=15`, background `#141414` / `Color.FromRgb(20,20,20)`).

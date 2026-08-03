@@ -44,11 +44,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private void FlushBackfill()
 		{
 			if (CurrentBars == null || CurrentBars.Length == 0 || CurrentBars[0] < 1) return;
-			if (a0BackfillPending)
-			{
-				a0BackfillPending = false;
-				if (fanEmas != null) BackfillA0();
-			}
 			if (a1BackfillPending)
 			{
 				a1BackfillPending = false;
@@ -57,17 +52,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (a2BackfillPending)
 			{
 				a2BackfillPending = false;
-				if (ema8 != null && fanEmas != null) BackfillA2();
-			}
-			if (a3BackfillPending)
-			{
-				a3BackfillPending = false;
-				if (ema8 != null && fanEmas != null) BackfillA3();
-			}
-			if (a4BackfillPending)
-			{
-				a4BackfillPending = false;
-				BackfillA4();
+				if (ema8 != null && fastEma != null) BackfillA2();
 			}
 		}
 

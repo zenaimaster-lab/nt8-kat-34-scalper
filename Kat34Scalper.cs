@@ -89,20 +89,18 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.55";
+		public const string VERSION = "0.56";
 		public const string RELEASE_DATE = "2026-08-02";
 
 
-		// Indicator series (primary chart TF + optional MTF BarsArrays)
+		// Indicator series (primary chart TF)
 		private EMA fastEma;
 		private EMA slowEma;
-		private static readonly int[] FanPeriods = { 9, 21, 34, 55, 89, 144, 200 };
-		private EMA[][] fanEmas; // [BarsArray index][period index] — 0=primary; MTF indexes in bip3m/bip5m/bip15m (-1 = series not added)
+		private EMA ema8;
+		private EMA ema144;
+		private EMA ema200;
 		private ADX adxInd;
 		private SMA volSmaInd;
-		private int bip3m = -1;  // BarsArray index of the 3m series (-1 = not added)
-		private int bip5m = -1;
-		private int bip15m = -1;
 
 		// Time-window filter parsed values
 		private TimeSpan timeStart;
@@ -119,21 +117,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				Name						= "Kat34Scalper";
 				Calculate					= Calculate.OnBarClose;
 				IsOverlay					= true;
-				DisplayInDataBox			= false;
-				IsAutoScale					= false;
-				DrawHorizontalGridLines		= false;
-				DrawVerticalGridLines		= false;
-
-				// Parameters
+				DisplayInDataBox			= true;
+				DrawOnPricePanel			= true;
+				PaintPriceMarkers			= true;
+				IsSuspendedWhileInactive	= true;
 				ShowVersion					= true;
 
 				// 1. Filters defaults — every gate OFF; toggles boot OFF on every load (session-only)
-				FanFilterEnabled			= false;
-				FanMinSpreadTicks			= 20;
-				FanSpreadLookback			= 5;
-				Use3mFan					= false;
-				Use5mFan					= false;
-				Use15mFan					= false;
 				AdxPeriod					= 14;
 				AdxMin						= 20;
 				VolumeSmaPeriod				= 20;
@@ -142,73 +132,51 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				TimeFilterEnd				= "17:00";
 				AlertSound					= "Alert1.wav";
 
-				// 2. Signal A0 defaults — OFF; enabling computes + draws the fan over History Days
-				A0Enabled					= false;
-				A0HistoryDays				= 3;
-
 				// 3. Signal A1 defaults — OFF (Sell and Buy share the same mirrored mechanism)
 				A1Enabled					= false;
 				A1HistoryDays				= 3;
-			EmaFastPeriod				= 34;
-			EmaSlowPeriod				= 89;
-			MaxSequenceBars				= 30;
-		EntryOffsetTicks			= 1;
-			StopDistanceTicks			= 60;
-			TargetDistanceTicks			= 120;
+				EmaFastPeriod				= 34;
+				EmaSlowPeriod				= 89;
+				MaxSequenceBars				= 30;
+				EntryOffsetTicks			= 1;
+				StopDistanceTicks			= 60;
+				TargetDistanceTicks			= 120;
 
-			// 3.5 Signal A2 defaults — OFF (Sell and Buy share the same mirrored mechanism)
-			A2Enabled					= false;
-			A2HistoryDays				= 3;
-			A2CondEma8Above34			= true;
-			A2CondEma34Above89			= true;
-			A2CondEma89Above144			= true;
-			A2CondEma144Above200			= true;
-		A2EntryOffsetTicks			= 1;
-		A2StopDistanceTicks			= 60;
-		A2TargetDistanceTicks			= 120;
-
-		// 3.6 Signal A3 defaults — OFF (8cross34: ema8 cross ema34 -> Buy/Sell)
-		A3Enabled					= false;
-		A3HistoryDays				= 3;
-		A3EntryOffsetTicks			= 1;
-		A3StopDistanceTicks			= 60;
-		A3TargetDistanceTicks			= 120;
-
-		// 3.7 Signal A4 defaults — OFF (OCO Prev Bar: BUY Stop High[1], SELL Stop Low[1])
-		A4Enabled					= false;
-		A4HistoryDays				= 3;
-		A4EntryOffsetTicks			= 1;
-		A4StopDistanceTicks			= 60;
-		A4TargetDistanceTicks			= 120;
-
+				// 3.5 Signal A2 defaults — OFF (Sell and Buy share the same mirrored mechanism)
+				A2Enabled					= false;
+				A2HistoryDays				= 3;
+				A2CondEma8Above34			= true;
+				A2CondEma34Above89			= true;
+				A2CondEma89Above144			= true;
+				A2CondEma144Above200			= true;
+				A2EntryOffsetTicks			= 1;
+				A2StopDistanceTicks			= 60;
+				A2TargetDistanceTicks			= 120;
 
 				// 5. Bot defaults
 				BotEnabled					= false;
 				BotOrderQuantity			= 1;
-				// Default ATM = MNQ 1ct bracket (SL 60 / TP 120 / BE +2 @80 / trail 140->200).
-				// Entry/SL/TP/BE/trail lines on every signal come from this template; when the file
-				// is missing HasAtmTemplate fails and DrawSignal falls back to the settings distances.
-			BotAtmTemplate				= "mnq. 1ct. 15-be20-35move15-50triggertrail5step1";
-			BotAccountName				= "Sim101";
+				BotAtmTemplate				= "mnq. 1ct. 15-be20-35move15-50triggertrail5step1";
+				BotAccountName				= "Sim101";
 
-			DailyMaxDDEnabled			= false;
-			DailyMaxDD					= 500;
-			DailyMaxProfitEnabled		= false;
-			DailyMaxProfit				= 1000;
+				DailyMaxDDEnabled			= false;
+				DailyMaxDD					= 500;
+				DailyMaxProfitEnabled		= false;
+				DailyMaxProfit				= 1000;
 
-			// 6. ATM Quick Sets defaults — labels A–F, no ATM assigned (click shows a HUD hint)
-			AtmSet1Name					= "A";
-			AtmSet1Atm					= "";
-			AtmSet2Name					= "B";
-			AtmSet2Atm					= "";
-			AtmSet3Name					= "C";
-			AtmSet3Atm					= "";
-			AtmSet4Name					= "D";
-			AtmSet4Atm					= "";
-			AtmSet5Name					= "E";
-			AtmSet5Atm					= "";
-			AtmSet6Name					= "F";
-			AtmSet6Atm					= "";
+				// 6. ATM Quick Sets defaults — labels A–F, no ATM assigned
+				AtmSet1Name					= "A";
+				AtmSet1Atm					= "";
+				AtmSet2Name					= "B";
+				AtmSet2Atm					= "";
+				AtmSet3Name					= "C";
+				AtmSet3Atm					= "";
+				AtmSet4Name					= "D";
+				AtmSet4Atm					= "";
+				AtmSet5Name					= "E";
+				AtmSet5Atm					= "";
+				AtmSet6Name					= "F";
+				AtmSet6Atm					= "";
 
 				// 4. Lines & Text defaults
 				LineLengthBars				= 7;
@@ -221,54 +189,27 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				SellTextColor				= Colors.Red;
 				BuyTextColor				= Colors.LimeGreen;
 			}
-			else if (State == State.Configure)
-			{
-				// Only add a secondary series for timeframes actually enabled — with every MTF filter
-				// OFF (the default) the chart keeps its single primary series untouched.
-				int next = 1;
-				bip3m  = Use3mFan  ? next++ : -1;
-				bip5m  = Use5mFan  ? next++ : -1;
-				bip15m = Use15mFan ? next++ : -1;
-				if (bip3m > 0)  AddDataSeries(Data.BarsPeriodType.Minute, 3);
-				if (bip5m > 0)  AddDataSeries(Data.BarsPeriodType.Minute, 5);
-				if (bip15m > 0) AddDataSeries(Data.BarsPeriodType.Minute, 15);
-			}
 			else if (State == State.DataLoaded)
 			{
 				fastEma = EMA(BarsArray[0], EmaFastPeriod);
 				slowEma = EMA(BarsArray[0], EmaSlowPeriod);
 				ema8 = EMA(BarsArray[0], 8);
-
-				fanEmas = new EMA[BarsArray.Length][];
-				for (int s = 0; s < BarsArray.Length; s++)
-				{
-					fanEmas[s] = new EMA[FanPeriods.Length];
-					for (int p = 0; p < FanPeriods.Length; p++)
-						fanEmas[s][p] = EMA(BarsArray[s], FanPeriods[p]);
-				}
+				ema144 = EMA(BarsArray[0], 144);
+				ema200 = EMA(BarsArray[0], 200);
 				adxInd = ADX(BarsArray[0], AdxPeriod);
 				volSmaInd = SMA(Volumes[0], VolumeSmaPeriod);
 
-				timeWindowDisabled = true;
-				if (TimeSpan.TryParse(TimeFilterStart, out timeStart) && TimeSpan.TryParse(TimeFilterEnd, out timeEnd))
-					timeWindowDisabled = false;
-				else
-					Print(string.Format("[Kat34Scalper] Bad time filter '{0}'-'{1}' — time window disabled.", TimeFilterStart, TimeFilterEnd));
+				timeWindowDisabled = string.Equals(TimeFilterStart, TimeFilterEnd, StringComparison.OrdinalIgnoreCase);
+				if (!timeWindowDisabled)
+				{
+					TimeSpan.TryParse(TimeFilterStart, out timeStart);
+					TimeSpan.TryParse(TimeFilterEnd, out timeEnd);
+				}
 
-				Print(string.Format("[Kat34Scalper] v{0} ({1}) loaded on {2} {3} — all signals compute on THIS series.",
-					VERSION, RELEASE_DATE, Instrument.MasterInstrument.Name, ChartTimeframe()));
-			Print(string.Format("[Kat34Scalper][DIAG] A0Enabled={0}, A1Enabled={1}, A2Enabled={2}, A3Enabled={3}, A4Enabled={4}, FanFilterEnabled={5}, MaxSequenceBars={6}, LineLengthBars={7}",
-				A0Enabled, A1Enabled, A2Enabled, A3Enabled, A4Enabled, FanFilterEnabled, MaxSequenceBars, LineLengthBars));
-			cachedA0 = A0Enabled;
-			cachedA1 = A1Enabled;
-			cachedA2 = A2Enabled;
-			cachedA3 = A3Enabled;
-			cachedA4 = A4Enabled;
-			a0BackfillPending = A0Enabled;   // enabled at load -> draw the History Days window once
-			a1BackfillPending = A1Enabled;
-			a2BackfillPending = A2Enabled;
-			a3BackfillPending = A3Enabled;
-			a4BackfillPending = A4Enabled;
+				cachedA1 = A1Enabled;
+				cachedA2 = A2Enabled;
+				a1BackfillPending = A1Enabled;
+				a2BackfillPending = A2Enabled;
 
 				cachedBotAtm = BotAtmTemplate ?? "";
 				cachedBotAccountName = BotAccountName ?? "";
@@ -284,7 +225,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			else if (State == State.Terminated)
 			{
 				pendingMigrate = false;
-				CancelPendingBotOrder("indicator terminated"); // never orphan a live order
+				CancelPendingBotOrder("indicator terminated");
 				if (ChartControl != null)
 					ChartControl.Dispatcher.InvokeAsync(RemoveHud);
 			}
@@ -304,21 +245,17 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			// Backfill once per enable, at the last available bar (end of history or live bar).
 			if (State == State.Realtime || CurrentBars[0] >= BarsArray[0].Count - 1)
 				FlushBackfill();
-			if (State != State.Realtime) return; // history: only the N-day backfill window draws
+			if (State != State.Realtime) return;
 
 			double high = Highs[0][0];
 			double low = Lows[0][0];
 			double close = Closes[0][0];
 
-			int a0Dir = EvaluateA0Fan();                           // Signal sub-module A0 (EMA-ribbon fan)
 			bool sellAllowed, buyAllowed;
-			PassFilters(a0Dir, out sellAllowed, out buyAllowed);   // Filter module (fan gate, MTF, ADX, volume, time)
+			PassFilters(out sellAllowed, out buyAllowed);          // Filter module (ADX, volume, time)
 			EvaluateA1(high, low, close, sellAllowed, buyAllowed); // Signal sub-module A1 (89-34 pullback)
 			EvaluateA2(high, low, close);                          // Signal sub-module A2 (34+8+Bounce ema34 touch)
-			EvaluateA3(high, low, close);                          // Signal sub-module A3 (8cross34)
-			EvaluateA4(high, low, close);                          // Signal sub-module A4 (OCO prev bar)
 			ManageBotEntry(high, low, close);                      // Bot module (pending entry lifecycle)
-
 		}
 		#endregion
 
@@ -327,38 +264,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "Show Version Label", Order = 0, GroupName = "Parameters")]
 		public bool ShowVersion { get; set; }
 
-		// --- 1. Filters (A0 fan gate for A1, MTF, market, time) ---
-		// No [NinjaScriptProperty] on purpose: the toggle is session-only and boots OFF every
-		// load (saved templates used to resurrect it ON). HUD toggle still works for the session.
-		[Display(Name = "A0 Fan Filter Enabled", Order = 1, GroupName = "1. Filters",
-			Description = "Gates A1 only: A1 signals need the 9/21/34/55/89/144/200 EMA ribbon fanned out in the signal direction. Session-only — boots OFF on every load.")]
-		public bool FanFilterEnabled { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Fan Min Spread (ticks)", Order = 2, GroupName = "1. Filters",
-			Description = "Minimum distance between EMA 9 and EMA 200 for a valid fan.")]
-		public int FanMinSpreadTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Fan Spread Lookback (bars)", Order = 3, GroupName = "1. Filters",
-			Description = "The ribbon must be wider now than this many bars ago (spreading out).")]
-		public int FanSpreadLookback { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Use 3m Fan Filter", Order = 4, GroupName = "1. Filters",
-			Description = "The 3-minute ribbon must fan in the same direction.")]
-		public bool Use3mFan { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Use 5m Fan Filter", Order = 5, GroupName = "1. Filters",
-			Description = "The 5-minute ribbon must fan in the same direction.")]
-		public bool Use5mFan { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Use 15m Fan Filter", Order = 6, GroupName = "1. Filters",
-			Description = "The 15-minute ribbon must fan in the same direction.")]
-		public bool Use15mFan { get; set; }
-
+		// --- 1. Filters (market, time) ---
 		[NinjaScriptProperty]
 		[Display(Name = "ADX Period", Order = 7, GroupName = "1. Filters")]
 		public int AdxPeriod { get; set; }
@@ -389,30 +295,19 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		[NinjaScriptProperty]
 		[Display(Name = "Alert Sound", Order = 13, GroupName = "1. Filters",
-			Description = "Sound played on A0 fan and A1 signals.")]
+			Description = "Sound played on signals.")]
 		[TypeConverter(typeof(Kat34ScalperSoundConverter))]
 		public string AlertSound { get; set; }
-
-		// --- 2. Signal A0 — EMA Fan (docs/SIGNALS.md) ---
-		[NinjaScriptProperty]
-		[Display(Name = "Enabled", Order = 1, GroupName = "2. Signal A0 — EMA Fan",
-			Description = "Default OFF. When switched ON the fan markers are computed and drawn over History Days immediately.")]
-		public bool A0Enabled { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "History Days", Order = 2, GroupName = "2. Signal A0 — EMA Fan",
-			Description = "How many days back the fan markers are computed and drawn when A0 is switched ON.")]
-		public int A0HistoryDays { get; set; }
 
 		// --- 3. Signal A1 — 89/34 Pullback (docs/SIGNALS.md; Sell and Buy share the same mirrored mechanism) ---
 		[NinjaScriptProperty]
 		[Display(Name = "Enabled", Order = 1, GroupName = "3. Signal A1 — 89/34 Pullback",
-			Description = "Default OFF. When switched ON the A1 stages (A1-arm/pull/pull-T/U) and signals are computed and drawn over History Days immediately.")]
+			Description = "Default OFF. When switched ON the A1 signals are computed and drawn over History Days immediately.")]
 		public bool A1Enabled { get; set; }
 
 		[NinjaScriptProperty]
 		[Display(Name = "History Days", Order = 2, GroupName = "3. Signal A1 — 89/34 Pullback",
-			Description = "How many days back the A1 stage markers and signals are computed and drawn when A1 is switched ON.")]
+			Description = "How many days back the A1 signals are computed and drawn when A1 is switched ON.")]
 		public int A1HistoryDays { get; set; }
 
 		[NinjaScriptProperty]
@@ -488,58 +383,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "Target Distance (ticks)", Order = 9, GroupName = "3.5 Signal A2 — 34+8+Bounce",
 			Description = "Fallback when the selected ATM template defines no Target.")]
 		public int A2TargetDistanceTicks { get; set; }
-
-		// --- 3.6 Signal A3 — 8cross34 (docs/SIGNALS.md; ema8 cross ema34 -> Buy/Sell) ---
-		[NinjaScriptProperty]
-		[Display(Name = "Enabled", Order = 1, GroupName = "3.6 Signal A3 — 8cross34",
-			Description = "Default OFF. When switched ON the A3 cross signals are computed and drawn over History Days immediately.")]
-		public bool A3Enabled { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "History Days", Order = 2, GroupName = "3.6 Signal A3 — 8cross34",
-			Description = "How many days back the A3 cross signals are computed and drawn when A3 is switched ON.")]
-		public int A3HistoryDays { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Entry Offset (ticks)", Order = 3, GroupName = "3.6 Signal A3 — 8cross34",
-			Description = "Buy entry above the cross candle's high / Sell entry below its low.")]
-		public int A3EntryOffsetTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Stop Distance (ticks)", Order = 4, GroupName = "3.6 Signal A3 — 8cross34",
-			Description = "Fallback when the selected ATM template defines no StopLoss.")]
-		public int A3StopDistanceTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Target Distance (ticks)", Order = 5, GroupName = "3.6 Signal A3 — 8cross34",
-			Description = "Fallback when the selected ATM template defines no Target.")]
-		public int A3TargetDistanceTicks { get; set; }
-
-		// --- 3.7 Signal A4 — OCO Prev Bar ---
-		[NinjaScriptProperty]
-		[Display(Name = "Enabled", Order = 1, GroupName = "3.7 Signal A4 — OCO Prev Bar",
-			Description = "Default OFF. When switched ON the A4 OCO signals (BUY stop High[1], SELL stop Low[1]) are computed and drawn over History Days immediately.")]
-		public bool A4Enabled { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "History Days", Order = 2, GroupName = "3.7 Signal A4 — OCO Prev Bar",
-			Description = "How many days back the A4 signals are computed and drawn when A4 is switched ON.")]
-		public int A4HistoryDays { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Entry Offset (ticks)", Order = 3, GroupName = "3.7 Signal A4 — OCO Prev Bar",
-			Description = "Buy entry above previous high / Sell entry below previous low.")]
-		public int A4EntryOffsetTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Stop Distance (ticks)", Order = 4, GroupName = "3.7 Signal A4 — OCO Prev Bar",
-			Description = "Fallback when the selected ATM template defines no StopLoss.")]
-		public int A4StopDistanceTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Target Distance (ticks)", Order = 5, GroupName = "3.7 Signal A4 — OCO Prev Bar",
-			Description = "Fallback when the selected ATM template defines no Target.")]
-		public int A4TargetDistanceTicks { get; set; }
 
 
 		// --- 5. Bot (semi-auto — trades only while the HUD BOT button is ON) ---

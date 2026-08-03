@@ -111,7 +111,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					Print(string.Format("[Kat34Scalper] EMERGENCY CANCEL triggered by Daily Risk Protection: {0}", breachReason));
 					ShowHudStatus(breachReason, Brushes.OrangeRed);
 					CancelPendingBotOrder(breachReason);
-					CancelA4BotOrders(breachReason);
 				}
 			}
 			else
@@ -179,16 +178,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (owner == "A1") return cachedA1;
 			if (owner == "A2") return cachedA2;
-			if (owner == "A3") return cachedA3;
-			if (owner == "A4") return cachedA4;
-			return true; // future owners manage their own gating
+			return true;
 		}
-
-		private Order pendingA4BuyOrder;
-		private Order pendingA4SellOrder;
-		private double pendingA4BuyPrice;
-		private double pendingA4SellPrice;
-		private bool a4InTrade;
 
 		private bool HasOpenPosition(Account acc)
 		{
@@ -207,70 +198,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			return false;
 		}
 
-		// Called from Signal A4 to manage OCO entries (BUY stop/limit and SELL stop/limit)
-		private void TrySubmitA4BotOcoEntries(double buyPrice, double sellPrice)
-		{
-			if (!cachedBotOn || !BotEnabled || !cachedA4 || buyPrice <= 0 || sellPrice <= 0) return;
-			Account acc = ResolveBotAccount();
-			if (acc == null) return;
-
-			if (IsDailyRiskBreached(out string breachReason))
-			{
-				ShowHudStatus(breachReason, Brushes.OrangeRed);
-				Print(string.Format("[Kat34Scalper] BOT A4 entry blocked: {0}", breachReason));
-				return;
-			}
-
-			// Do NOT submit new entry orders while already in a trade or holding an open position
-			if (a4InTrade || HasOpenPosition(acc)) return;
-
-			if (pendingA4BuyOrder != null && pendingA4BuyPrice == buyPrice
-				&& pendingA4SellOrder != null && pendingA4SellPrice == sellPrice)
-				return;
-
-			if (pendingA4BuyOrder != null || pendingA4SellOrder != null)
-			{
-				CancelA4BotOrders("A4 OCO price update for new candle");
-			}
-
-			string ocoId = "K34S_A4_OCO_" + DateTime.Now.Ticks;
-			int qty = GetEffectiveBotQuantity();
-
-			bool useBuyStop = Kat34ScalperLogic.UseStopOrder(true, buyPrice, Closes[0][0]);
-			Order buyOrder = acc.CreateOrder(Instrument, OrderAction.Buy,
-				useBuyStop ? OrderType.StopMarket : OrderType.Limit, OrderEntry.Manual, TimeInForce.Gtc,
-				qty, useBuyStop ? 0 : buyPrice, useBuyStop ? buyPrice : 0, ocoId, "Entry", NinjaTrader.Core.Globals.MaxDate, null);
-
-			bool useSellStop = Kat34ScalperLogic.UseStopOrder(false, sellPrice, Closes[0][0]);
-			Order sellOrder = acc.CreateOrder(Instrument, OrderAction.Sell,
-				useSellStop ? OrderType.StopMarket : OrderType.Limit, OrderEntry.Manual, TimeInForce.Gtc,
-				qty, useSellStop ? 0 : sellPrice, useSellStop ? sellPrice : 0, ocoId, "Entry", NinjaTrader.Core.Globals.MaxDate, null);
-
-			pendingA4BuyOrder = buyOrder;
-			pendingA4SellOrder = sellOrder;
-			pendingA4BuyPrice = buyPrice;
-			pendingA4SellPrice = sellPrice;
-
-			string tpl = cachedBotAtm;
-			bool hasAtm = HasAtmTemplate(tpl);
-			if (hasAtm)
-			{
-				NinjaTrader.NinjaScript.AtmStrategy.StartAtmStrategy(tpl, buyOrder);
-				NinjaTrader.NinjaScript.AtmStrategy.StartAtmStrategy(tpl, sellOrder);
-			}
-			else
-			{
-				acc.Submit(new[] { buyOrder, sellOrder });
-			}
-
-			Print(string.Format("[Kat34Scalper] BOT A4 OCO submitted ({4}ct): BUY @ {0:F5} ({1}), SELL @ {2:F5} ({3})",
-				buyPrice, useBuyStop ? "stop" : "limit", sellPrice, useSellStop ? "stop" : "limit", qty));
-			ShowHudStatus(string.Format("BOT A4 OCO ({2}ct): BUY @ {0:F2}, SELL @ {1:F2}", buyPrice, sellPrice, qty), Brushes.LightGreen);
-		}
-
 		// Called from the Signal module after a signal fires. refExtreme = best candidate extreme (sell: c2 low / buy: c2 high).
 		// offsetTicks = the calling signal's own Entry Offset (order price must match its drawn entry line).
-		// owner = signal module id ("A1"/"A2"/"A3") — a signal cancels only its own pending order.
+		// owner = signal module id ("A1"/"A2") — a signal cancels only its own pending order.
 		private void TrySubmitBotEntry(bool isBuy, double refExtreme, int offsetTicks, string owner = "A1")
 		{
 			if (!cachedBotOn || !BotEnabled || refExtreme == 0) return;
@@ -299,30 +229,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				pendingMigrate = false;
 				CancelPendingBotOrder(reason);
 			}
-			if (owner == "A4")
-			{
-				CancelA4BotOrders(reason);
-			}
 		}
-
-		private void CancelA4BotOrders(string reason)
-		{
-			Account acc = ResolveBotAccount();
-			if (acc == null) return;
-			a4InTrade = false;
-			SetSignalInTrade("A4", false);
-			if (pendingA4BuyOrder != null)
-			{
-				try { acc.Cancel(new[] { pendingA4BuyOrder }); } catch { }
-				pendingA4BuyOrder = null;
-			}
-			if (pendingA4SellOrder != null)
-			{
-				try { acc.Cancel(new[] { pendingA4SellOrder }); } catch { }
-				pendingA4SellOrder = null;
-			}
-		}
-
 
 		private void SubmitBotOrder(bool isBuy, double refExtreme, int offsetTicks, string owner = "A1")
 		{
@@ -335,12 +242,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double entryPrice = isBuy
 				? refExtreme + offsetTicks * TickSize
 				: refExtreme - offsetTicks * TickSize;
-			// Price already past the trigger -> a stop would sit on the wrong side and be rejected; use a limit.
 			bool useStop = Kat34ScalperLogic.UseStopOrder(isBuy, entryPrice, Closes[0][0]);
 			int qty = GetEffectiveBotQuantity();
 			try
 			{
-				// ATM contract: the entry order name MUST be "Entry" (see KatTradeManager).
 				Order order = acc.CreateOrder(Instrument,
 					isBuy ? OrderAction.Buy : OrderAction.Sell,
 					useStop ? OrderType.StopMarket : OrderType.Limit, OrderEntry.Manual, TimeInForce.Gtc,
@@ -378,71 +283,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 		}
 
-		private void ManageA4BotEntry()
-		{
-			Account acc = ResolveBotAccount();
-			if (acc == null) return;
-
-			if (a4InTrade)
-			{
-				if (!HasOpenPosition(acc))
-				{
-					a4InTrade = false;
-					SetSignalInTrade("A4", false);
-					Print("[Kat34Scalper] BOT: A4 position closed (flat) — ready for next OCO setup.");
-					ShowHudStatus("BOT: A4 position closed", Brushes.LightGreen);
-				}
-			}
-
-			if (pendingA4BuyOrder == null && pendingA4SellOrder == null) return;
-
-			if (pendingA4BuyOrder != null && pendingA4BuyOrder.OrderState == OrderState.Filled)
-			{
-				a4InTrade = true;
-				SetSignalInTrade("A4", true);
-				Print(string.Format("[Kat34Scalper] BOT: A4 BUY filled @ {0:F5} — cancelling A4 SELL order.", pendingA4BuyPrice));
-				ShowHudStatus(string.Format("BOT: A4 BUY FILLED @ {0:F2}", pendingA4BuyPrice), Brushes.LightGreen);
-				if (pendingA4SellOrder != null)
-				{
-					try { acc.Cancel(new[] { pendingA4SellOrder }); } catch { }
-					pendingA4SellOrder = null;
-				}
-				pendingA4BuyOrder = null;
-				ClearA4SideDrawings(false); // remove cancelled SELL drawing, keep filled BUY text/lines
-			}
-			else if (pendingA4SellOrder != null && pendingA4SellOrder.OrderState == OrderState.Filled)
-			{
-				a4InTrade = true;
-				SetSignalInTrade("A4", true);
-				Print(string.Format("[Kat34Scalper] BOT: A4 SELL filled @ {0:F5} — cancelling A4 BUY order.", pendingA4SellPrice));
-				ShowHudStatus(string.Format("BOT: A4 SELL FILLED @ {0:F2}", pendingA4SellPrice), Brushes.LightGreen);
-				if (pendingA4BuyOrder != null)
-				{
-					try { acc.Cancel(new[] { pendingA4BuyOrder }); } catch { }
-					pendingA4BuyOrder = null;
-				}
-				pendingA4SellOrder = null;
-				ClearA4SideDrawings(true); // remove cancelled BUY drawing, keep filled SELL text/lines
-			}
-
-			if (pendingA4BuyOrder != null && (pendingA4BuyOrder.OrderState == OrderState.Cancelled || pendingA4BuyOrder.OrderState == OrderState.Rejected))
-				pendingA4BuyOrder = null;
-			if (pendingA4SellOrder != null && (pendingA4SellOrder.OrderState == OrderState.Cancelled || pendingA4SellOrder.OrderState == OrderState.Rejected))
-				pendingA4SellOrder = null;
-		}
-
 		// Polls the pending order on the data thread: terminal cleanup, trend-flip cancel, migrate to a better extreme.
 		private void ManageBotEntry(double high, double low, double close)
 		{
 			EvaluateDailyRiskLimits();
-			ManageA4BotEntry();
 
 			Account acc = ResolveBotAccount();
 			if (acc != null && !HasOpenPosition(acc))
 			{
-				if (a4InTrade || signalInTradeMap.Count > 0)
+				if (signalInTradeMap.Count > 0)
 				{
-					a4InTrade = false;
 					signalInTradeMap.Clear();
 				}
 			}
@@ -551,9 +401,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			try
 			{
-				// Cancel pending bot entries & A4 OCO orders
+				// Cancel pending bot entries
 				CancelPendingBotOrder("Close/flatten clicked");
-				CancelA4BotOrders("Close/flatten clicked");
 
 				// Cancel all active working orders on the selected account
 				if (acc.Orders != null)

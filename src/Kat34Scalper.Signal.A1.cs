@@ -164,7 +164,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				bool buyTouchedBefore = tmpBuy.Touched89;
 
 				bool sellAllowed, buyAllowed;
-				PassFiltersAt(ago, SeriesFanDirectionAt(0, ago), out sellAllowed, out buyAllowed);
+				PassFiltersAt(ago, out sellAllowed, out buyAllowed);
 
 				KatSignalKind? sellSignal = Kat34ScalperLogic.Update(KatSignalKind.Sell, MaxSequenceBars,
 					f < sl, h, l, c, f, sl, tmpSell);
