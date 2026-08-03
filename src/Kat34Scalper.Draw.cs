@@ -127,7 +127,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (record.Sl2Price != 0)
 					Draw.Line(this, SignalTag(record, "SL2"), false, age, record.Sl2Price, 0, record.Sl2Price, Brushes.Magenta, DashStyleHelper.Dot, 1);
 
-				string labelText = string.Format("{0} {1}", record.IsBuy ? "BUY" : "SELL", owner);
+				string labelText = string.Format("{0} {1}", record.IsBuy ? "Buy" : "Sell", owner);
 				Draw.Text(this, SignalTag(record, "TEXT"), labelText, age, record.TextY, textBrush);
 			}
 			if (!record.DrawLogged)

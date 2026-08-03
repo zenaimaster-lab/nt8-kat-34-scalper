@@ -1,163 +1,74 @@
 # SIGNALS.md — Standard mô tả signal (Kat34Scalper)
 
 Chuẩn mô tả cho MỌI signal trong indicator. Mỗi signal là một sub-module độc lập
-(`src/Kat34Scalper.Signal.AX.cs`) và PHẢI được mô tả ở đây theo đúng template dưới đây
-trước/khi code. Khi thêm signal mới (A2, A3...): copy template, điền đủ mọi mục.
+(`src/Kat34Scalper.AlertSignal.AX.cs` hoặc `src/Kat34Scalper.Signal.BX.cs`) và PHẢI được mô tả ở đây.
 
 ## Quy ước chung (áp dụng cho mọi signal)
 
-- **Default OFF.** Mỗi signal có `AXEnabled` (default `false`) trong settings group riêng
-  (`N. Signal AX — Tên`) và toggle riêng trên HUD (section SIGNAL).
-- **History Days.** Mỗi signal có `AXHistoryDays` (default `3`). Khi bật ON (settings hoặc
-  HUD), sub-module TỰ ĐỘNG tính toán lại và vẽ trên chart trong cửa sổ N ngày gần nhất
-  (backfill một lần, không alert sound, không bắn order bot). Sau backfill, state của
-  state machine được đồng bộ sang live để không bắt đầu lại từ idle.
-- **OFF = độc lập tuyệt đối.** Tắt signal chỉ xoá drawing có tag prefix của chính nó,
-  reset state machine của nó; không ảnh hưởng signal khác.
-- **Ownership rule (MANDATORY cho tất cả signal hiện tại và tương lai):** Mỗi signal là một sub-module độc lập. Khi HUD toggle ON: sub-module backfill + vẽ toàn bộ drawings của nó (signal lines/entry/SL/TP + stage markers + arrow/text nếu có). Khi OFF: chỉ xoá NHỮNG GÌ CHÍNH NÓ VẼ RA (dùng prefix `K34S_<OWNER>_` và `K34S_<OWNER>ST_`), không đụng đến các signal khác. ON lại: vẽ lại chính nó. OFF lại: chỉ xóa của nó. Clear button HUD xóa TOÀN BỘ K34S_* + K8934_* của HUD này (không phân biệt owner).
-- **Stage marker** là text label persistent vẽ tại bar xảy ra giai đoạn (không phải marker
-  trôi theo bar hiện tại), tag unique per bar.
+- **Alert Signal (A1, A2...) vs Bot Signal (B1, B2...)**:
+  - **ALERT SIGNAL**: Tạo âm thanh cảnh báo (Alert Sound) và vẽ hình/đường giá trên chart (chỉ vẽ), **không** tham gia chạy Bot hay bắn order.
+  - **BOT SIGNAL**: Quản lý tín hiệu chạy Bot khi HUD BOT ON, vẽ đường Entry/SL/TP và gửi order sang Bot execution. Format vẽ nhãn chart: `Buy B1`, `Sell B1`, `Buy B2`, `Sell B2`.
+- **Default OFF.** Mỗi signal có công tắc `Enabled` (default `false`) trong settings group riêng và toggle trên HUD.
+- **History Days.** Mỗi signal có `HistoryDays` (default `3`). Khi bật ON, sub-module TỰ ĐỘNG tính toán lại và vẽ trên chart trong cửa sổ N ngày gần nhất.
+- **OFF = độc lập tuyệt đối.** Tắt signal chỉ xoá drawing có tag prefix của chính nó (`K34S_ALERTA1_`, `K34S_B1_`...).
+- **Ownership rule:** Mỗi signal sở hữu prefix vẽ riêng. Clear button HUD xóa TOÀN BỘ K34S_* + K8934_*.
 - Mọi signal chạy trên primary series của chart (`Calculate.OnBarClose`).
 
-## Template chuẩn cho một signal
+---
 
-```
-## AX — <tên signal>
-- File: src/Kat34Scalper.Signal.AX.cs | Settings group: "N. Signal AX — <tên>" | HUD toggle: SIGNAL › <label>
-- Mục đích: <1 câu — signal này bắt cái gì>
-- Điều kiện nền (trend/context): <điều kiện bắt buộc trước khi sequence chạy>
-- Settings: <liệt kê + default>
-- Tag drawing: <prefix>
-- Filter ảnh hưởng: <filter nào gate signal này, theo hướng nào>
+## ALERT SIGNALS (A1, A2...)
 
-### Bảng giai đoạn (stages)
-| Stage | Marker | Phase | Điều kiện VÀO | Điều kiện RA / hành động |
-|-------|--------|-------|----------------|---------------------------|
-| ...   | ...    | ...   | ...            | ...                       |
+### A1 — Alert Signal A1 (Placeholder)
+- File: `src/Kat34Scalper.AlertSignal.A1.cs` | Settings group: `2. Alert Signal A1` | HUD toggle: ALERT SIGNAL › `A1`
+- Mục đích: Cảnh báo tín hiệu âm thanh và vẽ marker/đường giá trên chart cho người dùng theo dõi. KHÔNG bắn lệnh Bot.
 
-### Signal fire
-- Điều kiện fire: <chính xác bar nào, close hay wick>
-- Entry: <quy tắc giá entry> | SL: <...> | TP: <...>
-- Bot: <hành vi bot khi fire>
-```
+### A2 — Alert Signal A2 (Placeholder)
+- File: `src/Kat34Scalper.AlertSignal.A2.cs` | Settings group: `2.5 Alert Signal A2` | HUD toggle: ALERT SIGNAL › `A2`
+- Mục đích: Cảnh báo tín hiệu âm thanh và vẽ marker/đường giá trên chart cho người dùng theo dõi. KHÔNG bắn lệnh Bot.
 
 ---
 
-## A0 — EMA-ribbon Fan
+## BOT SIGNALS (B1, B2...)
 
-- File: `src/Kat34Scalper.Signal.A0.cs` | Settings group: `2. Signal A0 — EMA Fan` | HUD toggle: SIGNAL › `A0 fan`
-- Mục đích: phát hiện lúc ribbon EMA "xoè quạt" — trend đủ mạnh và đang giãn ra.
-- Điều kiện nền: đủ dữ liệu warmup (EMA 200 + `Fan Spread Lookback` bar).
-- Settings: `Enabled` (false), `History Days` (3). Tham số fan dùng chung với filter:
-  `Fan Min Spread (ticks)` (20), `Fan Spread Lookback (bars)` (5) trong group `1. Filters`.
-- Tag drawing: `K34S_A0_<bar>`
-- Filter ảnh hưởng: KHÔNG. A0 là signal độc lập; direction của nó (-1/0/+1) được Filter module
-  dùng làm gate cho A1 khi `A0 Fan Filter Enabled` bật — nhưng không filter nào gate A0.
+## B1 — 34bounce8+ (34+8+Bounce)
 
-### Bảng giai đoạn (stages)
-
-| Stage | Marker | Phase | Điều kiện VÀO | Điều kiện RA / hành động |
-|-------|--------|-------|----------------|---------------------------|
-| idle | — | 0 | Ribbon KHÔNG fanned (EMAs không theo thứ tự strict, hoặc không giãn, hoặc spread < min) | — |
-| fanned (buy) | ▲ DodgerBlue dưới low | +1 | EMA 9>21>34>55>89>144>200 strict, spread(9↔200) > spread `Fan Spread Lookback` bars trước, spread ≥ `Fan Min Spread (ticks)` | Bar ĐẦU của episode: vẽ ▲ + alert sound (chỉ live). Episode kết thúc khi fan collapse → re-arm |
-| fanned (sell) | ▼ OrangeRed trên high | -1 | EMA 9<21<34<55<89<144<200 strict + giãn + đủ rộng | Bar ĐẦU của episode: vẽ ▼ + alert sound (chỉ live) |
-
-### Signal fire
-- Điều kiện fire: bar đầu tiên ribbon chuyển từ "không fan" sang "fan" (hoặc đổi hướng fan), close basis.
-- Entry/SL/TP: KHÔNG vẽ (A0 chỉ là marker cảnh báo trend). Bot không trade A0.
-- Bot: không.
-
----
-
-## A1 — 89/34 Pullback
-
-- File: `src/Kat34Scalper.Signal.A1.cs` | Settings group: `3. Signal A1 — 89/34 Pullback` | HUD toggle: SIGNAL › `A1 89-34`
-- Mục đích: bắt pullback về EMA 89 trong trend EMA 34/89 rồi đảo chiều tiếp tục trend (rejection).
-- Điều kiện nền (trend): Sell = EMA fast(34) < EMA slow(89); Buy = fast > slow. Mất trend → reset sequence về idle. Mọi bước tính trên CLOSE basis (wick không tính cross), trừ touch slow EMA dùng high/low.
-- Settings: `Enabled` (false), `History Days` (3), `Fast EMA Period` (34), `Slow EMA Period` (89), `Max Sequence Bars` (30), `Entry Offset (ticks)` (1), `Stop Distance (ticks)` (60, fallback), `Target Distance (ticks)` (120, fallback).
-- Tag drawing: stage markers `K34S_A1ST_<B/S>_<bar>`; signal (entry/SL/TP/arrow/label) `K34S_<B/S>_<suffix>_<bar>`.
-- Filter ảnh hưởng: group `1. Filters` — A0 fan gate (session-only), MTF, ADX, Volume, Time window. Filter gate VIỆC PHÁT signal (emission), KHÔNG gate tiến trình sequence (state machine vẫn chạy khi trend còn).
-
-### Bảng giai đoạn (stages) — Sell minh hoạ, Buy mirror
-
-| Stage | Marker | Phase | Điều kiện VÀO | Điều kiện RA / hành động |
-|-------|--------|-------|----------------|---------------------------|
-| idle | — | 0 | Trend hợp lệ, chưa có setup | close < EMA34 → vào arm |
-| arm | `A1-arm` | 1 | close vượt xuống DƯỚI EMA34 (pullback bắt đầu từ phía dưới) | close > EMA34 → vào pull (bắt đầu đếm SeqBars=1) |
-| pull | `A1-pull` | 2 | close cross ngược lên qua EMA34 hướng về EMA89, CHƯA chạm EMA89 | high ≥ EMA89 → pull-T; close < EMA34 trước khi chạm 89 → FAILED, về arm (không marker) |
-| pull-T | `A1-pull-T` | 2 | pullback đã touch/cross EMA89 (wick tính) | close < EMA34 (U-turn) → fire ngay, về arm |
-| expired | — | 0 | SeqBars > `Max Sequence Bars` (đếm từ bar cross) | reset, re-arm từ đầu |
-
-### Signal fire
-- Fire NGAY tại bar U-turn close qua EMA34 (sau pull-T) — 4 bước: arm → cross → touch → U-turn. (Mode Retest Bounce đã bỏ từ v0.37.)
-- Entry: stop ở candidate — C1 = C2 = low/high của bar U-turn; sell = `C1 - Entry Offset`, buy = `C1 + Entry Offset`.
-- SL/TP: từ ATM template (`mnq. 1ct...` default: SL 60 / TP 120) nếu template định nghĩa, fallback `Stop/Target Distance`.
-- Bot: nếu BOT ON + `Bot Enabled` → submit stop (hoặc limit nếu giá đã chạy qua) qua ATM template trên account `Sim101` (default). Backfill/replay KHÔNG bắn order.
-
-### Drawing khi fire
-- Entry line solid (per-side color), SL dashed red, TP dashed green; C1/C2 faded dotted nếu khác nhau; ATM trigger lines BE (DeepSkyBlue dash-dot) / SL1 (orange dot) / SL2 (magenta dot) khi template có.
-- Lines hiển thị tối đa `Line Length (bars)` (7).
-- **Ownership prefix:** mọi drawing của signal A1 dùng prefix `K34S_A1_<B/S>_` (entry/SL/TP) và `K34S_A1ST_<B/S>_` (stage markers). Khi A1 OFF chỉ xóa prefix này. Clear HUD xóa toàn bộ `K34S_*`.
-
----
-
-## A2 — 34+8+Bounce
-
-- File: `src/Kat34Scalper.Signal.A2.cs` | Settings group: `3.5 Signal A2 — 34+8+Bounce` | HUD toggle: SIGNAL › `A2 34+8`
-- Mục đích: bắt nhịp bounce từ EMA 34 trong trend stack mạnh (BUY 34+++: EMAs xếp chồng 8>34>89>144>200) — pullback chạm EMA 34 rồi bật lên, vào lệnh stop ở đỉnh nến chạm.
+- File: `src/Kat34Scalper.Signal.B1.cs` | Settings group: `3. Bot Signal B1 — 34bounce8+` | HUD toggle: BOT SIGNAL › `B1 (34bounce8+)`
+- Mục đích: bắt nhịp bounce từ EMA 34 trong trend stack mạnh (BUY 34bounce8+: EMAs xếp chồng 8>=34>89>144>200) — pullback chạm EMA 34 rồi bật lên, vào lệnh stop ở đỉnh nến chạm. Format nhãn: `Buy B1` / `Sell B1`.
 - Điều kiện nền (trend stack) — BUY (SELL mirror ngược lại), **mỗi điều kiện có toggle riêng trong settings**:
   1. `Cond: EMA 8 above EMA 34` — EMA 8 nằm trên HOẶC touch EMA 34 (không được cross down). Touch cho phép (`>=`).
   2. `Cond: EMA 34 above EMA 89` — strict `>`.
   3. `Cond: EMA 89 above EMA 144` — strict `>`.
   4. `Cond: EMA 144 above EMA 200` — strict `>`.
-  Mất stack (bất kỳ điều kiện nào đang bật fail) → hủy entry đang pending. SELL: 8<=34 (touch OK, không cross up), 34<89, 89<144, 144<200.
-- Settings: `Enabled` (false), `History Days` (3), 4 cond toggles (true), `Entry Offset (ticks)` (1), `Stop Distance (ticks)` (60, fallback), `Target Distance (ticks)` (120, fallback).
-- Tag drawing: signal lines `K34S_A2_<B/S>_<suffix>_<bar>`; text label `K34S_A2_TX_<B/S>_<bar>`.
-- Filter ảnh hưởng: KHÔNG (tính trên chính TF chart). Filter TF lớn hơn sẽ add sau ở section Filter.
-- **KHÔNG có stage markers** — signal một giai đoạn duy nhất, chỉ vẽ entry/SL/TP lines + text `Buy A2` (dưới nến, màu Buy Text) / `Sell A2` (trên nến, màu Sell Text) tại nến entry.
+  Mất stack → hủy entry đang pending.
+- Settings: `B1Enabled` (false), `B1HistoryDays` (3), 4 cond toggles (true), `B1EntryOffsetTicks` (1), `B1StopDistanceTicks` (60, fallback), `B1TargetDistanceTicks` (120, fallback).
+- Tag drawing: signal lines `K34S_B1_<B/S>_<suffix>_<bar>`; text label `K34S_B1_TX_<B/S>_<bar>`.
+- Filter ảnh hưởng: Global Filter (`PassFilters`: ADX, Volume, Time window, MTF).
+- Nhãn chart text: `Buy B1` (dưới nến) / `Sell B1` (trên nến).
 
 ### Bảng giai đoạn (states) — BUY minh họa, SELL mirror
 
 | State | Phase logic | Điều kiện VÀO | Điều kiện RA / hành động |
 |-------|-------------|----------------|---------------------------|
 | idle | `Active=false` | trend stack hợp lệ, chưa có touch | nến touch (wick low <= EMA34) + close TRÊN EMA34 → NewEntry |
-| pending | `Active=true`, `RefExtreme` = high nến touch | NewEntry: pending stop LONG ở `high + Entry Offset`, vẽ lines + text | touch sau có high THẤP hơn → Migrate (dời entry xuống); high chạm trigger → Filled; close < EMA34 hoặc mất stack → Cancel |
-
-- Thứ tự check mỗi bar: **Filled trước** (high >= `RefExtreme + Entry Offset`) → **Cancel** (close < EMA34 hoặc `!trendOk`) → **touch**: chưa active → NewEntry, high < RefExtreme → Migrate, ngược lại None.
-- Nến touch mà close DƯỚI EMA34: không bao giờ có entry (touch phải close trên mới đặt pending stop Buy).
-- Đỉnh nến touch sau CAO hơn entry hiện tại: không làm gì — stop Buy đã khớp trước đó (logic Filled cover khi high >= trigger).
-
-### Signal fire
-- Điều kiện fire: bar touch đầu tiên (wick chạm EMA34, close đúng phía) — close basis (OnBarClose).
-- Entry: stop ở extreme nến touch ± `Entry Offset` (BUY: high + offset / SELL: low − offset); Migrate dời theo extreme tốt hơn.
-- SL/TP: từ ATM template nếu có, fallback `Stop/Target Distance` của group A2.
-- Bot: BOT ON + `Bot Enabled` → submit stop (limit nếu giá đã chạy qua) với **offset của A2**; A2 Cancel hủy pending order thuộc owner `A2` (không đụng order của A1). Backfill/replay không bắn order.
-
-### Drawing
-- Entry line solid (per-side color), SL dashed red, TP dashed green, ATM trigger lines khi template có — chuẩn chung.
-- Text `Buy A2` dưới low nến entry (Buy Text Color) / `Sell A2` trên high (Sell Text Color); khi Migrate text dời sang nến entry mới.
-- Cancel → xóa lines + text của setup đó. Filled → lines fade theo `Line Length`, text ở lại nến entry.
-- **Ownership prefix:** `K34S_A2_`. A2 OFF chỉ xóa prefix này + records owner `A2`. Clear HUD xóa toàn bộ `K34S_*`.
+| pending | `Active=true`, `RefExtreme` = high nến touch | NewEntry: pending stop LONG ở `high + Entry Offset`, vẽ lines + text `Buy B1` | touch sau có high THẤP hơn → Migrate; high chạm trigger → Filled; close < EMA34 hoặc mất stack → Cancel |
 
 ---
 
-## A3 — 8cross34
+## B2 — 89uturn34 (89-34 Pullback)
 
-- File: `src/Kat34Scalper.Signal.A3.cs` | Settings group: `3.6 Signal A3 — 8cross34` | HUD toggle: SIGNAL › `A3 8x34`
-- Mục đích: bắt moment EMA 8 cắt EMA 34 — cross lên = BUY, cross xuống = SELL.
-- Settings: `Enabled` (false), `History Days` (3), `Entry Offset (ticks)` (1), `Stop Distance (ticks)` (60, fallback), `Target Distance (ticks)` (120, fallback).
-- Stateless: event 1 bar, không sequence, không stage markers, không filters. EMA 34 lấy cố định từ fan (`fanEmas[0][2]`) — độc lập với `Fast EMA Period` của A1.
+- File: `src/Kat34Scalper.Signal.B2.cs` | Settings group: `3.5 Bot Signal B2 — 89uturn34` | HUD toggle: BOT SIGNAL › `B2 (89uturn34)`
+- Mục đích: bắt pullback về EMA 89 trong trend EMA 34/89 rồi đảo chiều tiếp tục trend (rejection). Format nhãn: `Buy B2` / `Sell B2`.
+- Điều kiện nền (trend): Sell = EMA fast(34) < EMA slow(89); Buy = fast > slow. Mất trend → reset sequence về idle.
+- Settings: `B2Enabled` (false), `B2HistoryDays` (3), `EmaFastPeriod` (34), `EmaSlowPeriod` (89), `MaxSequenceBars` (30), `B2EntryOffsetTicks` (1), `B2StopDistanceTicks` (60, fallback), `B2TargetDistanceTicks` (120, fallback).
+- Tag drawing: stage markers `K34S_B2ST_<B/S>_<bar>`; signal lines/labels `K34S_B2_<B/S>_<suffix>_<bar>`.
+- Filter ảnh hưởng: Global Filter (`PassFilters`: ADX, Volume, Time window, MTF).
+- Nhãn chart text: `Buy B2` / `Sell B2`.
 
-### Bảng giai đoạn (stages)
+### Bảng giai đoạn (stages) — Sell minh hoạ, Buy mirror
 
-| Stage | Marker | Điều kiện VÀO | Hành động |
-|-------|--------|----------------|-----------|
-| idle | — | mọi bar (sau warmup 35 bars) | so sánh ema8 vs ema34 bar trước và bar hiện tại |
-| cross up | — | `ema8[1] <= ema34[1]` VÀ `ema8[0] > ema34[0]` | fire BUY |
-| cross down | — | `ema8[1] >= ema34[1]` VÀ `ema8[0] < ema34[0]` | fire SELL |
-
-- Chạm đúng (equal) ở bar trước tính là CHƯA cross — vẫn phía cũ.
-- Entry: stop tại cực trị bar cross — buy = high + `Entry Offset`, sell = low - `Entry Offset`.
-- SL/TP: từ ATM template nếu có, fallback `Stop/Target Distance`.
-- Bot: cross ngược chiều cancel pending entry của chính A3 trước; entry mới submit khi order cũ terminal (cross hiếm nên case này là ngoại lệ). Backfill/replay KHÔNG bắn order.
-- **Ownership prefix:** `K34S_A3_<B/S>_`. A3 OFF chỉ xóa prefix này. Clear HUD xóa toàn bộ `K34S_*`.
+| Stage | Marker | Phase | Điều kiện VÀO | Điều kiện RA / hành động |
+|-------|--------|-------|----------------|---------------------------|
+| idle | — | 0 | Trend hợp lệ, chưa có setup | close < EMA34 → vào arm |
+| arm | `B2-arm` | 1 | close vượt xuống DƯỚI EMA34 | close > EMA34 → vào pull (đếm SeqBars=1) |
+| pull | `B2-pull` | 2 | close cross ngược qua EMA34 về EMA89, chưa chạm 89 | high ≥ EMA89 → pull-T |
+| pull-T | `B2-pull-T` | 2 | pullback chạm/vượt EMA89 | close < EMA34 (U-turn) → fire `Buy B2` / `Sell B2` |
