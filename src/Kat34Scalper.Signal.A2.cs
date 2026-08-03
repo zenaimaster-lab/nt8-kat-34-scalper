@@ -19,6 +19,7 @@
 #region Using declarations
 using System;
 using System.Windows.Media;
+using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
@@ -90,6 +91,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (!cachedA2 || ema8 == null || fanEmas == null) return;
 			if (CurrentBars[0] < FanPeriods[FanPeriods.Length - 1]) return; // ema200 warmup
+			Account acc = ResolveBotAccount();
+			if (IsSignalInTrade("A2") || HasOpenPosition(acc)) return;
 			RunA2Bar(0, false, a2SellState, a2BuyState,
 				ref a2SellRecord, ref a2BuyRecord, ref a2SellTextTag, ref a2BuyTextTag);
 		}

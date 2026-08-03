@@ -19,6 +19,15 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.45] — 2026-08-02
+- **Global Signal Rules Enforcement**: Applied strict 4-point rule contract across all signal modules (A0, A1, A2, A3, A4 & future signals).
+- **1. Chart Line Cleanup on Fill**: Added `ClearSignalDrawings(owner)` helper in `Kat34Scalper.Draw.cs`. When any signal order is filled, all entry/SL/TP lines for that owner module are automatically cleared from the chart.
+- **2. Per-Signal In-Trade Lock**: Added `signalInTradeMap` tracking and `IsSignalInTrade(owner)` in `Kat34Scalper.Bot.cs`. All signal modules (A1–A4) check `IsSignalInTrade(owner) || HasOpenPosition(acc)` in `Evaluate` to block generating new signals/orders until the current trade is completely closed (flat).
+- **3. Explicit Signal Labels on Chart**: Updated `RenderSignal` in `Kat34Scalper.Draw.cs` to render clear text labels next to entry lines showing the signal owner (e.g. `BUY A1`, `SELL A1`, `BUY A4`, `SELL A4`).
+- **4. HUD Signal Button Formatting**: Updated `CreateFilterToggle` so active buttons light up with colored background without needing `: ON` text (e.g. `A1 89-34`, `A4 OCO`), while inactive (Gray) buttons display `: OFF`.
+- **Validation**: 55/55 xunit tests passing; CompileCheck 0 errors; NT8 recompile via `Deploy-NT8.ps1`.
+- **Graphify entity mapping**: `Kat34Scalper.Draw.cs` (`RenderSignal`, `ClearSignalDrawings`, `CreateFilterToggle`), `Kat34Scalper.Bot.cs` (`signalInTradeMap`, `IsSignalInTrade`, `SetSignalInTrade`), `Kat34Scalper.Signal.A1.cs` / `A2.cs` / `A3.cs` / `A4.cs` (`Evaluate` in-trade checks).
+
 ### [v0.44] — 2026-08-02
 - **Alert Suppression & Signal Bypass in Trade**: `EvaluateA4` now checks `a4InTrade || HasOpenPosition(acc)` and immediately bypasses signal evaluation / alert generation while a position is active. `DrawSignal` calls from A4 pass `replay = true` to suppress per-bar sound alert spams.
 - **Chart Line Cleanup on Candle Update & Order Fill**: `EvaluateA4` now executes `ClearA4Drawings()` before drawing the new candle's OCO lines, keeping only the 1 active Buy line set and 1 active Sell line set on the chart (eliminating multi-bar line clutter). `ManageA4BotEntry` and `ManageBotEntry` execute `ClearA4Drawings()` and `ClearOldSignalDrawings()` immediately upon order fill.

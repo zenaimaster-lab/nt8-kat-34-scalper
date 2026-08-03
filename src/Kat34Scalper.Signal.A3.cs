@@ -13,6 +13,7 @@
 
 #region Using declarations
 using System;
+using NinjaTrader.Cbi;
 using NinjaTrader.NinjaScript;
 using Kat34Scalper;
 #endregion
@@ -51,6 +52,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (!cachedA3 || ema8 == null || fanEmas == null) return;
 			if (CurrentBars[0] < A3WarmupBars) return;
+			Account acc = ResolveBotAccount();
+			if (IsSignalInTrade("A3") || HasOpenPosition(acc)) return;
 
 			double e8Prev = ema8[1];
 			double e34Prev = fanEmas[0][2][1];

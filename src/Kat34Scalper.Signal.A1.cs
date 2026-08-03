@@ -13,6 +13,7 @@
 #region Using declarations
 using System;
 using System.Windows.Media;
+using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
@@ -54,6 +55,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (!cachedA1 || fastEma == null || slowEma == null) return;
 			if (CurrentBars[0] < Math.Max(EmaFastPeriod, EmaSlowPeriod)) return;
+			Account acc = ResolveBotAccount();
+			if (IsSignalInTrade("A1") || HasOpenPosition(acc)) return;
 
 			double fast = fastEma[0];
 			double slow = slowEma[0];

@@ -126,6 +126,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					Draw.Line(this, SignalTag(record, "SL1"), false, age, record.Sl1Price, 0, record.Sl1Price, Brushes.Orange, DashStyleHelper.Dot, 1);
 				if (record.Sl2Price != 0)
 					Draw.Line(this, SignalTag(record, "SL2"), false, age, record.Sl2Price, 0, record.Sl2Price, Brushes.Magenta, DashStyleHelper.Dot, 1);
+
+				string labelText = string.Format("{0} {1}", record.IsBuy ? "BUY" : "SELL", owner);
+				Draw.Text(this, SignalTag(record, "TEXT"), labelText, age, record.TextY, textBrush);
 			}
 			if (!record.DrawLogged)
 			{
@@ -243,6 +246,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			RemoveDrawObject(SignalTag(record, "BE"));
 			RemoveDrawObject(SignalTag(record, "SL1"));
 			RemoveDrawObject(SignalTag(record, "SL2"));
+			RemoveDrawObject(SignalTag(record, "TEXT"));
+		}
+
+		private void ClearSignalDrawings(string owner)
+		{
+			if (string.IsNullOrEmpty(owner)) return;
+			signalRecords.RemoveAll(r => (r.Owner ?? "A1").Equals(owner, StringComparison.OrdinalIgnoreCase));
+			RemoveModuleDrawings("K34S_" + owner.ToUpperInvariant() + "_");
 		}
 
 		// Removes a record's draw objects and drops it from the list (A2 cancel).
@@ -495,13 +506,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private Button CreateFilterToggle(string label, Func<bool> getter, Action<bool> setter)
 		{
-			Button btn = CreateHudButton(getter() ? label + ": ON" : label + ": OFF", getter() ? hudOnBrush : hudOffBrush, null);
+			Button btn = CreateHudButton(getter() ? label : label + ": OFF", getter() ? hudOnBrush : hudOffBrush, null);
 			btn.Foreground = getter() ? Brushes.White : Brushes.LightGray;
 			btn.Click += (s, e) =>
 			{
 				setter(!getter());
 				bool on = getter();
-				btn.Content = on ? label + ": ON" : label + ": OFF";
+				btn.Content = on ? label : label + ": OFF";
 				btn.Background = on ? hudOnBrush : hudOffBrush;
 				btn.Foreground = on ? Brushes.White : Brushes.LightGray;
 			};

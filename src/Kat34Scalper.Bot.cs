@@ -36,6 +36,20 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private volatile bool pendingMigrate;
 		private string atmLevelsName = "\0"; // never matches a real template name — forces first parse
 		private Kat34ScalperAtmData atmLevels;
+		private readonly System.Collections.Generic.Dictionary<string, bool> signalInTradeMap = new System.Collections.Generic.Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+		private bool IsSignalInTrade(string owner)
+		{
+			if (string.IsNullOrEmpty(owner)) return false;
+			bool inTrade;
+			return signalInTradeMap.TryGetValue(owner, out inTrade) && inTrade;
+		}
+
+		private void SetSignalInTrade(string owner, bool inTrade)
+		{
+			if (string.IsNullOrEmpty(owner)) return;
+			signalInTradeMap[owner] = inTrade;
+		}
 
 		private Account ResolveBotAccount()
 		{
@@ -164,6 +178,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (!cachedBotOn || !BotEnabled || refExtreme == 0) return;
 			if (!SignalOwnerEnabled(owner)) return;
+			Account acc = ResolveBotAccount();
+			if (acc == null) return;
+			if (IsSignalInTrade(owner) || HasOpenPosition(acc)) return;
 			if (pendingOrder != null || pendingMigrate) return; // one bot order at a time
 			SubmitBotOrder(isBuy, refExtreme, offsetTicks, owner);
 		}
@@ -173,6 +190,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		// stop any in-flight migration re-place.
 		private void CancelSignalBotEntry(string owner, string reason)
 		{
+			SetSignalInTrade(owner, false);
 			if (pendingOrder != null && pendingOrderOwner == owner)
 			{
 				pendingMigrate = false;
@@ -189,6 +207,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Account acc = ResolveBotAccount();
 			if (acc == null) return;
 			a4InTrade = false;
+			SetSignalInTrade("A4", false);
 			if (pendingA4BuyOrder != null)
 			{
 				try { acc.Cancel(new[] { pendingA4BuyOrder }); } catch { }
@@ -242,9 +261,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 						Print(string.Format("[Kat34Scalper] BOT: ATM template '{0}' not found — bare stop order.", tpl));
 					acc.Submit(new[] { order });
 				}
-				Print(string.Format("[Kat34Scalper] BOT: {0} {1} @ {2:F5} submitted (account {3}, ATM {4}).",
-					isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, acc.Name, hasAtm ? tpl : "none"));
-				ShowHudStatus(string.Format("BOT: {0} {1} @ {2:F2} ({3})", isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, hasAtm ? tpl : "no ATM"), Brushes.LightGreen);
+				Print(string.Format("[Kat34Scalper] BOT [{5}]: {0} {1} @ {2:F5} submitted (account {3}, ATM {4}).",
+					isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, acc.Name, hasAtm ? tpl : "none", owner));
+				ShowHudStatus(string.Format("BOT [{4}]: {0} {1} @ {2:F2} ({3})", isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, hasAtm ? tpl : "no ATM", owner), Brushes.LightGreen);
 			}
 			catch (Exception ex)
 			{
@@ -265,6 +284,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (!HasOpenPosition(acc))
 				{
 					a4InTrade = false;
+					SetSignalInTrade("A4", false);
 					Print("[Kat34Scalper] BOT: A4 position closed (flat) — ready for next OCO setup.");
 					ShowHudStatus("BOT: A4 position closed", Brushes.LightGreen);
 				}
@@ -275,6 +295,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (pendingA4BuyOrder != null && pendingA4BuyOrder.OrderState == OrderState.Filled)
 			{
 				a4InTrade = true;
+				SetSignalInTrade("A4", true);
 				Print(string.Format("[Kat34Scalper] BOT: A4 BUY filled @ {0:F5} — cancelling A4 SELL order.", pendingA4BuyPrice));
 				ShowHudStatus(string.Format("BOT: A4 BUY FILLED @ {0:F2}", pendingA4BuyPrice), Brushes.LightGreen);
 				if (pendingA4SellOrder != null)
@@ -288,6 +309,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			else if (pendingA4SellOrder != null && pendingA4SellOrder.OrderState == OrderState.Filled)
 			{
 				a4InTrade = true;
+				SetSignalInTrade("A4", true);
 				Print(string.Format("[Kat34Scalper] BOT: A4 SELL filled @ {0:F5} — cancelling A4 BUY order.", pendingA4SellPrice));
 				ShowHudStatus(string.Format("BOT: A4 SELL FILLED @ {0:F2}", pendingA4SellPrice), Brushes.LightGreen);
 				if (pendingA4BuyOrder != null)
@@ -309,6 +331,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private void ManageBotEntry(double high, double low, double close)
 		{
 			ManageA4BotEntry();
+
+			Account acc = ResolveBotAccount();
+			if (acc != null && !HasOpenPosition(acc))
+			{
+				if (a4InTrade || signalInTradeMap.Count > 0)
+				{
+					a4InTrade = false;
+					signalInTradeMap.Clear();
+				}
+			}
 
 			if (pendingOrder == null)
 			{
@@ -332,8 +364,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				Print(string.Format("[Kat34Scalper] BOT: entry order {0} @ {1:F5}.", state, pendingEntryPrice));
 				if (state == OrderState.Filled)
 				{
-					ShowHudStatus(string.Format("BOT: entry FILLED @ {0:F2} — ATM manages brackets", pendingEntryPrice), Brushes.LightGreen);
-					ClearOldSignalDrawings();
+					SetSignalInTrade(pendingOrderOwner, true);
+					ShowHudStatus(string.Format("BOT [{0}]: entry FILLED @ {1:F2} — ATM manages brackets", pendingOrderOwner, pendingEntryPrice), Brushes.LightGreen);
+					ClearSignalDrawings(pendingOrderOwner);
 				}
 				pendingOrder = null;
 				pendingOrderAccount = null;

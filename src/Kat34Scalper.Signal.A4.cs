@@ -57,7 +57,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (CurrentBars[0] < 1) return;
 
 			Account acc = ResolveBotAccount();
-			if (a4InTrade || HasOpenPosition(acc))
+			if (a4InTrade || IsSignalInTrade("A4") || HasOpenPosition(acc))
 			{
 				ClearA4Drawings();
 				return;
