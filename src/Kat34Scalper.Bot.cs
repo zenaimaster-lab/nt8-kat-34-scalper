@@ -40,7 +40,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private Order pendingOrder;
 		private Account pendingOrderAccount; // account that owns pendingOrder (cancel must target owner account)
-		private string pendingOrderOwner = "A1"; // signal module that submitted pendingOrder ("A1"/"A2" — per-signal cancel)
+		private string pendingOrderOwner = "B1"; // signal module that submitted pendingOrder ("B1"/"B2" — per-signal cancel)
 		private int pendingOffsetTicks = 1; // entry offset of the owning signal (migration re-place must reuse it)
 		private bool pendingIsBuy;
 		private double pendingEntryPrice; // last submitted entry price (limit OR stop — Order.StopPrice is 0 on limits)
@@ -179,8 +179,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		// (and its pending order was already cancelled by SetAXSignal(false)).
 		private bool SignalOwnerEnabled(string owner)
 		{
-			if (owner == "A1") return cachedA1;
-			if (owner == "A2") return cachedA2;
+			if (owner == "B1") return cachedB1;
+			if (owner == "B2") return cachedB2;
 			return true;
 		}
 
@@ -203,8 +203,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		// Called from the Signal module after a signal fires. refExtreme = best candidate extreme (sell: c2 low / buy: c2 high).
 		// offsetTicks = the calling signal's own Entry Offset (order price must match its drawn entry line).
-		// owner = signal module id ("A1"/"A2") — a signal cancels only its own pending order.
-		private void TrySubmitBotEntry(bool isBuy, double refExtreme, int offsetTicks, string owner = "A1")
+		// owner = signal module id ("B1"/"B2") — a signal cancels only its own pending order.
+		private void TrySubmitBotEntry(bool isBuy, double refExtreme, int offsetTicks, string owner = "B1")
 		{
 			if (!cachedBotOn || !BotEnabled || refExtreme == 0) return;
 			if (!SignalOwnerEnabled(owner)) return;
@@ -234,7 +234,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 		}
 
-		private void SubmitBotOrder(bool isBuy, double refExtreme, int offsetTicks, string owner = "A1")
+		private void SubmitBotOrder(bool isBuy, double refExtreme, int offsetTicks, string owner = "B1")
 		{
 			Account acc = ResolveBotAccount();
 			if (acc == null)

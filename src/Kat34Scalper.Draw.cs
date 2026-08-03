@@ -79,7 +79,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private string SignalTag(KatSignalRecord record, string suffix)
 		{
-			string mod = string.IsNullOrEmpty(record.Owner) ? "A1" : record.Owner;
+			string mod = string.IsNullOrEmpty(record.Owner) ? "B1" : record.Owner;
 			return "K34S_" + mod + "_" + (record.IsBuy ? "B" : "S") + "_" + suffix + "_" + record.Bar;
 		}
 
@@ -88,9 +88,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			int age = CurrentBars[0] - record.Bar;
 			if (age < 0) return;
 			// Per-signal ownership: if owner disabled, skip (OFF already removed its drawings)
-			string owner = record.Owner ?? "A1";
-			if (owner == "A1" && !cachedA1) return;
-			if (owner == "A2" && !cachedA2) return;
+			string owner = record.Owner ?? "B1";
+			if (owner == "B1" && !cachedB1) return;
+			if (owner == "B2" && !cachedB2) return;
+			if (owner == "A1" && !cachedAlertA1) return;
+			if (owner == "A2" && !cachedAlertA2) return;
 
 			Brush entryBrush = new SolidColorBrush(record.IsBuy ? BuyEntryLineColor : SellEntryLineColor);
 			Brush slBrush = new SolidColorBrush(SLLineColor);
@@ -292,14 +294,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 		}
 
-		// A1 switched OFF: drop A1-owned signal records + A1 stage markers + A1's own K34S_A1_* drawings only.
-		// Ownership contract: each signal uses K34S_<OWNER>_<B/S>_ prefix (A1 default).
-		private void ClearA1Drawings()
-		{
-			signalRecords.RemoveAll(r => (r.Owner ?? "A1") == "A1");
-			RemoveModuleDrawings("K34S_A1ST_");
-			RemoveModuleDrawings("K34S_A1_");
-		}
 
 		// Called from the data thread through TriggerCustomEvent from HUD clicks.
 		private void ClearOldSignalDrawings()
@@ -309,12 +303,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				signalRecords.Clear();
 
 				// Reset sub-module pending drawing states so orphaned tags/records aren't retained
-				a2SellRecord = null;
-				a2BuyRecord = null;
-				a2SellTextTag = null;
-				a2BuyTextTag = null;
-				a2SellState.Reset();
-				a2BuyState.Reset();
+				b2SellRecord = null;
+				b2BuyRecord = null;
+				b2SellTextTag = null;
+				b2BuyTextTag = null;
+				b2SellState.Reset();
+				b2BuyState.Reset();
 
 				var doomed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 				foreach (IDrawingTool tool in DrawObjects)
@@ -973,18 +967,32 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			secBot.Children.Add(dailyRiskGrid);
 			mainPanel.Children.Add(CreateSectionCard(secBot, 6));
 
-			// --- SIGNAL module: independent sub-module toggles ---
+			// --- ALERT SIGNAL module: independent alert-only sub-modules ---
+			mainPanel.Children.Add(CreateModuleTitle("ALERT SIGNAL"));
+			var secAlert = new StackPanel();
+			Grid aRow = CreateTwoColGrid();
+			aRow.Margin = new Thickness(0);
+			Button btnAlertA1 = CreateFilterToggle("A1", () => cachedAlertA1, v => SetAlertA1Signal(v));
+			Grid.SetColumn(btnAlertA1, 0);
+			aRow.Children.Add(btnAlertA1);
+			Button btnAlertA2 = CreateFilterToggle("A2", () => cachedAlertA2, v => SetAlertA2Signal(v));
+			Grid.SetColumn(btnAlertA2, 2);
+			aRow.Children.Add(btnAlertA2);
+			secAlert.Children.Add(aRow);
+			mainPanel.Children.Add(CreateSectionCard(secAlert, 6));
+
+			// --- BOT SIGNAL module: independent sub-module toggles ---
 			// ON backfills the module's History Days window immediately; OFF removes only that module's drawings.
-			mainPanel.Children.Add(CreateModuleTitle("SIGNAL"));
+			mainPanel.Children.Add(CreateModuleTitle("BOT SIGNAL"));
 			var secSignal = new StackPanel();
 			Grid sRow = CreateTwoColGrid();
 			sRow.Margin = new Thickness(0);
-			Button btnA1 = CreateFilterToggle("A1 (89-34)", () => cachedA1, v => SetA1Signal(v));
-			Grid.SetColumn(btnA1, 0);
-			sRow.Children.Add(btnA1);
-			Button btnA2 = CreateFilterToggle("A2 (34+8)", () => cachedA2, v => SetA2Signal(v));
-			Grid.SetColumn(btnA2, 2);
-			sRow.Children.Add(btnA2);
+			Button btnB1 = CreateFilterToggle("B1 (89-34)", () => cachedB1, v => SetB1Signal(v));
+			Grid.SetColumn(btnB1, 0);
+			sRow.Children.Add(btnB1);
+			Button btnB2 = CreateFilterToggle("B2 (34+8)", () => cachedB2, v => SetB2Signal(v));
+			Grid.SetColumn(btnB2, 2);
+			sRow.Children.Add(btnB2);
 			secSignal.Children.Add(sRow);
 			mainPanel.Children.Add(CreateSectionCard(secSignal, 6));
 

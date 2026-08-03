@@ -19,6 +19,14 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.61] — 2026-08-03
+- **Introduce ALERT SIGNAL Section & Rename Bot Signals to B1/B2**:
+  - Added new `ALERT SIGNAL` module section placed above `BOT SIGNAL` in NinjaScript properties and HUD, with 2 placeholder sub-modules (`A1` and `A2`).
+  - `ALERT SIGNAL` sub-modules generate alert sounds and chart drawings/markers only, completely isolated from Bot order execution.
+  - Renamed existing Bot signals from A1 (89/34 Pullback) to **Bot Signal B1** (`src/Kat34Scalper.Signal.B1.cs`) and A2 (34+8+Bounce) to **Bot Signal B2** (`src/Kat34Scalper.Signal.B2.cs`).
+  - Updated drawing prefixes (`K34S_ALERTA1_`, `K34S_ALERTA2_`, `K34S_B1_`, `K34S_B2_`) and HUD sections.
+  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.AlertSignal.cs`, `src/Kat34Scalper.AlertSignal.A1.cs`, `src/Kat34Scalper.AlertSignal.A2.cs`, `src/Kat34Scalper.Signal.cs`, `src/Kat34Scalper.Signal.B1.cs`, `src/Kat34Scalper.Signal.B2.cs`, `src/Kat34Scalper.Bot.cs`, `src/Kat34Scalper.Draw.cs`.
+
 ### [v0.60] — 2026-08-03
 - **Fix ATM MERGE Scaling Execution & Real-Time Event Sync**:
   - Identified root cause of MERGE failure: Scalper lacked `Account.OrderUpdate` subscription and 500ms `panelWatchdog` timer, causing MERGE reconciliation to never run on order fills or scaling events.
