@@ -19,6 +19,17 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.46] — 2026-08-02
+- **Fix — Dynamic Contract Quantity from Selected ATM Strategy**:
+  - Root cause: `Kat34ScalperAtmParser` previously only extracted tick distances for StopLoss/Target/Triggers and skipped contract quantities (`EntryQuantity` / bracket `<Quantity>`). Order submission in `Kat34Scalper.Bot.cs` passed `BotOrderQuantity` (default 1) to `acc.CreateOrder(...)`. When `AtmStrategy.StartAtmStrategy(tpl, order)` was called, NT8 executed the entry order with its assigned quantity of 1 contract, ignoring contract quantities defined in the user's selected ATM template (e.g. 2ct, 3ct).
+  - Fix:
+    - Added `Quantity` field to `Kat34ScalperAtmData`.
+    - Updated `Kat34ScalperAtmParser.ParseDocument` in `src/Kat34ScalperLogic.cs` to extract `<EntryQuantity>` from `AtmStrategy` (or sum `<Quantity>` across `<Bracket>` elements under `<Brackets>`).
+    - Added `GetEffectiveBotQuantity()` helper in `src/Kat34Scalper.Bot.cs` to return `GetAtmData().Quantity` when an active ATM template defines contract quantity, falling back to `BotOrderQuantity`.
+    - Updated `SubmitBotOrder` and `TrySubmitA4BotOcoEntries` to create orders with `GetEffectiveBotQuantity()`.
+    - Added unit test `Atm_ParseQuantity_ReadsEntryQuantityOrSumOfBrackets` in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs`.
+- **Graphify entity mapping**: `Kat34ScalperAtmData.Quantity`, `Kat34ScalperAtmParser.ParseDocument`, `Kat34Scalper.GetEffectiveBotQuantity`, `Kat34Scalper.SubmitBotOrder`, `Kat34Scalper.TrySubmitA4BotOcoEntries`.
+
 ### [v0.45] — 2026-08-02
 - **Global Signal Rules Enforcement**: Applied strict 4-point rule contract across all signal modules (A0, A1, A2, A3, A4 & future signals).
 - **1. Chart Line Cleanup on Fill**: Added `ClearSignalDrawings(owner)` helper in `Kat34Scalper.Draw.cs`. When any signal order is filled, all entry/SL/TP lines for that owner module are automatically cleared from the chart.

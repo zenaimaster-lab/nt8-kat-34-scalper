@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.40 (2026-08-02)
+ * Version: 0.46 (2026-08-02)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -17,7 +17,7 @@
  *   src/Kat34Scalper.Filter.cs    — Filter module: MTF, ADX, Volume, Time window gates (A0 fan gate removed)
  *   src/Kat34Scalper.Bot.cs       — Bot module: signal -> order (stop/limit conversion), migration, ATM brackets
  *   src/Kat34Scalper.Draw.cs      — Draw module: entry/SL/TP/trigger lines, HUD (module-titled sections); arrows/text removed; Clear nukes all K34S_*; per-signal ownership prefix K34S_<OWNER>_
-
+ 
  *
  * Signal stages are specified per signal in docs/SIGNALS.md (A0, A1-arm/pull/pull-T/U, ...).
  *
@@ -89,7 +89,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.45";
+		public const string VERSION = "0.46";
 		public const string RELEASE_DATE = "2026-08-02";
 
 

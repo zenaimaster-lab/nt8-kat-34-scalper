@@ -330,6 +330,16 @@ public class Kat34ScalperLogicTests
 		Assert.Equal(0, Kat34ScalperAtmParser.ParseFile(@"C:\no\such\file.xml").StopLoss);
 	}
 
+	[Fact]
+	public void Atm_ParseQuantity_ReadsEntryQuantityOrSumOfBrackets()
+	{
+		var xml1 = "<AtmStrategy><EntryQuantity>2</EntryQuantity><Brackets><Bracket><Quantity>2</Quantity></Bracket></Brackets></AtmStrategy>";
+		Assert.Equal(2, Kat34ScalperAtmParser.ParseXml(xml1).Quantity);
+
+		var xml2 = "<AtmStrategy><Brackets><Bracket><Quantity>1</Quantity></Bracket><Bracket><Quantity>2</Quantity></Bracket></Brackets></AtmStrategy>";
+		Assert.Equal(3, Kat34ScalperAtmParser.ParseXml(xml2).Quantity);
+	}
+
 	// --- A2 (34+8+Bounce): pending stop entry at the touch candle's extreme ---
 	// ema34 = 100.5. Buy: touch = low <= 100.5 with close > 100.5; entry trigger = RefExtreme + offset*tick.
 	// Sell mirrors: touch = high >= 100.5 with close < 100.5; trigger = RefExtreme - offset*tick.

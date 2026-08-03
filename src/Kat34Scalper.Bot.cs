@@ -82,6 +82,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			return atmLevels;
 		}
 
+		private int GetEffectiveBotQuantity()
+		{
+			Kat34ScalperAtmData atm = GetAtmData();
+			return (atm != null && atm.Quantity > 0) ? atm.Quantity : Math.Max(1, BotOrderQuantity);
+		}
+
 		// BOT trades exactly the signals that are ON: an owner switched OFF never submits
 		// (and its pending order was already cancelled by SetAXSignal(false)).
 		// BOT trades exactly the signals that are ON: an owner switched OFF never submits
@@ -138,16 +144,17 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 
 			string ocoId = "K34S_A4_OCO_" + DateTime.Now.Ticks;
+			int qty = GetEffectiveBotQuantity();
 
 			bool useBuyStop = Kat34ScalperLogic.UseStopOrder(true, buyPrice, Closes[0][0]);
 			Order buyOrder = acc.CreateOrder(Instrument, OrderAction.Buy,
 				useBuyStop ? OrderType.StopMarket : OrderType.Limit, OrderEntry.Manual, TimeInForce.Gtc,
-				BotOrderQuantity, useBuyStop ? 0 : buyPrice, useBuyStop ? buyPrice : 0, ocoId, "Entry", NinjaTrader.Core.Globals.MaxDate, null);
+				qty, useBuyStop ? 0 : buyPrice, useBuyStop ? buyPrice : 0, ocoId, "Entry", NinjaTrader.Core.Globals.MaxDate, null);
 
 			bool useSellStop = Kat34ScalperLogic.UseStopOrder(false, sellPrice, Closes[0][0]);
 			Order sellOrder = acc.CreateOrder(Instrument, OrderAction.Sell,
 				useSellStop ? OrderType.StopMarket : OrderType.Limit, OrderEntry.Manual, TimeInForce.Gtc,
-				BotOrderQuantity, useSellStop ? 0 : sellPrice, useSellStop ? sellPrice : 0, ocoId, "Entry", NinjaTrader.Core.Globals.MaxDate, null);
+				qty, useSellStop ? 0 : sellPrice, useSellStop ? sellPrice : 0, ocoId, "Entry", NinjaTrader.Core.Globals.MaxDate, null);
 
 			pendingA4BuyOrder = buyOrder;
 			pendingA4SellOrder = sellOrder;
@@ -166,9 +173,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				acc.Submit(new[] { buyOrder, sellOrder });
 			}
 
-			Print(string.Format("[Kat34Scalper] BOT A4 OCO submitted: BUY @ {0:F5} ({1}), SELL @ {2:F5} ({3})",
-				buyPrice, useBuyStop ? "stop" : "limit", sellPrice, useSellStop ? "stop" : "limit"));
-			ShowHudStatus(string.Format("BOT A4 OCO: BUY @ {0:F2}, SELL @ {1:F2}", buyPrice, sellPrice), Brushes.LightGreen);
+			Print(string.Format("[Kat34Scalper] BOT A4 OCO submitted ({4}ct): BUY @ {0:F5} ({1}), SELL @ {2:F5} ({3})",
+				buyPrice, useBuyStop ? "stop" : "limit", sellPrice, useSellStop ? "stop" : "limit", qty));
+			ShowHudStatus(string.Format("BOT A4 OCO ({2}ct): BUY @ {0:F2}, SELL @ {1:F2}", buyPrice, sellPrice, qty), Brushes.LightGreen);
 		}
 
 		// Called from the Signal module after a signal fires. refExtreme = best candidate extreme (sell: c2 low / buy: c2 high).
@@ -234,13 +241,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				: refExtreme - offsetTicks * TickSize;
 			// Price already past the trigger -> a stop would sit on the wrong side and be rejected; use a limit.
 			bool useStop = Kat34ScalperLogic.UseStopOrder(isBuy, entryPrice, Closes[0][0]);
+			int qty = GetEffectiveBotQuantity();
 			try
 			{
 				// ATM contract: the entry order name MUST be "Entry" (see KatTradeManager).
 				Order order = acc.CreateOrder(Instrument,
 					isBuy ? OrderAction.Buy : OrderAction.Sell,
 					useStop ? OrderType.StopMarket : OrderType.Limit, OrderEntry.Manual, TimeInForce.Gtc,
-					BotOrderQuantity, useStop ? 0 : entryPrice, useStop ? entryPrice : 0, "", "Entry", NinjaTrader.Core.Globals.MaxDate, null);
+					qty, useStop ? 0 : entryPrice, useStop ? entryPrice : 0, "", "Entry", NinjaTrader.Core.Globals.MaxDate, null);
 
 				pendingOrder = order;
 				pendingOrderOwner = owner;
@@ -261,9 +269,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 						Print(string.Format("[Kat34Scalper] BOT: ATM template '{0}' not found — bare stop order.", tpl));
 					acc.Submit(new[] { order });
 				}
-				Print(string.Format("[Kat34Scalper] BOT [{5}]: {0} {1} @ {2:F5} submitted (account {3}, ATM {4}).",
-					isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, acc.Name, hasAtm ? tpl : "none", owner));
-				ShowHudStatus(string.Format("BOT [{4}]: {0} {1} @ {2:F2} ({3})", isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, hasAtm ? tpl : "no ATM", owner), Brushes.LightGreen);
+				Print(string.Format("[Kat34Scalper] BOT [{5}]: {0} {1} {6}ct @ {2:F5} submitted (account {3}, ATM {4}).",
+					isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, acc.Name, hasAtm ? tpl : "none", owner, qty));
+				ShowHudStatus(string.Format("BOT [{4}]: {0} {1} {5}ct @ {2:F2} ({3})", isBuy ? "BUY" : "SELL", useStop ? "stop" : "limit", entryPrice, hasAtm ? tpl : "no ATM", owner, qty), Brushes.LightGreen);
 			}
 			catch (Exception ex)
 			{

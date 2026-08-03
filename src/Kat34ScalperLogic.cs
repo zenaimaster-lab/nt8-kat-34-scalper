@@ -345,10 +345,11 @@ namespace Kat34Scalper
 		public int BETrigger;
 		public int SL1Trigger;
 		public int SL2Trigger;
+		public int Quantity;
 	}
 
 	/// <summary>
-	/// Reads StopLoss/Target/AutoBreakEven/AutoTrail profit triggers from an ATM template .xml.
+	/// Reads StopLoss/Target/AutoBreakEven/AutoTrail profit triggers and EntryQuantity from an ATM template .xml.
 	/// Any parse failure yields zeroed data (callers fall back to indicator settings).
 	/// Named Kat34Scalper* on purpose: NT8 compiles every Custom indicator into ONE assembly —
 	/// reusing KatTradeManager's type names would collide.
@@ -393,6 +394,22 @@ namespace Kat34Scalper
 			result.StopLoss = ReadInt(doc, "//AtmStrategy/Brackets/Bracket/StopLoss");
 			result.Target = ReadInt(doc, "//AtmStrategy/Brackets/Bracket/Target");
 			result.BETrigger = ReadInt(doc, "//AtmStrategy/Brackets/Bracket/StopStrategy/AutoBreakEvenProfitTrigger");
+
+			int entryQty = ReadInt(doc, "//AtmStrategy/EntryQuantity");
+			if (entryQty <= 0)
+			{
+				XmlNodeList qtyNodes = doc.SelectNodes("//AtmStrategy/Brackets/Bracket/Quantity");
+				if (qtyNodes != null)
+				{
+					foreach (XmlNode n in qtyNodes)
+					{
+						int q;
+						if (n != null && int.TryParse(n.InnerText, out q))
+							entryQty += q;
+					}
+				}
+			}
+			result.Quantity = entryQty > 0 ? entryQty : 0;
 
 			XmlNodeList trailSteps = doc.SelectNodes("//AtmStrategy/Brackets/Bracket/StopStrategy/AutoTrailSteps/AutoTrailStep");
 			if (trailSteps != null)
