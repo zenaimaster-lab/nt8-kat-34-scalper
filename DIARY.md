@@ -19,6 +19,18 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.59] — 2026-08-03
+- **Port Full ATM Bracket MERGE Engine (Always ON)**:
+  - Ported the entire ATM Bracket MERGE reconciliation engine from `nt8-kat-TradeManager` into `src/Kat34Scalper.Bot.cs`.
+  - Configured MERGE as **always ON by default** (no HUD button required).
+  - Implemented `MergeAtmBrackets()` & `ScheduleAtmBracketMerge()`:
+    - Position active: consolidates all Stop Loss bracket orders into 1 canonical Stop anchor with `QuantityChanged = position.Quantity`, and all Target bracket orders into 1 canonical Target anchor with `QuantityChanged = position.Quantity`.
+    - Automatically cancels all duplicate bracket orders (`duplicates`) and stale opposite bracket orders (`staleOppositeBrackets`).
+    - Position flat: enforces `ShouldDeferAtmFlatCleanup` (3000ms grace period after entry startup) and cancels all candidate bracket orders when flat (`ATM MERGE flat cleanup`).
+  - Added pure logic helpers `ShouldDeferAtmFlatCleanup` and `IsAtmExitAction` to `src/Kat34ScalperLogic.cs`.
+  - Added unit tests in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs` (60/60 tests passing).
+  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Bot.cs`, `src/Kat34ScalperLogic.cs`, `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs`.
+
 ### [v0.58] — 2026-08-03
 - **Fix Orphan Working Orders & Opposite Market Order Execution**:
   - Resolved issue where clicking `SELL market` while Long (or `BUY market` while Short) left orphan SL/TP orders on the chart when position flattened or closed.

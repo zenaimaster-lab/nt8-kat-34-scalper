@@ -607,5 +607,25 @@ public class Kat34ScalperLogicTests
 		Assert.False(Kat34ScalperLogic.ShouldCancelFlatOrphans(true, true, true));
 	}
 	#endregion
+
+	#region ATM MERGE Logic
+	[Fact]
+	public void ShouldDeferAtmFlatCleanup_Behavior()
+	{
+		Assert.False(Kat34ScalperLogic.ShouldDeferAtmFlatCleanup(true, true, true, 1000, 3000));
+		Assert.True(Kat34ScalperLogic.ShouldDeferAtmFlatCleanup(true, false, false, 1000, 3000));
+		Assert.True(Kat34ScalperLogic.ShouldDeferAtmFlatCleanup(false, false, true, 1000, 3000));
+		Assert.False(Kat34ScalperLogic.ShouldDeferAtmFlatCleanup(false, false, true, 5000, 3000));
+	}
+
+	[Fact]
+	public void IsAtmExitAction_Behavior()
+	{
+		Assert.True(Kat34ScalperLogic.IsAtmExitAction(true, true));   // Long -> Sell
+		Assert.False(Kat34ScalperLogic.IsAtmExitAction(true, false)); // Long -> Buy
+		Assert.True(Kat34ScalperLogic.IsAtmExitAction(false, false)); // Short -> Buy
+		Assert.False(Kat34ScalperLogic.IsAtmExitAction(false, true)); // Short -> Sell
+	}
+	#endregion
 }
 

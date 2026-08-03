@@ -393,6 +393,30 @@ namespace Kat34Scalper
 		{
 			return isFlat && hasWorkingOrders && !hasPendingEntry;
 		}
+
+		/// <summary>Prevents ATM flat cleanup while entry startup is pending within grace period.</summary>
+		public static bool ShouldDeferAtmFlatCleanup(
+			bool atmEntryStartupPending,
+			bool positionConfirmed,
+			bool positionWasConfirmedThisEpisode,
+			double millisecondsSinceLastAtmActivity,
+			double graceMilliseconds)
+		{
+			if (positionConfirmed) return false;
+			if (!positionWasConfirmedThisEpisode && atmEntryStartupPending) return true;
+			if (double.IsNaN(millisecondsSinceLastAtmActivity)
+				|| double.IsInfinity(millisecondsSinceLastAtmActivity)
+				|| millisecondsSinceLastAtmActivity < 0)
+				return true;
+
+			return millisecondsSinceLastAtmActivity < Math.Max(0, graceMilliseconds);
+		}
+
+		/// <summary>Returns true if order action is an exit action for the given position side.</summary>
+		public static bool IsAtmExitAction(bool isLongPosition, bool isSellAction)
+		{
+			return isLongPosition ? isSellAction : !isSellAction;
+		}
 	}
 
 
