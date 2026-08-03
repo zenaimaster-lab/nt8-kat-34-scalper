@@ -923,28 +923,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			secBot.Children.Add(dailyRiskGrid);
 			mainPanel.Children.Add(CreateSectionCard(secBot, 6));
 
-			// --- FILTER module: MTF, ADX, Volume, Time window (A0 fan gate removed) ---
-			mainPanel.Children.Add(CreateModuleTitle("FILTER"));
-			var secFilter = new StackPanel();
-			Grid fRow1 = CreateTwoColGrid();
-			Button tMtf = CreateFilterToggle("MTF", () => cachedMtf, v => cachedMtf = v);
-			Grid.SetColumn(tMtf, 0);
-			fRow1.Children.Add(tMtf);
-			Button tAdx = CreateFilterToggle("ADX", () => cachedAdx, v => cachedAdx = v);
-			Grid.SetColumn(tAdx, 2);
-			fRow1.Children.Add(tAdx);
-			Button tVol = CreateFilterToggle("Volume", () => cachedVol, v => cachedVol = v);
-			Grid fRow2 = CreateTwoColGrid();
-			fRow2.Margin = new Thickness(0);
-			Grid.SetColumn(tVol, 0);
-			fRow2.Children.Add(tVol);
-			Button tTime = CreateFilterToggle("Time window", () => cachedTime, v => cachedTime = v);
-			Grid.SetColumn(tTime, 2);
-			fRow2.Children.Add(tTime);
-			secFilter.Children.Add(fRow1);
-			secFilter.Children.Add(fRow2);
-			mainPanel.Children.Add(CreateSectionCard(secFilter, 6));
-
 			// --- SIGNAL module: independent sub-module toggles ---
 			// ON backfills the module's History Days window immediately; OFF removes only that module's drawings.
 			mainPanel.Children.Add(CreateModuleTitle("SIGNAL"));
@@ -974,6 +952,28 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			sRow3.Children.Add(btnA3);
 			secSignal.Children.Add(sRow3);
 			mainPanel.Children.Add(CreateSectionCard(secSignal, 6));
+
+			// --- FILTER module: MTF, ADX, Volume, Time window (A0 fan gate removed) ---
+			mainPanel.Children.Add(CreateModuleTitle("FILTER"));
+			var secFilter = new StackPanel();
+			Grid fRow1 = CreateTwoColGrid();
+			Button tMtf = CreateFilterToggle("MTF", () => cachedMtf, v => cachedMtf = v);
+			Grid.SetColumn(tMtf, 0);
+			fRow1.Children.Add(tMtf);
+			Button tAdx = CreateFilterToggle("ADX", () => cachedAdx, v => cachedAdx = v);
+			Grid.SetColumn(tAdx, 2);
+			fRow1.Children.Add(tAdx);
+			Button tVol = CreateFilterToggle("Volume", () => cachedVol, v => cachedVol = v);
+			Grid fRow2 = CreateTwoColGrid();
+			fRow2.Margin = new Thickness(0);
+			Grid.SetColumn(tVol, 0);
+			fRow2.Children.Add(tVol);
+			Button tTime = CreateFilterToggle("Time window", () => cachedTime, v => cachedTime = v);
+			Grid.SetColumn(tTime, 2);
+			fRow2.Children.Add(tTime);
+			secFilter.Children.Add(fRow1);
+			secFilter.Children.Add(fRow2);
+			mainPanel.Children.Add(CreateSectionCard(secFilter, 6));
 
 			// --- DRAW module: Clear removes all drawings from this HUD (signals + A0 + A1 stages) ---
 			mainPanel.Children.Add(CreateModuleTitle("DRAW"));

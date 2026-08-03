@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.53] — 2026-08-02
+- **HUD Section Layout Adjustment**:
+  - Moved `SIGNAL` section above `FILTER` section in `src/Kat34Scalper.Draw.cs` (`BuildHud()`), so section order is: `BOT` → `SIGNAL` → `FILTER` → `DRAW`.
+  - Graphify entity mapping: `Kat34Scalper.Draw.cs` (`BuildHud`).
+
 ### [v0.52] — 2026-08-02
 - **Thorough Drawing Cleanup on HUD Clear**:
   - Updated `ClearOldSignalDrawings`, `RemoveModuleDrawings`, and `ClearLegacySignalDrawings` in `src/Kat34Scalper.Draw.cs` to inspect both `tool.Name` and `tool.Tag as string` with case-insensitive `OrdinalIgnoreCase` matching and deduplicate via `HashSet<string>`.
