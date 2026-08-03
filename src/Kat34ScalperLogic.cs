@@ -371,7 +371,24 @@ namespace Kat34Scalper
 
 			return TimeZoneInfo.ConvertTimeToUtc(sessionStartNy, nyZone);
 		}
+
+		/// <summary>BE stop = entry ± bufferTicks * tickSize (Buy adds, Sell subtracts).</summary>
+		public static double CalculateBreakevenPrice(bool isBuy, double entryPrice, int bufferTicks, double tickSize)
+		{
+			if (tickSize <= 0) return entryPrice;
+			if (bufferTicks < 0) bufferTicks = 0;
+			double raw = isBuy ? entryPrice + bufferTicks * tickSize : entryPrice - bufferTicks * tickSize;
+			return Math.Round(raw / tickSize) * tickSize;
+		}
+
+		/// <summary>Long stop must sit below market; short stop above. Prevents broker rejection.</summary>
+		public static bool IsStopOnValidSide(bool isLong, double stopPrice, double currentPrice)
+		{
+			if (stopPrice <= 0 || currentPrice <= 0) return false;
+			return isLong ? stopPrice < currentPrice : stopPrice > currentPrice;
+		}
 	}
+
 
 
 	/// <summary>Parsed SL/TP and trailing-SL trigger levels (ticks) from an NT8 ATM strategy template.</summary>

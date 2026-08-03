@@ -29,6 +29,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private double cachedDailyMaxDD = 500;
 		private volatile bool cachedIsDailyMaxProfit;
 		private double cachedDailyMaxProfit = 1000;
+		private volatile int cachedBotBufferTicks = 2;
 
 		private DateTime lastSessionStartUtc;
 		private double sessionStartRealizedPnL;
@@ -287,6 +288,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private void ManageBotEntry(double high, double low, double close)
 		{
 			EvaluateDailyRiskLimits();
+			TrySubmitPendingRevert();
 
 			Account acc = ResolveBotAccount();
 			if (acc != null && !HasOpenPosition(acc))
@@ -388,6 +390,287 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				|| state == OrderState.CancelPending
 				|| state == OrderState.CancelSubmitted;
 		}
+
+		#region Market Order / BE / Revert (ported from KatTradeManager)
+		private DateTime lastEntrySubmitTime = DateTime.MinValue;
+		private const double EntryDebounceMs = 500;
+		private int pendingRevertAction;   // 0 = none, 1 = Buy, 2 = Sell
+		private int pendingRevertQuantity;
+		private int pendingRevertSubmitInFlight;
+		private int closeInFlight;
+
+		// ponytail: simplified from TradeManager's QueueAccountOperation — scalper uses direct submit
+		private bool IsEntryDebounced()
+		{
+			if ((DateTime.Now - lastEntrySubmitTime).TotalMilliseconds < EntryDebounceMs) return true;
+			lastEntrySubmitTime = DateTime.Now;
+			return false;
+		}
+
+		private Position GetInstrumentPosition()
+		{
+			Account acc = ResolveBotAccount();
+			if (acc == null || Instrument == null) return null;
+			var positions = acc.Positions;
+			try
+			{
+				lock (positions)
+				{
+					foreach (Position p in positions)
+						if (p != null && p.Instrument != null && p.Instrument.FullName == Instrument.FullName)
+							return p;
+				}
+			}
+			catch { }
+			return null;
+		}
+
+		private bool IsCloseInFlight()
+		{
+			return System.Threading.Volatile.Read(ref closeInFlight) != 0;
+		}
+
+		private bool PlaceMarketOrder(OrderAction action)
+		{
+			return PlaceMarketOrder(action, 0);
+		}
+
+		private bool PlaceMarketOrder(OrderAction action, int quantityOverride)
+		{
+			Print(string.Format("[Kat34Scalper] PlaceMarketOrder click: {0}", action));
+			Account acc = ResolveBotAccount();
+			if (acc == null || Instrument == null)
+			{
+				ShowHudStatus("Market order: no account", Brushes.OrangeRed);
+				return false;
+			}
+
+			if (IsDailyRiskBreached(out string breachReason))
+			{
+				Print(string.Format("[Kat34Scalper] Market Order REJECTED by Daily Risk: {0}", breachReason));
+				ShowHudStatus(breachReason, Brushes.OrangeRed);
+				return false;
+			}
+
+			if (IsEntryDebounced())
+			{
+				Print("[Kat34Scalper] Duplicate market order ignored (debounce).");
+				return false;
+			}
+
+			try
+			{
+				int qty = quantityOverride > 0 ? quantityOverride : GetEffectiveBotQuantity();
+				string tpl = cachedBotAtm;
+				bool hasAtm = HasAtmTemplate(tpl);
+				string entryName = hasAtm ? "Entry" : (action == OrderAction.Buy ? "MarketBuy" : "MarketSell");
+
+				Order order = acc.CreateOrder(Instrument, action, OrderType.Market, OrderEntry.Manual,
+					TimeInForce.Gtc, qty, 0, 0, "", entryName, NinjaTrader.Core.Globals.MaxDate, null);
+				if (order != null)
+				{
+					if (hasAtm)
+						NinjaTrader.NinjaScript.AtmStrategy.StartAtmStrategy(tpl, order);
+					else
+						acc.Submit(new[] { order });
+					Print(string.Format("[Kat34Scalper] Market order submitted: {0} qty={1} atm={2}", action, qty, hasAtm ? tpl : "none"));
+					ShowHudStatus(string.Format("{0} market order submitted", action), Brushes.LightGreen);
+					return true;
+				}
+				Print(string.Format("[Kat34Scalper] Market order creation returned null: {0} qty={1}", action, qty));
+			}
+			catch (Exception ex)
+			{
+				Print(string.Format("[Kat34Scalper] Error placing market order: {0}", ex.Message));
+			}
+			return false;
+		}
+
+		private void SetBreakeven()
+		{
+			Account acc = ResolveBotAccount();
+			if (acc == null || Instrument == null)
+			{
+				ShowHudStatus("BE: no account", Brushes.OrangeRed);
+				return;
+			}
+			try
+			{
+				Position pos = GetInstrumentPosition();
+				if (pos == null || pos.MarketPosition == MarketPosition.Flat)
+				{
+					Print("[Kat34Scalper] BE: No active position.");
+					ShowHudStatus("BE: no active position", Brushes.OrangeRed);
+					return;
+				}
+
+				double tickSize = Instrument.MasterInstrument.TickSize;
+				bool isLong = pos.MarketPosition == MarketPosition.Long;
+				double bePrice = Kat34ScalperLogic.CalculateBreakevenPrice(isLong, pos.AveragePrice, cachedBotBufferTicks, tickSize);
+
+				// Underwater check: BE stop on wrong side of market → broker rejection
+				double livePrice = 0;
+				try { livePrice = Closes[0][0]; } catch { }
+				if (livePrice > 0 && !Kat34ScalperLogic.IsStopOnValidSide(isLong, bePrice, livePrice))
+				{
+					Print(string.Format("[Kat34Scalper] BE skipped: stop {0} invalid vs market {1}.", bePrice, livePrice));
+					ShowHudStatus(string.Format("BE skipped: stop {0} invalid", bePrice), Brushes.OrangeRed);
+					return;
+				}
+
+				// Find existing stop orders to move
+				System.Collections.Generic.List<Order> workingStops = new System.Collections.Generic.List<Order>();
+				if (acc.Orders != null)
+				{
+					foreach (Order o in acc.Orders)
+					{
+						if (o == null || o.Instrument != Instrument || !IsActiveOrderState(o.OrderState)) continue;
+						if (o.OrderType != OrderType.StopMarket && o.OrderType != OrderType.StopLimit) continue;
+						bool isProtective = isLong
+							? (o.OrderAction == OrderAction.Sell || o.OrderAction == OrderAction.SellShort)
+							: (o.OrderAction == OrderAction.Buy || o.OrderAction == OrderAction.BuyToCover);
+						if (isProtective) workingStops.Add(o);
+					}
+				}
+
+				if (workingStops.Count > 0)
+				{
+					foreach (Order stop in workingStops)
+						stop.StopPriceChanged = bePrice;
+					acc.Change(workingStops.ToArray());
+					Print(string.Format("[Kat34Scalper] Moved {0} stop(s) to BE @ {1} (buffer {2} ticks)", workingStops.Count, bePrice, cachedBotBufferTicks));
+					ShowHudStatus(string.Format("BE stop moved @ {0}", bePrice), Brushes.LightGreen);
+				}
+				else
+				{
+					OrderAction slAction = isLong ? OrderAction.Sell : OrderAction.BuyToCover;
+					Order slOrder = acc.CreateOrder(Instrument, slAction, OrderType.StopMarket, OrderEntry.Manual,
+						TimeInForce.Gtc, pos.Quantity, 0, bePrice, "", "KAT_SL_BE", NinjaTrader.Core.Globals.MaxDate, null);
+					if (slOrder != null)
+					{
+						acc.Submit(new[] { slOrder });
+						Print(string.Format("[Kat34Scalper] BE stop submitted @ {0} (buffer {1} ticks)", bePrice, cachedBotBufferTicks));
+						ShowHudStatus(string.Format("BE stop submitted @ {0}", bePrice), Brushes.LightGreen);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				Print(string.Format("[Kat34Scalper] Error setting BE: {0}", ex.Message));
+			}
+		}
+
+		private void RevertPosition()
+		{
+			Account acc = ResolveBotAccount();
+			if (acc == null || Instrument == null)
+			{
+				ShowHudStatus("Revert: no account", Brushes.OrangeRed);
+				return;
+			}
+			try
+			{
+				if (IsCloseInFlight())
+				{
+					Print("[Kat34Scalper] Revert: close already in flight.");
+					return;
+				}
+
+				Position pos = GetInstrumentPosition();
+				if (pos == null || pos.MarketPosition == MarketPosition.Flat)
+				{
+					Print("[Kat34Scalper] Revert: no active position.");
+					ShowHudStatus("Revert: no active position", Brushes.OrangeRed);
+					return;
+				}
+
+				OrderAction oppositeAction = pos.MarketPosition == MarketPosition.Long ? OrderAction.Sell : OrderAction.Buy;
+				int revertQty = pos.Quantity;
+				System.Threading.Interlocked.Exchange(ref pendingRevertAction, oppositeAction == OrderAction.Buy ? 1 : 2);
+				System.Threading.Interlocked.Exchange(ref pendingRevertQuantity, revertQty);
+
+				// Close current position first
+				System.Threading.Interlocked.Exchange(ref closeInFlight, 1);
+				OrderAction closeAction = pos.MarketPosition == MarketPosition.Long ? OrderAction.Sell : OrderAction.BuyToCover;
+				try
+				{
+					// Cancel existing orders first
+					if (acc.Orders != null)
+						foreach (Order o in acc.Orders)
+							if (o != null && o.Instrument == Instrument && IsActiveOrderState(o.OrderState))
+								try { acc.Cancel(new[] { o }); } catch { }
+
+					Order closeOrder = acc.CreateOrder(Instrument, closeAction, OrderType.Market, OrderEntry.Manual,
+						TimeInForce.Gtc, pos.Quantity, 0, 0, "", "KAT_REVERT_CLOSE", NinjaTrader.Core.Globals.MaxDate, null);
+					if (closeOrder != null)
+						acc.Submit(new[] { closeOrder });
+				}
+				catch (Exception ex)
+				{
+					System.Threading.Interlocked.Exchange(ref closeInFlight, 0);
+					Print(string.Format("[Kat34Scalper] Revert close error: {0}", ex.Message));
+					return;
+				}
+
+				Print(string.Format("[Kat34Scalper] Revert queued: close qty={0}, then enter {1} qty={0}.", revertQty, oppositeAction));
+				ShowHudStatus(string.Format("Revert: closing → {0}", oppositeAction), Brushes.LightGreen);
+			}
+			catch (Exception ex)
+			{
+				Print(string.Format("[Kat34Scalper] Error reverting: {0}", ex.Message));
+			}
+		}
+
+		// Called from ManageBotEntry on each bar update — completes the revert after the close fills
+		private void TrySubmitPendingRevert()
+		{
+			int reqAction = System.Threading.Volatile.Read(ref pendingRevertAction);
+			int reqQty = System.Threading.Volatile.Read(ref pendingRevertQuantity);
+			if (reqAction == 0) return;
+
+			// Check if close is done
+			Position pos = GetInstrumentPosition();
+			if (pos != null && pos.MarketPosition != MarketPosition.Flat)
+			{
+				// Still closing — check if it's the revert close
+				Account acc = ResolveBotAccount();
+				if (acc != null && acc.Orders != null)
+				{
+					bool hasRevertClose = false;
+					foreach (Order o in acc.Orders)
+						if (o != null && o.Name == "KAT_REVERT_CLOSE" && IsActiveOrderState(o.OrderState))
+						{ hasRevertClose = true; break; }
+					if (!hasRevertClose)
+						System.Threading.Interlocked.Exchange(ref closeInFlight, 0);
+				}
+				return;
+			}
+
+			System.Threading.Interlocked.Exchange(ref closeInFlight, 0);
+			if (reqQty <= 0)
+			{
+				System.Threading.Interlocked.Exchange(ref pendingRevertAction, 0);
+				return;
+			}
+
+			if (System.Threading.Interlocked.CompareExchange(ref pendingRevertSubmitInFlight, 1, 0) != 0)
+				return;
+			try
+			{
+				OrderAction action = reqAction == 1 ? OrderAction.Buy : OrderAction.Sell;
+				if (PlaceMarketOrder(action, reqQty))
+				{
+					System.Threading.Interlocked.Exchange(ref pendingRevertAction, 0);
+					System.Threading.Interlocked.Exchange(ref pendingRevertQuantity, 0);
+					ShowHudStatus(string.Format("Revert: {0} {1}ct submitted", action, reqQty), Brushes.LightGreen);
+				}
+			}
+			finally
+			{
+				System.Threading.Interlocked.Exchange(ref pendingRevertSubmitInFlight, 0);
+			}
+		}
+		#endregion
 
 		public void FlattenAllPositions()
 		{

@@ -858,9 +858,50 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			};
 			secBot.Children.Add(btnBot);
 
+			// --- Market Orders (SELL market / BUY market) & Position Management (BE / Revert) ---
+			Grid mktBtnGrid = new Grid { Margin = new Thickness(0, 4, 0, 4) };
+			mktBtnGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+			mktBtnGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4) });
+			mktBtnGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+			SolidColorBrush buyMktBg  = new SolidColorBrush(Color.FromRgb(12, 48, 25)); // Deep dark green (#0C3019)
+			SolidColorBrush sellMktBg = new SolidColorBrush(Color.FromRgb(55, 15, 18)); // Deep dark red (#370F12)
+
+			Button btnSellMkt = CreateHudButton("SELL market", sellMktBg, null, 48, 12);
+			btnSellMkt.Click += (s, ev) => TriggerCustomEvent(o => { PlaceMarketOrder(OrderAction.Sell); }, null);
+			Grid.SetColumn(btnSellMkt, 0);
+			mktBtnGrid.Children.Add(btnSellMkt);
+
+			Button btnBuyMkt = CreateHudButton("BUY market", buyMktBg, null, 48, 12);
+			btnBuyMkt.Click += (s, ev) => TriggerCustomEvent(o => { PlaceMarketOrder(OrderAction.Buy); }, null);
+			Grid.SetColumn(btnBuyMkt, 2);
+			mktBtnGrid.Children.Add(btnBuyMkt);
+
+			secBot.Children.Add(mktBtnGrid);
+
+			Grid beRevertGrid = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+			beRevertGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+			beRevertGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4) });
+			beRevertGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+			SolidColorBrush beBg     = new SolidColorBrush(Color.FromRgb(14, 48, 62)); // Deep dark slate teal (#0E303E)
+			SolidColorBrush revertBg = new SolidColorBrush(Color.FromRgb(75, 42, 10)); // Deep dark amber (#4B2A0A)
+
+			Button btnBE = CreateHudButton("BE", beBg, null, 33, 12);
+			btnBE.Click += (s, ev) => TriggerCustomEvent(o => { SetBreakeven(); }, null);
+			Grid.SetColumn(btnBE, 0);
+			beRevertGrid.Children.Add(btnBE);
+
+			Button btnRevert = CreateHudButton("Revert", revertBg, null, 33, 12);
+			btnRevert.Click += (s, ev) => TriggerCustomEvent(o => { RevertPosition(); }, null);
+			Grid.SetColumn(btnRevert, 2);
+			beRevertGrid.Children.Add(btnRevert);
+
+			secBot.Children.Add(beRevertGrid);
+
 			SolidColorBrush closeBg = new SolidColorBrush(Color.FromRgb(20, 20, 20)); // Very dark gray (almost black)
 			Button btnClose = CreateHudButton("Close/flatten", closeBg, null, 33, 15);
-			btnClose.Margin = new Thickness(0, 4, 0, 0);
+			btnClose.Margin = new Thickness(0, 0, 0, 0);
 			btnClose.Click += (s, ev) =>
 			{
 				TriggerCustomEvent(o =>

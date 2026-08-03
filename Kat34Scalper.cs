@@ -89,8 +89,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.56";
-		public const string RELEASE_DATE = "2026-08-02";
+		public const string VERSION = "0.57";
+		public const string RELEASE_DATE = "2026-08-03";
 
 
 		// Indicator series (primary chart TF)
@@ -158,6 +158,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				BotOrderQuantity			= 1;
 				BotAtmTemplate				= "mnq. 1ct. 15-be20-35move15-50triggertrail5step1";
 				BotAccountName				= "Sim101";
+				BotBufferTicks				= 2;
 
 				DailyMaxDDEnabled			= false;
 				DailyMaxDD					= 500;
@@ -214,6 +215,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				cachedBotAtm = BotAtmTemplate ?? "";
 				cachedBotAccountName = BotAccountName ?? "";
 				cachedBotOn = BotEnabled;
+				cachedBotBufferTicks = BotBufferTicks;
 				cachedIsDailyMaxDD = DailyMaxDDEnabled;
 				cachedDailyMaxDD = DailyMaxDD;
 				cachedIsDailyMaxProfit = DailyMaxProfitEnabled;
@@ -410,6 +412,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "Account Name", Order = 4, GroupName = "5. Bot",
 			Description = "Account the bot trades on (also selectable on the HUD). Default: Sim101.")]
 		public string BotAccountName { get; set; }
+
+		[NinjaScriptProperty]
+		[Range(0, 100)]
+		[Display(Name = "Buffer Ticks", Order = 5, GroupName = "5. Bot", Description = "Buffer ticks for Breakeven (BE) stop loss offset.")]
+		public int BotBufferTicks
+		{
+			get { return botBufferTicks; }
+			set { botBufferTicks = Math.Max(0, value); cachedBotBufferTicks = botBufferTicks; }
+		}
+		private int botBufferTicks = 2;
 
 		[NinjaScriptProperty]
 		[Display(Name = "Daily Max DD Enabled", Order = 5, GroupName = "5. Bot", Description = "Enable Daily Max Drawdown limit protection.")]

@@ -19,6 +19,23 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.57] — 2026-08-03
+- **Port Buy/Sell Market, BE, Revert Buttons & Trading Logic from Trade Manager**:
+  - Added 4 HUD buttons placed directly above `Close/flatten`: `SELL market`, `BUY market` (row 1, height=48, font=12), `BE`, `Revert` (row 2, height=33, font=12).
+  - Matched exact styling, colors, and font sizes from `nt8-kat-TradeManager`:
+    - SELL market: `#370F12` (deep dark red)
+    - BUY market: `#0C3019` (deep dark green)
+    - BE: `#0E303E` (deep dark slate teal)
+    - Revert: `#4B2A0A` (deep dark amber)
+  - Implemented complete trading logic in `src/Kat34Scalper.Bot.cs`:
+    - `PlaceMarketOrder(action)` with ATM strategy support, 500ms anti-spam debounce, and daily risk checks.
+    - `SetBreakeven()` with underwater protective stop validation vs live price and existing stop order modification.
+    - `RevertPosition()` position reversal via market-close followed by opposite market entry.
+    - Added `BotBufferTicks` setting property (default: 2 ticks) to `Kat34Scalper.cs` under Group "5. Bot".
+  - Added pure logic functions `CalculateBreakevenPrice` and `IsStopOnValidSide` to `src/Kat34ScalperLogic.cs`.
+  - Added 8 unit tests in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs` (57/57 tests passing).
+  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Bot.cs`, `src/Kat34Scalper.Draw.cs`, `src/Kat34ScalperLogic.cs`, `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs`.
+
 ### [v0.56] — 2026-08-02
 - **Signal A0, A3, A4 Removal & Signal Numbering Enforcement**:
   - Removed deleted signals: Signal A0 (fan), Signal A3 (8cross34), and Signal A4 (OCO pre-candle). Deleted `src/Kat34Scalper.Signal.A0.cs`, `src/Kat34Scalper.Signal.A3.cs`, `src/Kat34Scalper.Signal.A4.cs`.

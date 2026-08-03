@@ -540,6 +540,61 @@ public class Kat34ScalperLogicTests
 		Assert.True(Kat34ScalperLogic.ShouldFlattenAccount(true, true));
 		Assert.False(Kat34ScalperLogic.ShouldFlattenAccount(false, false));
 	}
-}
 
+	#region CalculateBreakevenPrice
+	[Fact]
+	public void CalculateBreakevenPrice_Long_AddsBuffer()
+	{
+		double be = Kat34ScalperLogic.CalculateBreakevenPrice(true, 20000.0, 2, 0.25);
+		Assert.Equal(20000.50, be, 4);
+	}
+
+	[Fact]
+	public void CalculateBreakevenPrice_Short_SubtractsBuffer()
+	{
+		double be = Kat34ScalperLogic.CalculateBreakevenPrice(false, 20000.0, 2, 0.25);
+		Assert.Equal(19999.50, be, 4);
+	}
+
+	[Fact]
+	public void CalculateBreakevenPrice_ZeroBuffer_ReturnsEntry()
+	{
+		Assert.Equal(5000.0, Kat34ScalperLogic.CalculateBreakevenPrice(true, 5000.0, 0, 0.25), 4);
+		Assert.Equal(5000.0, Kat34ScalperLogic.CalculateBreakevenPrice(false, 5000.0, 0, 0.25), 4);
+	}
+	#endregion
+
+	#region IsStopOnValidSide
+	[Fact]
+	public void IsStopOnValidSide_LongStopBelow_True()
+	{
+		Assert.True(Kat34ScalperLogic.IsStopOnValidSide(true, 19990.0, 20000.0));
+	}
+
+	[Fact]
+	public void IsStopOnValidSide_LongStopAbove_False()
+	{
+		Assert.False(Kat34ScalperLogic.IsStopOnValidSide(true, 20010.0, 20000.0));
+	}
+
+	[Fact]
+	public void IsStopOnValidSide_ShortStopAbove_True()
+	{
+		Assert.True(Kat34ScalperLogic.IsStopOnValidSide(false, 20010.0, 20000.0));
+	}
+
+	[Fact]
+	public void IsStopOnValidSide_ShortStopBelow_False()
+	{
+		Assert.False(Kat34ScalperLogic.IsStopOnValidSide(false, 19990.0, 20000.0));
+	}
+
+	[Fact]
+	public void IsStopOnValidSide_ZeroPrice_False()
+	{
+		Assert.False(Kat34ScalperLogic.IsStopOnValidSide(true, 0, 20000.0));
+		Assert.False(Kat34ScalperLogic.IsStopOnValidSide(true, 19990.0, 0));
+	}
+	#endregion
+}
 
