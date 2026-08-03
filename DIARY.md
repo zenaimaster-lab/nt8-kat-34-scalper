@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.43] — 2026-08-02
+- **Signal A4 In-Trade Position Guard**: Added `a4InTrade` state tracking and `HasOpenPosition(acc)` check to prevent submitting new A4 OCO entry orders while a trade is currently open in the market.
+- **Position Lifecycle Management**: Once an A4 BUY or SELL order is filled, `a4InTrade` is set to `true` and the opposite pending order is cancelled. `TrySubmitA4BotOcoEntries` blocks new entry orders until the position is completely closed (SL/TP hit or manually flattened), at which point `ManageA4BotEntry()` resets `a4InTrade = false` for subsequent signals.
+- **Validation**: 55/55 xunit tests passing; CompileCheck 0 errors; NT8 recompile via `Deploy-NT8.ps1`.
+- **Graphify entity mapping**: `Kat34Scalper.Bot.cs` (`a4InTrade`, `HasOpenPosition`, `TrySubmitA4BotOcoEntries`, `ManageA4BotEntry`, `CancelA4BotOrders`).
+
 ### [v0.42] — 2026-08-02
 - **Signal A4 OCO Previous Candle Anchoring Fix**: Fixed critical bug where `a4ActiveBuyPrice` and `a4ActiveSellPrice` were using `SelectA4BuyPrice` (`Math.Min`) and `SelectA4SellPrice` (`Math.Max`) across persistent state over historical bars without resetting per candle. This caused Buy entry to drift to the lowest low and Sell entry to drift to the highest high in chart history (orders placed very far away).
 - **Direct Previous Candle Calculation**: `EvaluateA4` and `BackfillA4` now anchor directly to the previous candle of the current timeframe (`Highs[0][1] + offset` for BUY and `Lows[0][1] - offset` for SELL).

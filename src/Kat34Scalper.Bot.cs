@@ -85,6 +85,24 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private Order pendingA4SellOrder;
 		private double pendingA4BuyPrice;
 		private double pendingA4SellPrice;
+		private bool a4InTrade;
+
+		private bool HasOpenPosition(Account acc)
+		{
+			if (acc == null || acc.Positions == null) return false;
+			try
+			{
+				foreach (Position pos in acc.Positions)
+				{
+					if (pos != null && pos.Instrument != null && Instrument != null
+						&& pos.Instrument.FullName == Instrument.FullName
+						&& pos.MarketPosition != MarketPosition.Flat)
+						return true;
+				}
+			}
+			catch { }
+			return false;
+		}
 
 		// Called from Signal A4 to manage OCO entries (BUY stop/limit and SELL stop/limit)
 		private void TrySubmitA4BotOcoEntries(double buyPrice, double sellPrice)
@@ -92,6 +110,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (!cachedBotOn || !BotEnabled || !cachedA4 || buyPrice <= 0 || sellPrice <= 0) return;
 			Account acc = ResolveBotAccount();
 			if (acc == null) return;
+
+			// Do NOT submit new entry orders while already in a trade or holding an open position
+			if (a4InTrade || HasOpenPosition(acc)) return;
 
 			if (pendingA4BuyOrder != null && pendingA4BuyPrice == buyPrice
 				&& pendingA4SellOrder != null && pendingA4SellPrice == sellPrice)
@@ -167,6 +188,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			Account acc = ResolveBotAccount();
 			if (acc == null) return;
+			a4InTrade = false;
 			if (pendingA4BuyOrder != null)
 			{
 				try { acc.Cancel(new[] { pendingA4BuyOrder }); } catch { }
@@ -235,12 +257,24 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private void ManageA4BotEntry()
 		{
-			if (pendingA4BuyOrder == null && pendingA4SellOrder == null) return;
 			Account acc = ResolveBotAccount();
 			if (acc == null) return;
 
+			if (a4InTrade)
+			{
+				if (!HasOpenPosition(acc))
+				{
+					a4InTrade = false;
+					Print("[Kat34Scalper] BOT: A4 position closed (flat) — ready for next OCO setup.");
+					ShowHudStatus("BOT: A4 position closed", Brushes.LightGreen);
+				}
+			}
+
+			if (pendingA4BuyOrder == null && pendingA4SellOrder == null) return;
+
 			if (pendingA4BuyOrder != null && pendingA4BuyOrder.OrderState == OrderState.Filled)
 			{
+				a4InTrade = true;
 				Print(string.Format("[Kat34Scalper] BOT: A4 BUY filled @ {0:F5} — cancelling A4 SELL order.", pendingA4BuyPrice));
 				ShowHudStatus(string.Format("BOT: A4 BUY FILLED @ {0:F2}", pendingA4BuyPrice), Brushes.LightGreen);
 				if (pendingA4SellOrder != null)
@@ -252,6 +286,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 			else if (pendingA4SellOrder != null && pendingA4SellOrder.OrderState == OrderState.Filled)
 			{
+				a4InTrade = true;
 				Print(string.Format("[Kat34Scalper] BOT: A4 SELL filled @ {0:F5} — cancelling A4 BUY order.", pendingA4SellPrice));
 				ShowHudStatus(string.Format("BOT: A4 SELL FILLED @ {0:F2}", pendingA4SellPrice), Brushes.LightGreen);
 				if (pendingA4BuyOrder != null)
