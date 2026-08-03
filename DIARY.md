@@ -19,6 +19,14 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.48] — 2026-08-02
+- **Selective Drawing Cleanup on A4 OCO Fill**:
+  - Requirement: When an A4 OCO entry fills and the opposite order is cancelled, keep the filled order's text and lines on the chart while deleting only the cancelled order's text and lines.
+  - Fix:
+    - Added `ClearA4SideDrawings(bool isBuy)` in `src/Kat34Scalper.Signal.A4.cs` to target drawings by side (`"K34S_A4_B_"` for BUY, `"K34S_A4_S_"` for SELL).
+    - Updated `ManageA4BotEntry` in `src/Kat34Scalper.Bot.cs` so when BUY fills, it executes `ClearA4SideDrawings(false)` (deleting cancelled SELL drawings, preserving BUY text/lines); when SELL fills, it executes `ClearA4SideDrawings(true)` (deleting cancelled BUY drawings, preserving SELL text/lines).
+- **Graphify entity mapping**: `Kat34Scalper.Signal.A4.cs` (`ClearA4SideDrawings`), `Kat34Scalper.Bot.cs` (`ManageA4BotEntry`).
+
 ### [v0.47] — 2026-08-02
 - **Fix — A4 Historical Backfill Clutter ("Chùm Signals")**:
   - Root cause: `BackfillA4()` in `src/Kat34Scalper.Signal.A4.cs` previously looped over every historical bar in `A4HistoryDays` (thousands of bars) and created `KatSignalRecord` objects + chart drawings (`"BUY A4"` / `"SELL A4"`) on every past candle. Since A4 is an OCO prev-bar entry strategy that evaluates on every bar, this resulted in a dense wall/cluster of text labels and dashed lines stacked across the chart.

@@ -87,7 +87,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			TrySubmitA4BotOcoEntries(buyPrice, sellPrice);
 		}
 
-		// A4 switched OFF or updated: drop A4-owned signal records + every K34S_A4_* drawing.
+		// Drop A4-owned signal records + every K34S_A4_* drawing for a specific side (isBuy: true for BUY side "K34S_A4_B_", false for SELL side "K34S_A4_S_").
+		private void ClearA4SideDrawings(bool isBuy)
+		{
+			signalRecords.RemoveAll(r => r.Owner == "A4" && r.IsBuy == isBuy);
+			string prefix = "K34S_A4_" + (isBuy ? "B" : "S") + "_";
+			RemoveModuleDrawings(prefix);
+		}
+
+		// A4 switched OFF or updated: drop A4-owned signal records + every K34S_A4_* drawing (both sides).
 		private void ClearA4Drawings()
 		{
 			signalRecords.RemoveAll(r => r.Owner == "A4");

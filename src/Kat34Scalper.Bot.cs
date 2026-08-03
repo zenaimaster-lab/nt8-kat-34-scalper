@@ -312,7 +312,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					pendingA4SellOrder = null;
 				}
 				pendingA4BuyOrder = null;
-				ClearA4Drawings();
+				ClearA4SideDrawings(false); // remove cancelled SELL drawing, keep filled BUY text/lines
 			}
 			else if (pendingA4SellOrder != null && pendingA4SellOrder.OrderState == OrderState.Filled)
 			{
@@ -326,7 +326,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					pendingA4BuyOrder = null;
 				}
 				pendingA4SellOrder = null;
-				ClearA4Drawings();
+				ClearA4SideDrawings(true); // remove cancelled BUY drawing, keep filled SELL text/lines
 			}
 
 			if (pendingA4BuyOrder != null && (pendingA4BuyOrder.OrderState == OrderState.Cancelled || pendingA4BuyOrder.OrderState == OrderState.Rejected))
