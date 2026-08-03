@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.61 (2026-08-03)
+ * Version: 0.62 (2026-08-03)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -265,11 +265,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double close = Closes[0][0];
 
 			bool sellAllowed, buyAllowed;
-			PassFilters(out sellAllowed, out buyAllowed);          // Filter module (ADX, volume, time)
-			EvaluateAlertA1(high, low, close);                     // Alert Signal sub-module A1 (independent alert/drawing)
-			EvaluateAlertA2(high, low, close);                     // Alert Signal sub-module A2 (independent alert/drawing)
+			PassFilters(out sellAllowed, out buyAllowed);          // Global Filter module (ADX, volume, time)
+			EvaluateAlertA1(high, low, close, sellAllowed, buyAllowed); // Alert Signal sub-module A1
+			EvaluateAlertA2(high, low, close, sellAllowed, buyAllowed); // Alert Signal sub-module A2
 			EvaluateB1(high, low, close, sellAllowed, buyAllowed); // Bot Signal sub-module B1 (89-34 pullback)
-			EvaluateB2(high, low, close);                          // Bot Signal sub-module B2 (34+8+Bounce ema34 touch)
+			EvaluateB2(high, low, close, sellAllowed, buyAllowed); // Bot Signal sub-module B2 (34+8+Bounce ema34 touch)
 			ManageBotEntry(high, low, close);                      // Bot module (pending entry lifecycle)
 		}
 		#endregion

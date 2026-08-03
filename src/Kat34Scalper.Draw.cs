@@ -352,6 +352,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private double hudDragStartTop;
 		private Point hudDragStart;
 		private readonly SolidColorBrush hudOnBrush = new SolidColorBrush(Color.FromRgb(0, 122, 204));
+		private readonly SolidColorBrush hudBotOnBrush = new SolidColorBrush(Color.FromRgb(15, 60, 130)); // Dark blue for BOT Signals
 		private readonly SolidColorBrush hudOffBrush = new SolidColorBrush(Color.FromRgb(45, 50, 65));
 
 		// ATM quick-set buttons (TradeManager pattern: amber ON when its ATM is the current selection)
@@ -513,16 +514,17 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			grid.Children.Add(input);
 		}
 
-		private Button CreateFilterToggle(string label, Func<bool> getter, Action<bool> setter, double height = 24, double fontSize = 10)
+		private Button CreateFilterToggle(string label, Func<bool> getter, Action<bool> setter, double height = 24, double fontSize = 10, Brush activeBrush = null)
 		{
-			Button btn = CreateHudButton(label, getter() ? hudOnBrush : hudOffBrush, null, height, fontSize);
+			Brush onBrush = activeBrush ?? hudOnBrush;
+			Button btn = CreateHudButton(label, getter() ? onBrush : hudOffBrush, null, height, fontSize);
 			btn.Foreground = getter() ? Brushes.White : Brushes.LightGray;
 			btn.Click += (s, e) =>
 			{
 				setter(!getter());
 				bool on = getter();
 				btn.Content = label;
-				btn.Background = on ? hudOnBrush : hudOffBrush;
+				btn.Background = on ? onBrush : hudOffBrush;
 				btn.Foreground = on ? Brushes.White : Brushes.LightGray;
 			};
 			return btn;
@@ -987,17 +989,17 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			var secSignal = new StackPanel();
 			Grid sRow = CreateTwoColGrid();
 			sRow.Margin = new Thickness(0);
-			Button btnB1 = CreateFilterToggle("B1 (89-34)", () => cachedB1, v => SetB1Signal(v));
+			Button btnB1 = CreateFilterToggle("B1 (89-34)", () => cachedB1, v => SetB1Signal(v), 24, 10, hudBotOnBrush);
 			Grid.SetColumn(btnB1, 0);
 			sRow.Children.Add(btnB1);
-			Button btnB2 = CreateFilterToggle("B2 (34+8)", () => cachedB2, v => SetB2Signal(v));
+			Button btnB2 = CreateFilterToggle("B2 (34+8)", () => cachedB2, v => SetB2Signal(v), 24, 10, hudBotOnBrush);
 			Grid.SetColumn(btnB2, 2);
 			sRow.Children.Add(btnB2);
 			secSignal.Children.Add(sRow);
 			mainPanel.Children.Add(CreateSectionCard(secSignal, 6));
 
-			// --- FILTER module: MTF, ADX, Volume, Time window (A0 fan gate removed) ---
-			mainPanel.Children.Add(CreateModuleTitle("FILTER"));
+			// --- GLOBAL FILTER module: MTF, ADX, Volume, Time window ---
+			mainPanel.Children.Add(CreateModuleTitle("GLOBAL FILTER"));
 			var secFilter = new StackPanel();
 			Grid fRow1 = CreateTwoColGrid();
 			Button tMtf = CreateFilterToggle("MTF", () => cachedMtf, v => cachedMtf = v);

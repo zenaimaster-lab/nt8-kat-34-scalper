@@ -19,6 +19,14 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.62] — 2026-08-03
+- **HUD Dark Blue BOT Signal Buttons & GLOBAL FILTER Hierarchy**:
+  - Updated HUD button styling: BOT Signal buttons (`B1`, `B2`) now render in **dark blue** (`#0F3C82`) when ON, while Alert Signal buttons (`A1`, `A2`) retain standard blue (`#007ACC`).
+  - Renamed HUD section from `FILTER` to `GLOBAL FILTER`.
+  - Enforced Global Filter evaluation across ALL signals: `PassFilters` / `PassFiltersAt` now gate both Alert Signals (`A1`, `A2`) and Bot Signals (`B1`, `B2`).
+  - Preserved signal-specific filter settings per sub-module in indicator properties.
+  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Draw.cs`, `src/Kat34Scalper.AlertSignal.A1.cs`, `src/Kat34Scalper.AlertSignal.A2.cs`, `src/Kat34Scalper.Signal.B1.cs`, `src/Kat34Scalper.Signal.B2.cs`.
+
 ### [v0.61] — 2026-08-03
 - **Introduce ALERT SIGNAL Section & Rename Bot Signals to B1/B2**:
   - Added new `ALERT SIGNAL` module section placed above `BOT SIGNAL` in NinjaScript properties and HUD, with 2 placeholder sub-modules (`A1` and `A2`).

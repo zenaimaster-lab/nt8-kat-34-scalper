@@ -73,19 +73,19 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				&& (!B2CondEma144Above200 || e144 < e200);
 		}
 
-		private void EvaluateB2(double high, double low, double close)
+		private void EvaluateB2(double high, double low, double close, bool sellAllowed, bool buyAllowed)
 		{
 			if (!cachedB2 || fastEma == null || slowEma == null || ema144 == null || ema200 == null) return;
 			if (CurrentBars[0] < 200) return; // ema200 warmup
 			Account acc = ResolveBotAccount();
 			if (IsSignalInTrade("B2") || HasOpenPosition(acc)) return;
 			RunB2Bar(0, false, b2SellState, b2BuyState,
-				ref b2SellRecord, ref b2BuyRecord, ref b2SellTextTag, ref b2BuyTextTag);
+				ref b2SellRecord, ref b2BuyRecord, ref b2SellTextTag, ref b2BuyTextTag, sellAllowed, buyAllowed);
 		}
 
 		private void RunB2Bar(int ago, bool replay, KatA2State sellState, KatA2State buyState,
 			ref KatSignalRecord sellRecord, ref KatSignalRecord buyRecord,
-			ref string sellTextTag, ref string buyTextTag)
+			ref string sellTextTag, ref string buyTextTag, bool sellAllowed = true, bool buyAllowed = true)
 		{
 			double high = Highs[0][ago];
 			double low = Lows[0][ago];
@@ -96,8 +96,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double e144 = ema144[ago];
 			double e200 = ema200[ago];
 
-			bool sellTrend = B2SellTrendOk(e8, e34, e89, e144, e200);
-			bool buyTrend = B2BuyTrendOk(e8, e34, e89, e144, e200);
+			bool sellTrend = sellAllowed && B2SellTrendOk(e8, e34, e89, e144, e200);
+			bool buyTrend = buyAllowed && B2BuyTrendOk(e8, e34, e89, e144, e200);
 
 			if (ago == 0 && (!b2GateInit || b2LastBuyTrend != buyTrend || b2LastSellTrend != sellTrend))
 			{
@@ -206,7 +206,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			b2ReplayCancels = 0;
 			b2ReplayFills = 0;
 			for (int ago = start; ago >= 0; ago--)
-				RunB2Bar(ago, true, tmpSell, tmpBuy, ref sellRecord, ref buyRecord, ref sellTextTag, ref buyTextTag);
+			{
+				bool sellAllowed, buyAllowed;
+				PassFiltersAt(ago, out sellAllowed, out buyAllowed);
+				RunB2Bar(ago, true, tmpSell, tmpBuy, ref sellRecord, ref buyRecord, ref sellTextTag, ref buyTextTag, sellAllowed, buyAllowed);
+			}
 			b2SellState.CopyFrom(tmpSell);
 			b2BuyState.CopyFrom(tmpBuy);
 			b2SellRecord = sellRecord;

@@ -39,10 +39,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 		}
 
-		private void EvaluateAlertA1(double high, double low, double close)
+		private void EvaluateAlertA1(double high, double low, double close, bool sellAllowed, bool buyAllowed)
 		{
 			if (!cachedAlertA1) return;
-			// Placeholder template for Alert Signal A1 evaluation logic
+			// Placeholder template for Alert Signal A1 evaluation logic (gated by Global Filter sellAllowed/buyAllowed)
 		}
 
 		private void BackfillAlertA1()
@@ -50,6 +50,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (!cachedAlertA1) return;
 			int start = Math.Min(FindHistoryStartBarsAgo(AlertA1HistoryDays), CurrentBars[0] - 1);
 			if (start < 0) return;
+			for (int ago = start; ago >= 0; ago--)
+			{
+				bool sellAllowed, buyAllowed;
+				PassFiltersAt(ago, out sellAllowed, out buyAllowed);
+				// Backfill replay logic for Alert Signal A1
+			}
 			Print(string.Format("[Kat34Scalper][AlertA1] backfill done — {0} day(s), {1} bar(s) replayed.", AlertA1HistoryDays, start + 1));
 		}
 
