@@ -303,12 +303,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				signalRecords.Clear();
 
 				// Reset sub-module pending drawing states so orphaned tags/records aren't retained
-				b2SellRecord = null;
-				b2BuyRecord = null;
-				b2SellTextTag = null;
-				b2BuyTextTag = null;
-				b2SellState.Reset();
-				b2BuyState.Reset();
+				b1SellRecord = null;
+				b1BuyRecord = null;
+				b1SellTextTag = null;
+				b1BuyTextTag = null;
+				b1SellState.Reset();
+				b1BuyState.Reset();
 
 				var doomed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 				foreach (IDrawingTool tool in DrawObjects)
@@ -989,10 +989,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			var secSignal = new StackPanel();
 			Grid sRow = CreateTwoColGrid();
 			sRow.Margin = new Thickness(0);
-			Button btnB1 = CreateFilterToggle("B1 (89-34)", () => cachedB1, v => SetB1Signal(v), 24, 10, hudBotOnBrush);
+			Button btnB1 = CreateFilterToggle("B1 (34bounce8+)", () => cachedB1, v => SetB1Signal(v), 24, 10, hudBotOnBrush);
 			Grid.SetColumn(btnB1, 0);
 			sRow.Children.Add(btnB1);
-			Button btnB2 = CreateFilterToggle("B2 (34+8)", () => cachedB2, v => SetB2Signal(v), 24, 10, hudBotOnBrush);
+			Button btnB2 = CreateFilterToggle("B2 (89uturn34)", () => cachedB2, v => SetB2Signal(v), 24, 10, hudBotOnBrush);
 			Grid.SetColumn(btnB2, 2);
 			sRow.Children.Add(btnB2);
 			secSignal.Children.Add(sRow);

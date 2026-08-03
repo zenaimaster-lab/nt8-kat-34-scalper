@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.62` (Released: `2026-08-03`)
+**Current Version**: `v0.63` (Released: `2026-08-03`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -14,11 +14,11 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | `src/Kat34Scalper.AlertSignal.A1.cs` | **Alert Signal A1** | independent alert sub-module (placeholder template: chart drawings & alert sounds only) |
 | `src/Kat34Scalper.AlertSignal.A2.cs` | **Alert Signal A2** | independent alert sub-module (placeholder template: chart drawings & alert sounds only) |
 | `src/Kat34Scalper.Signal.cs` | **Bot Signal (shared)** | backfill window helper, shared diagnostics |
-| `src/Kat34Scalper.Signal.B1.cs` | **Bot Signal B1** | independent bot signal sub-module: 89-34 pullback (`B1 (89-34)` — own toggle, settings group, drawings, bot order execution) |
-| `src/Kat34Scalper.Signal.B2.cs` | **Bot Signal B2** | independent bot signal sub-module: 34+8+Bounce ema34-touch pending entry (`B2 (34+8)` — own toggle, settings group, drawings, bot order execution) |
-| `src/Kat34Scalper.Filter.cs` | **Filter** | gates: ADX, Volume, Time window (+ per-bar `*At(barsAgo)` variants for backfill replay) |
+| `src/Kat34Scalper.Signal.B1.cs` | **Bot Signal B1** | independent bot signal sub-module: 34bounce8+ (`B1 (34bounce8+)` — own toggle, settings group, drawings, bot order execution) |
+| `src/Kat34Scalper.Signal.B2.cs` | **Bot Signal B2** | independent bot signal sub-module: 89uturn34 (`B2 (89uturn34)` — own toggle, settings group, drawings, bot order execution) |
+| `src/Kat34Scalper.Filter.cs` | **Global Filter** | gates: ADX, Volume, Time window (+ per-bar `*At(barsAgo)` variants for backfill replay) |
 | `src/Kat34Scalper.Bot.cs` | **Bot** | signal → order conversion (stop on valid side, limit when price ran past), ATM brackets, migration, trend-flip cancel, Close/Flatten |
-| `src/Kat34Scalper.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, labels, version label, alert sound, HUD (sections titled ALERT SIGNAL / BOT SIGNAL / FILTER / BOT / DRAW) |
+| `src/Kat34Scalper.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, labels, version label, alert sound, HUD (sections titled ALERT SIGNAL / BOT SIGNAL / GLOBAL FILTER / BOT / DRAW) |
 
 Every signal sub-module is **independent and default OFF**; its stages are specified in **`docs/SIGNALS.md`** (the standard every new signal must follow). Per bar the pipeline runs: **Signal A0** (direction/marker) → **Filter** (A1-only gates) → **Signal A1** → fires **Draw** + **Bot**.
 

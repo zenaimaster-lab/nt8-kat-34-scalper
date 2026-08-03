@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.62 (2026-08-03)
+ * Version: 0.63 (2026-08-03)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -12,9 +12,9 @@
  *   src/Kat34Scalper.AlertSignal.A1.cs — Alert Signal sub-module A1: placeholder (independent, alert-only)
  *   src/Kat34Scalper.AlertSignal.A2.cs — Alert Signal sub-module A2: placeholder (independent, alert-only)
  *   src/Kat34Scalper.Signal.cs         — Bot Signal module shared helpers (backfill window)
- *   src/Kat34Scalper.Signal.B1.cs      — Bot Signal sub-module B1: 89-34 pullback (independent, bot-managed)
- *   src/Kat34Scalper.Signal.B2.cs      — Bot Signal sub-module B2: 34+8+Bounce ema34-touch (independent, bot-managed)
- *   src/Kat34Scalper.Filter.cs         — Filter module: MTF, ADX, Volume, Time window gates
+ *   src/Kat34Scalper.Signal.B1.cs      — Bot Signal sub-module B1: 34bounce8+ (34+8+Bounce ema34-touch pending entry)
+ *   src/Kat34Scalper.Signal.B2.cs      — Bot Signal sub-module B2: 89uturn34 (89-34 pullback setup)
+ *   src/Kat34Scalper.Filter.cs         — Global Filter module: MTF, ADX, Volume, Time window gates
  *   src/Kat34Scalper.Bot.cs            — Bot module: order ops, stop/limit, ATM
  *   src/Kat34Scalper.Draw.cs           — Draw module: lines + ATM triggers + HUD
  */
@@ -84,7 +84,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.61";
+		public const string VERSION = "0.63";
 		public const string RELEASE_DATE = "2026-08-03";
 
 
@@ -135,23 +135,23 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AlertA2Enabled				= false;
 				AlertA2HistoryDays			= 3;
 
-				// 3. Bot Signal B1 defaults — OFF
+				// 3. Bot Signal B1 (34bounce8+) defaults — OFF
 				B1Enabled					= false;
 				B1HistoryDays				= 3;
-				EmaFastPeriod				= 34;
-				EmaSlowPeriod				= 89;
-				MaxSequenceBars				= 30;
+				B1CondEma8Above34			= true;
+				B1CondEma34Above89			= true;
+				B1CondEma89Above144			= true;
+				B1CondEma144Above200		= true;
 				B1EntryOffsetTicks			= 1;
 				B1StopDistanceTicks			= 60;
 				B1TargetDistanceTicks		= 120;
 
-				// 3.5 Bot Signal B2 defaults — OFF
+				// 3.5 Bot Signal B2 (89uturn34) defaults — OFF
 				B2Enabled					= false;
 				B2HistoryDays				= 3;
-				B2CondEma8Above34			= true;
-				B2CondEma34Above89			= true;
-				B2CondEma89Above144			= true;
-				B2CondEma144Above200		= true;
+				EmaFastPeriod				= 34;
+				EmaSlowPeriod				= 89;
+				MaxSequenceBars				= 30;
 				B2EntryOffsetTicks			= 1;
 				B2StopDistanceTicks			= 60;
 				B2TargetDistanceTicks		= 120;
@@ -268,8 +268,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			PassFilters(out sellAllowed, out buyAllowed);          // Global Filter module (ADX, volume, time)
 			EvaluateAlertA1(high, low, close, sellAllowed, buyAllowed); // Alert Signal sub-module A1
 			EvaluateAlertA2(high, low, close, sellAllowed, buyAllowed); // Alert Signal sub-module A2
-			EvaluateB1(high, low, close, sellAllowed, buyAllowed); // Bot Signal sub-module B1 (89-34 pullback)
-			EvaluateB2(high, low, close, sellAllowed, buyAllowed); // Bot Signal sub-module B2 (34+8+Bounce ema34 touch)
+			EvaluateB1(high, low, close, sellAllowed, buyAllowed); // Bot Signal sub-module B1 (34bounce8+)
+			EvaluateB2(high, low, close, sellAllowed, buyAllowed); // Bot Signal sub-module B2 (89uturn34)
 			ManageBotEntry(high, low, close);                      // Bot module (pending entry lifecycle)
 		}
 		#endregion
@@ -336,96 +336,96 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Description = "How many days back Alert A2 signals are replayed and drawn.")]
 		public int AlertA2HistoryDays { get; set; }
 
-		// --- 3. Bot Signal B1 — 89/34 Pullback ---
+		// --- 3. Bot Signal B1 — 34bounce8+ ---
 		[NinjaScriptProperty]
-		[Display(Name = "Enabled", Order = 1, GroupName = "3. Bot Signal B1 — 89/34 Pullback",
-			Description = "Default OFF. When switched ON the B1 signals are computed, drawn, and executed by Bot if Bot is ON.")]
+		[Display(Name = "Enabled", Order = 1, GroupName = "3. Bot Signal B1 — 34bounce8+",
+			Description = "Default OFF. When switched ON the B1 pending entries (ema34 bounce) are computed and executed by Bot if Bot is ON.")]
 		public bool B1Enabled { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "History Days", Order = 2, GroupName = "3. Bot Signal B1 — 89/34 Pullback",
-			Description = "How many days back the B1 signals are computed and drawn when B1 is switched ON.")]
+		[Display(Name = "History Days", Order = 2, GroupName = "3. Bot Signal B1 — 34bounce8+",
+			Description = "How many days back the B1 setups are computed and drawn when B1 is switched ON.")]
 		public int B1HistoryDays { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Fast EMA Period", Order = 3, GroupName = "3. Bot Signal B1 — 89/34 Pullback")]
+		[Display(Name = "Cond: EMA 8 above EMA 34", Order = 3, GroupName = "3. Bot Signal B1 — 34bounce8+",
+			Description = "BUY: EMA 8 stays above (or touches) EMA 34 — never crosses down. SELL mirrored.")]
+		public bool B1CondEma8Above34 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Cond: EMA 34 above EMA 89", Order = 4, GroupName = "3. Bot Signal B1 — 34bounce8+",
+			Description = "BUY: EMA 34 above EMA 89. SELL mirrored.")]
+		public bool B1CondEma34Above89 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Cond: EMA 89 above EMA 144", Order = 5, GroupName = "3. Bot Signal B1 — 34bounce8+",
+			Description = "BUY: EMA 89 above EMA 144. SELL mirrored.")]
+		public bool B1CondEma89Above144 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Cond: EMA 144 above EMA 200", Order = 6, GroupName = "3. Bot Signal B1 — 34bounce8+",
+			Description = "BUY: EMA 144 above EMA 200. SELL mirrored.")]
+		public bool B1CondEma144Above200 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Entry Offset (ticks)", Order = 7, GroupName = "3. Bot Signal B1 — 34bounce8+",
+			Description = "Buy entry above the touch candle's high / Sell entry below its low.")]
+		public int B1EntryOffsetTicks { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Stop Distance (ticks)", Order = 8, GroupName = "3. Bot Signal B1 — 34bounce8+",
+			Description = "Fallback when the selected ATM template defines no StopLoss.")]
+		public int B1StopDistanceTicks { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Target Distance (ticks)", Order = 9, GroupName = "3. Bot Signal B1 — 34bounce8+",
+			Description = "Fallback when the selected ATM template defines no Target.")]
+		public int B1TargetDistanceTicks { get; set; }
+
+		// --- 3.5 Bot Signal B2 — 89uturn34 ---
+		[NinjaScriptProperty]
+		[Display(Name = "Enabled", Order = 1, GroupName = "3.5 Bot Signal B2 — 89uturn34",
+			Description = "Default OFF. When switched ON the B2 signals are computed, drawn, and executed by Bot if Bot is ON.")]
+		public bool B2Enabled { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "History Days", Order = 2, GroupName = "3.5 Bot Signal B2 — 89uturn34",
+			Description = "How many days back the B2 signals are computed and drawn when B2 is switched ON.")]
+		public int B2HistoryDays { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Fast EMA Period", Order = 3, GroupName = "3.5 Bot Signal B2 — 89uturn34")]
 		public int EmaFastPeriod { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Slow EMA Period", Order = 4, GroupName = "3. Bot Signal B1 — 89/34 Pullback")]
+		[Display(Name = "Slow EMA Period", Order = 4, GroupName = "3.5 Bot Signal B2 — 89uturn34")]
 		public int EmaSlowPeriod { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Max Sequence Bars", Order = 5, GroupName = "3. Bot Signal B1 — 89/34 Pullback",
+		[Display(Name = "Max Sequence Bars", Order = 5, GroupName = "3.5 Bot Signal B2 — 89uturn34",
 			Description = "The whole sequence — pullback cross through the fast EMA, slow-EMA touch, U-turn close back through the fast EMA — must complete within this many bars, otherwise the setup expires.")]
 		public int MaxSequenceBars { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Entry Offset (ticks)", Order = 7, GroupName = "3. Bot Signal B1 — 89/34 Pullback",
+		[Display(Name = "Entry Offset (ticks)", Order = 7, GroupName = "3.5 Bot Signal B2 — 89uturn34",
 			Description = "Sell entry below the signal low / Buy entry above the signal high.")]
-		public int B1EntryOffsetTicks { get; set; }
-		[Browsable(false)]
-		public int EntryOffsetTicks { get { return B1EntryOffsetTicks; } set { B1EntryOffsetTicks = value; } }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Stop Distance (ticks)", Order = 8, GroupName = "3. Bot Signal B1 — 89/34 Pullback",
-			Description = "Fallback when the selected ATM template defines no StopLoss.")]
-		public int B1StopDistanceTicks { get; set; }
-		[Browsable(false)]
-		public int StopDistanceTicks { get { return B1StopDistanceTicks; } set { B1StopDistanceTicks = value; } }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Target Distance (ticks)", Order = 9, GroupName = "3. Bot Signal B1 — 89/34 Pullback",
-			Description = "Fallback when the selected ATM template defines no Target.")]
-		public int B1TargetDistanceTicks { get; set; }
-		[Browsable(false)]
-		public int TargetDistanceTicks { get { return B1TargetDistanceTicks; } set { B1TargetDistanceTicks = value; } }
-
-		// --- 3.5 Bot Signal B2 — 34+8+Bounce ---
-		[NinjaScriptProperty]
-		[Display(Name = "Enabled", Order = 1, GroupName = "3.5 Bot Signal B2 — 34+8+Bounce",
-			Description = "Default OFF. When switched ON the B2 pending entries (ema34 bounce) are computed and executed by Bot if Bot is ON.")]
-		public bool B2Enabled { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "History Days", Order = 2, GroupName = "3.5 Bot Signal B2 — 34+8+Bounce",
-			Description = "How many days back the B2 setups are computed and drawn when B2 is switched ON.")]
-		public int B2HistoryDays { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Cond: EMA 8 above EMA 34", Order = 3, GroupName = "3.5 Bot Signal B2 — 34+8+Bounce",
-			Description = "BUY: EMA 8 stays above (or touches) EMA 34 — never crosses down. SELL mirrored.")]
-		public bool B2CondEma8Above34 { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Cond: EMA 34 above EMA 89", Order = 4, GroupName = "3.5 Bot Signal B2 — 34+8+Bounce",
-			Description = "BUY: EMA 34 above EMA 89. SELL mirrored.")]
-		public bool B2CondEma34Above89 { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Cond: EMA 89 above EMA 144", Order = 5, GroupName = "3.5 Bot Signal B2 — 34+8+Bounce",
-			Description = "BUY: EMA 89 above EMA 144. SELL mirrored.")]
-		public bool B2CondEma89Above144 { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Cond: EMA 144 above EMA 200", Order = 6, GroupName = "3.5 Bot Signal B2 — 34+8+Bounce",
-			Description = "BUY: EMA 144 above EMA 200. SELL mirrored.")]
-		public bool B2CondEma144Above200 { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Entry Offset (ticks)", Order = 7, GroupName = "3.5 Bot Signal B2 — 34+8+Bounce",
-			Description = "Buy entry above the touch candle's high / Sell entry below its low.")]
 		public int B2EntryOffsetTicks { get; set; }
+		[Browsable(false)]
+		public int EntryOffsetTicks { get { return B2EntryOffsetTicks; } set { B2EntryOffsetTicks = value; } }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Stop Distance (ticks)", Order = 8, GroupName = "3.5 Bot Signal B2 — 34+8+Bounce",
+		[Display(Name = "Stop Distance (ticks)", Order = 8, GroupName = "3.5 Bot Signal B2 — 89uturn34",
 			Description = "Fallback when the selected ATM template defines no StopLoss.")]
 		public int B2StopDistanceTicks { get; set; }
+		[Browsable(false)]
+		public int StopDistanceTicks { get { return B2StopDistanceTicks; } set { B2StopDistanceTicks = value; } }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Target Distance (ticks)", Order = 9, GroupName = "3.5 Bot Signal B2 — 34+8+Bounce",
+		[Display(Name = "Target Distance (ticks)", Order = 9, GroupName = "3.5 Bot Signal B2 — 89uturn34",
 			Description = "Fallback when the selected ATM template defines no Target.")]
 		public int B2TargetDistanceTicks { get; set; }
+		[Browsable(false)]
+		public int TargetDistanceTicks { get { return B2TargetDistanceTicks; } set { B2TargetDistanceTicks = value; } }
 
 
 		// --- 5. Bot (semi-auto — trades only while the HUD BOT button is ON) ---

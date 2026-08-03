@@ -19,6 +19,14 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.63] — 2026-08-03
+- **Swap Bot Signal Names and Positions**:
+  - Re-assigned Bot Signal names and ordering:
+    - **B1 (34bounce8+)**: 34+8+Bounce ema34 touch setup (`src/Kat34Scalper.Signal.B1.cs`).
+    - **B2 (89uturn34)**: 89-34 pullback U-turn setup (`src/Kat34Scalper.Signal.B2.cs`).
+  - Swapped property display groups and HUD positions so `B1 (34bounce8+)` appears first and `B2 (89uturn34)` appears second.
+  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Draw.cs`, `src/Kat34Scalper.Signal.B1.cs`, `src/Kat34Scalper.Signal.B2.cs`.
+
 ### [v0.62] — 2026-08-03
 - **HUD Dark Blue BOT Signal Buttons & GLOBAL FILTER Hierarchy**:
   - Updated HUD button styling: BOT Signal buttons (`B1`, `B2`) now render in **dark blue** (`#0F3C82`) when ON, while Alert Signal buttons (`A1`, `A2`) retain standard blue (`#007ACC`).
