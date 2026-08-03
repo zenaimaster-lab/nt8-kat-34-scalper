@@ -1,3 +1,9 @@
+# Release Notes — v0.37 (2026-08-02)
+
+- **Trigger mode removed (Retest Bounce deleted)**: A1 always fires on the U-turn close (the old Breakdown behavior) — the `Kat34ScalperTriggerMode`/`KatTriggerMode` enums, the `Trigger Mode` setting, phase 3 (retest wait) and the `A1-U` marker are gone. Every signal is now described fully and independently in docs/SIGNALS.md with no shared mode switch. Entry = the U-turn bar's extreme ± Entry Offset (C1 == C2).
+- **ATM Quick Sets (TradeManager style)**: 6 quick-set buttons under the HUD BOT ATM dropdown. New settings group `6. ATM Quick Sets`: per-button label (`Set N Name`, max 3 chars, defaults A–F, normalized via `Kat34ScalperLogic.NormalizeAtmSetName`) + per-button ATM template (`Set N ATM`, dropdown of NT8 ATM templates). Click selects the assigned ATM immediately (dropdown syncs, selection persists to `BotAtmTemplate`); the button whose ATM equals the current selection glows amber (180,90,20), the rest stay gray; `None`/empty turns all off. Unassigned buttons and missing-on-disk templates show a HUD status hint instead.
+- Verification: 49/49 xunit (2 retest tests removed, 4 normalize tests added), CompileCheck 0 errors.
+
 # Release Notes — v0.36 (2026-08-02)
 
 - **A2 self-diagnostics**: a silent A2 now explains itself in NinjaScript Output. New `[Kat34Scalper][A2][GATE]` print on every trend-stack transition (live bar): buyTrend/sellTrend, active-pending flags and the raw e8/e34/e89/e144/e200 values. `SetA2Signal` prints the toggle. The backfill summary now reports replay counters — `backfill done — N day(s), M bar(s) replayed: X entries, Y cancels, Z fills` — so an empty chart is immediately distinguishable: 0 entries (no valid setup in the window) vs entries>0 with cancels catching up (setups died on closes beyond ema34 / trend-stack flips, drawings removed per spec).

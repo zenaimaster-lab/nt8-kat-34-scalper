@@ -27,11 +27,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private bool diagnosticSellAllowed;
 		private bool diagnosticBuyAllowed;
 
-		private static KatTriggerMode ToLogicMode(Kat34ScalperTriggerMode mode)
-		{
-			return mode == Kat34ScalperTriggerMode.Breakdown ? KatTriggerMode.Breakdown : KatTriggerMode.RetestBounce;
-		}
-
 		// Furthest barsAgo still inside the "last N days" window measured from the current bar.
 		private int FindHistoryStartBarsAgo(int days)
 		{

@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.36 (2026-08-02)
+ * Version: 0.37 (2026-08-02)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -34,14 +34,6 @@ using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using Kat34Scalper;
 #endregion
-
-public enum Kat34ScalperTriggerMode
-{
-	[Display(Name = "Retest Bounce")]
-	RetestBounce = 0,
-	[Display(Name = "Breakdown")]
-	Breakdown = 1
-}
 
 // Dropdown of the ATM strategy templates in NT8's templates\AtmStrategy folder (+ "None" = bare order).
 public class Kat34ScalperAtmTemplateConverter : TypeConverter
@@ -94,7 +86,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.36";
+		public const string VERSION = "0.37";
 		public const string RELEASE_DATE = "2026-08-02";
 
 		// Indicator series (primary chart TF + optional MTF BarsArrays)
@@ -153,11 +145,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				// 3. Signal A1 defaults — OFF (Sell and Buy share the same mirrored mechanism)
 				A1Enabled					= false;
 				A1HistoryDays				= 3;
-				EmaFastPeriod				= 34;
-				EmaSlowPeriod				= 89;
-				MaxSequenceBars				= 30;
-				TriggerMode					= Kat34ScalperTriggerMode.Breakdown;
-			EntryOffsetTicks			= 1;
+			EmaFastPeriod				= 34;
+			EmaSlowPeriod				= 89;
+			MaxSequenceBars				= 30;
+		EntryOffsetTicks			= 1;
 			StopDistanceTicks			= 60;
 			TargetDistanceTicks			= 120;
 
@@ -178,8 +169,22 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				// Default ATM = MNQ 1ct bracket (SL 60 / TP 120 / BE +2 @80 / trail 140->200).
 				// Entry/SL/TP/BE/trail lines on every signal come from this template; when the file
 				// is missing HasAtmTemplate fails and DrawSignal falls back to the settings distances.
-				BotAtmTemplate				= "mnq. 1ct. 15-be20-35move15-50triggertrail5step1";
-				BotAccountName				= "Sim101";
+			BotAtmTemplate				= "mnq. 1ct. 15-be20-35move15-50triggertrail5step1";
+			BotAccountName				= "Sim101";
+
+			// 6. ATM Quick Sets defaults — labels A–F, no ATM assigned (click shows a HUD hint)
+			AtmSet1Name					= "A";
+			AtmSet1Atm					= "";
+			AtmSet2Name					= "B";
+			AtmSet2Atm					= "";
+			AtmSet3Name					= "C";
+			AtmSet3Atm					= "";
+			AtmSet4Name					= "D";
+			AtmSet4Atm					= "";
+			AtmSet5Name					= "E";
+			AtmSet5Atm					= "";
+			AtmSet6Name					= "F";
+			AtmSet6Atm					= "";
 
 				// 4. Lines & Text defaults
 				LineLengthBars				= 7;
@@ -228,8 +233,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 				Print(string.Format("[Kat34Scalper] v{0} ({1}) loaded on {2} {3} — all signals compute on THIS series.",
 					VERSION, RELEASE_DATE, Instrument.MasterInstrument.Name, ChartTimeframe()));
-				Print(string.Format("[Kat34Scalper][DIAG] A0Enabled={0}, A1Enabled={1}, A2Enabled={2}, FanFilterEnabled={3}, TriggerMode={4}, MaxSequenceBars={5}, LineLengthBars={6}",
-					A0Enabled, A1Enabled, A2Enabled, FanFilterEnabled, TriggerMode, MaxSequenceBars, LineLengthBars));
+			Print(string.Format("[Kat34Scalper][DIAG] A0Enabled={0}, A1Enabled={1}, A2Enabled={2}, FanFilterEnabled={3}, MaxSequenceBars={4}, LineLengthBars={5}",
+				A0Enabled, A1Enabled, A2Enabled, FanFilterEnabled, MaxSequenceBars, LineLengthBars));
 				cachedA0 = A0Enabled;
 				cachedA1 = A1Enabled;
 				cachedA2 = A2Enabled;
@@ -383,13 +388,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		[NinjaScriptProperty]
 		[Display(Name = "Max Sequence Bars", Order = 5, GroupName = "3. Signal A1 — 89/34 Pullback",
-			Description = "The whole sequence — pullback cross through the fast EMA, slow-EMA touch, U-turn close back through the fast EMA (and the retest trigger) — must complete within this many bars, otherwise the setup expires.")]
+			Description = "The whole sequence — pullback cross through the fast EMA, slow-EMA touch, U-turn close back through the fast EMA — must complete within this many bars, otherwise the setup expires.")]
 		public int MaxSequenceBars { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Trigger Mode", Order = 6, GroupName = "3. Signal A1 — 89/34 Pullback",
-			Description = "Retest Bounce: Sell fires when price closes back above the fast EMA after the U-turn close below it (Buy mirrored). Breakdown: fire immediately on the U-turn close.")]
-		public Kat34ScalperTriggerMode TriggerMode { get; set; }
 
 		[NinjaScriptProperty]
 		[Display(Name = "Entry Offset (ticks)", Order = 7, GroupName = "3. Signal A1 — 89/34 Pullback",
@@ -477,6 +477,92 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "Account Name", Order = 4, GroupName = "5. Bot",
 			Description = "Account the bot trades on (also selectable on the HUD). Default: Sim101.")]
 		public string BotAccountName { get; set; }
+
+		// --- 6. ATM Quick Sets (HUD: 6 buttons under the ATM dropdown; click selects the assigned ATM) ---
+		private string atmSet1Name = "A";
+		private string atmSet2Name = "B";
+		private string atmSet3Name = "C";
+		private string atmSet4Name = "D";
+		private string atmSet5Name = "E";
+		private string atmSet6Name = "F";
+
+		[NinjaScriptProperty]
+		[Display(Name = "Set 1 Name", Order = 1, GroupName = "6. ATM Quick Sets", Description = "Button label (max 3 chars)")]
+		public string AtmSet1Name
+		{
+			get { return atmSet1Name; }
+			set { atmSet1Name = Kat34ScalperLogic.NormalizeAtmSetName(value, "A"); }
+		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "Set 1 ATM", Order = 2, GroupName = "6. ATM Quick Sets")]
+		[TypeConverter(typeof(Kat34ScalperAtmTemplateConverter))]
+		public string AtmSet1Atm { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Set 2 Name", Order = 3, GroupName = "6. ATM Quick Sets", Description = "Button label (max 3 chars)")]
+		public string AtmSet2Name
+		{
+			get { return atmSet2Name; }
+			set { atmSet2Name = Kat34ScalperLogic.NormalizeAtmSetName(value, "B"); }
+		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "Set 2 ATM", Order = 4, GroupName = "6. ATM Quick Sets")]
+		[TypeConverter(typeof(Kat34ScalperAtmTemplateConverter))]
+		public string AtmSet2Atm { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Set 3 Name", Order = 5, GroupName = "6. ATM Quick Sets", Description = "Button label (max 3 chars)")]
+		public string AtmSet3Name
+		{
+			get { return atmSet3Name; }
+			set { atmSet3Name = Kat34ScalperLogic.NormalizeAtmSetName(value, "C"); }
+		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "Set 3 ATM", Order = 6, GroupName = "6. ATM Quick Sets")]
+		[TypeConverter(typeof(Kat34ScalperAtmTemplateConverter))]
+		public string AtmSet3Atm { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Set 4 Name", Order = 7, GroupName = "6. ATM Quick Sets", Description = "Button label (max 3 chars)")]
+		public string AtmSet4Name
+		{
+			get { return atmSet4Name; }
+			set { atmSet4Name = Kat34ScalperLogic.NormalizeAtmSetName(value, "D"); }
+		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "Set 4 ATM", Order = 8, GroupName = "6. ATM Quick Sets")]
+		[TypeConverter(typeof(Kat34ScalperAtmTemplateConverter))]
+		public string AtmSet4Atm { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Set 5 Name", Order = 9, GroupName = "6. ATM Quick Sets", Description = "Button label (max 3 chars)")]
+		public string AtmSet5Name
+		{
+			get { return atmSet5Name; }
+			set { atmSet5Name = Kat34ScalperLogic.NormalizeAtmSetName(value, "E"); }
+		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "Set 5 ATM", Order = 10, GroupName = "6. ATM Quick Sets")]
+		[TypeConverter(typeof(Kat34ScalperAtmTemplateConverter))]
+		public string AtmSet5Atm { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Set 6 Name", Order = 11, GroupName = "6. ATM Quick Sets", Description = "Button label (max 3 chars)")]
+		public string AtmSet6Name
+		{
+			get { return atmSet6Name; }
+			set { atmSet6Name = Kat34ScalperLogic.NormalizeAtmSetName(value, "F"); }
+		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "Set 6 ATM", Order = 12, GroupName = "6. ATM Quick Sets")]
+		[TypeConverter(typeof(Kat34ScalperAtmTemplateConverter))]
+		public string AtmSet6Atm { get; set; }
 
 		// --- 4. Lines & Text ---
 		[NinjaScriptProperty]

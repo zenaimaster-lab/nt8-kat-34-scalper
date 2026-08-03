@@ -74,7 +74,7 @@ trước/khi code. Khi thêm signal mới (A2, A3...): copy template, điền đ
 - File: `src/Kat34Scalper.Signal.A1.cs` | Settings group: `3. Signal A1 — 89/34 Pullback` | HUD toggle: SIGNAL › `A1 89-34`
 - Mục đích: bắt pullback về EMA 89 trong trend EMA 34/89 rồi đảo chiều tiếp tục trend (rejection).
 - Điều kiện nền (trend): Sell = EMA fast(34) < EMA slow(89); Buy = fast > slow. Mất trend → reset sequence về idle. Mọi bước tính trên CLOSE basis (wick không tính cross), trừ touch slow EMA dùng high/low.
-- Settings: `Enabled` (false), `History Days` (3), `Fast EMA Period` (34), `Slow EMA Period` (89), `Max Sequence Bars` (30), `Trigger Mode` (Breakdown), `Entry Offset (ticks)` (1), `Stop Distance (ticks)` (60, fallback), `Target Distance (ticks)` (120, fallback).
+- Settings: `Enabled` (false), `History Days` (3), `Fast EMA Period` (34), `Slow EMA Period` (89), `Max Sequence Bars` (30), `Entry Offset (ticks)` (1), `Stop Distance (ticks)` (60, fallback), `Target Distance (ticks)` (120, fallback).
 - Tag drawing: stage markers `K34S_A1ST_<B/S>_<bar>`; signal (entry/SL/TP/arrow/label) `K34S_<B/S>_<suffix>_<bar>`.
 - Filter ảnh hưởng: group `1. Filters` — A0 fan gate (session-only), MTF, ADX, Volume, Time window. Filter gate VIỆC PHÁT signal (emission), KHÔNG gate tiến trình sequence (state machine vẫn chạy khi trend còn).
 
@@ -85,14 +85,12 @@ trước/khi code. Khi thêm signal mới (A2, A3...): copy template, điền đ
 | idle | — | 0 | Trend hợp lệ, chưa có setup | close < EMA34 → vào arm |
 | arm | `A1-arm` | 1 | close vượt xuống DƯỚI EMA34 (pullback bắt đầu từ phía dưới) | close > EMA34 → vào pull (bắt đầu đếm SeqBars=1) |
 | pull | `A1-pull` | 2 | close cross ngược lên qua EMA34 hướng về EMA89, CHƯA chạm EMA89 | high ≥ EMA89 → pull-T; close < EMA34 trước khi chạm 89 → FAILED, về arm (không marker) |
-| pull-T | `A1-pull-T` | 2 | pullback đã touch/cross EMA89 (wick tính) | close < EMA34 (U-turn) → fire (Breakdown) hoặc vào U (RetestBounce) |
-| U-turn wait | `A1-U` | 3 | U-turn close xuống lại qua EMA34 sau khi đã pull-T (chỉ RetestBounce) | close > EMA34 (retest) → fire; quá `Max Sequence Bars` → expire về idle |
+| pull-T | `A1-pull-T` | 2 | pullback đã touch/cross EMA89 (wick tính) | close < EMA34 (U-turn) → fire ngay, về arm |
 | expired | — | 0 | SeqBars > `Max Sequence Bars` (đếm từ bar cross) | reset, re-arm từ đầu |
 
 ### Signal fire
-- **Breakdown** (default, 4 bước): fire NGAY tại bar U-turn close qua EMA34 (sau pull-T).
-- **Retest Bounce** (5 bước): sau U-turn, fire tại bar close ngược lại qua EMA34 (retest).
-- Entry: stop ở candidate tốt hơn trong 2 candidate — C1 = low/high của bar U-turn, C2 = extreme tốt hơn sau đó (sell: low cao hơn / buy: high thấp hơn, bar vẫn close đúng phía EMA34); sell = `max(C1,C2) - Entry Offset`, buy = `min(C1,C2) + Entry Offset`.
+- Fire NGAY tại bar U-turn close qua EMA34 (sau pull-T) — 4 bước: arm → cross → touch → U-turn. (Mode Retest Bounce đã bỏ từ v0.37.)
+- Entry: stop ở candidate — C1 = C2 = low/high của bar U-turn; sell = `C1 - Entry Offset`, buy = `C1 + Entry Offset`.
 - SL/TP: từ ATM template (`mnq. 1ct...` default: SL 60 / TP 120) nếu template định nghĩa, fallback `Stop/Target Distance`.
 - Bot: nếu BOT ON + `Bot Enabled` → submit stop (hoặc limit nếu giá đã chạy qua) qua ATM template trên account `Sim101` (default). Backfill/replay KHÔNG bắn order.
 

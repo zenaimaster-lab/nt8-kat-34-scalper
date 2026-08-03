@@ -12,19 +12,11 @@ namespace Kat34Scalper
 		Buy
 	}
 
-	public enum KatTriggerMode
-	{
-		// Fire when, after the U-turn close, a later bar closes back through the fast EMA (retest).
-		RetestBounce,
-		// Fire immediately on the U-turn bar closing through the fast EMA.
-		Breakdown
-	}
-
 	/// <summary>
 	/// Per-side A1 sequence state — the caller owns one instance per side (sell/buy).
 	/// Phase: 0 = idle (waiting for price beyond the fast EMA), 1 = armed (price beyond the fast
 	/// EMA, waiting for the cross back through it), 2 = pullback running (crossed, watching for the
-	/// slow-EMA touch and the U-turn close), 3 = U-turned, waiting for the retest trigger.
+	/// slow-EMA touch and the U-turn close — the signal fires on that close).
 	/// </summary>
 	public sealed class KatA1State
 	{
@@ -138,6 +130,17 @@ namespace Kat34Scalper
 			return isBuy ? triggerPrice > currentPrice : triggerPrice < currentPrice;
 		}
 
+		/// <summary>
+		/// Normalizes an ATM quick-set button label: trimmed, at most 3 characters, falling back to
+		/// the default letter when empty/whitespace. Same contract as KatTradeManager.
+		/// </summary>
+		public static string NormalizeAtmSetName(string value, string fallback)
+		{
+			string trimmed = (value ?? string.Empty).Trim();
+			if (trimmed.Length == 0) return fallback;
+			return trimmed.Length > 3 ? trimmed.Substring(0, 3) : trimmed;
+		}
+
 		/// <summary>Market filter: ADX strength + relative volume. volumeSma 0 disables the volume leg.</summary>
 		public static bool PassMarketFilter(double adx, double adxMin, double volume, double volumeSma, double volumeMult)
 		{
@@ -157,14 +160,14 @@ namespace Kat34Scalper
 		/// <summary>
 		/// Advances the per-side state machine by one bar. Caller owns the KatA1State instance.
 		/// Sell (downtrend: ema34 below ema89): price pulls back from BELOW ema34, crosses UP
-		/// through ema34, touches/crosses ema89, reverses and closes back below ema34 (U-turn).
-		/// Breakdown fires on that U-turn close; RetestBounce fires when a later bar closes back
-		/// above ema34. The whole sequence (cross bar included) must complete within maxSeqBars,
-		/// otherwise the setup expires and rearms. Buy mirrors the same sequence.
+		/// through ema34, touches/crosses ema89, reverses and closes back below ema34 (U-turn) —
+		/// the signal fires immediately on that U-turn close. The whole sequence (cross bar
+		/// included) must complete within maxSeqBars, otherwise the setup expires and rearms.
+		/// Buy mirrors the same sequence.
 		/// C1/C2 are kept (not cleared) when a signal fires so the caller can price the entry.
 		/// </summary>
 		public static KatSignalKind? Update(
-			KatSignalKind kind, KatTriggerMode mode, int maxSeqBars,
+			KatSignalKind kind, int maxSeqBars,
 			bool trendOk,
 			double high, double low, double close,
 			double ema34, double ema89,
@@ -196,97 +199,58 @@ namespace Kat34Scalper
 					s.SeqBars = 1;
 				}
 
-				// 2: pullback running — watch the ema89 touch and the U-turn close back below ema34
-				if (s.Phase == 2)
+			// 2: pullback running — watch the ema89 touch and the U-turn close back below ema34
+			if (s.Phase == 2)
+			{
+				if (high >= ema89) s.Touched89 = true;
+				if (close < ema34)
 				{
-					if (high >= ema89) s.Touched89 = true;
-					if (close < ema34)
+					if (s.Touched89)
 					{
-						if (s.Touched89)
-						{
-							s.C1 = low;
-							s.C2 = low;
-							if (mode == KatTriggerMode.Breakdown)
-							{
-								s.Phase = 1; // back below ema34 already — armed for the next pullback
-								s.Touched89 = false;
-								s.SeqBars = 0;
-								return KatSignalKind.Sell;
-							}
-							s.Phase = 3;
-						}
-						else
-						{
-							// reversed below ema34 before ever touching ema89 — failed pullback, rearmed
-							s.Phase = 1;
-							s.SeqBars = 0;
-						}
-					}
-				}
-
-				// 3: U-turned — RetestBounce fires when a later bar closes back above ema34
-				if (s.Phase == 3)
-				{
-					if (close < ema34 && low > s.C2) s.C2 = low; // higher low — better sell entry
-					if (close > ema34)
-					{
-						s.Phase = 0;
+						s.C1 = low;
+						s.C2 = low;
+						s.Phase = 1; // back below ema34 already — armed for the next pullback
 						s.Touched89 = false;
 						s.SeqBars = 0;
 						return KatSignalKind.Sell;
 					}
+					// reversed below ema34 before ever touching ema89 — failed pullback, rearmed
+					s.Phase = 1;
+					s.SeqBars = 0;
 				}
 			}
-			else
+		}
+		else
+		{
+			// Buy mirrors Sell: armed ABOVE ema34, cross DOWN through it, touch ema89 from above,
+			// U-turn close back above ema34 fires the signal.
+			if (s.Phase == 0 && close > ema34) s.Phase = 1;
+
+			if (s.Phase == 1 && close < ema34)
 			{
-				// Buy mirrors Sell: armed ABOVE ema34, cross DOWN through it, touch ema89 from above,
-				// U-turn close back above ema34, RetestBounce fires on the close back below ema34.
-				if (s.Phase == 0 && close > ema34) s.Phase = 1;
+				s.Phase = 2;
+				s.SeqBars = 1;
+			}
 
-				if (s.Phase == 1 && close < ema34)
+			if (s.Phase == 2)
+			{
+				if (low <= ema89) s.Touched89 = true;
+				if (close > ema34)
 				{
-					s.Phase = 2;
-					s.SeqBars = 1;
-				}
-
-				if (s.Phase == 2)
-				{
-					if (low <= ema89) s.Touched89 = true;
-					if (close > ema34)
+					if (s.Touched89)
 					{
-						if (s.Touched89)
-						{
-							s.C1 = high;
-							s.C2 = high;
-							if (mode == KatTriggerMode.Breakdown)
-							{
-								s.Phase = 1;
-								s.Touched89 = false;
-								s.SeqBars = 0;
-								return KatSignalKind.Buy;
-							}
-							s.Phase = 3;
-						}
-						else
-						{
-							s.Phase = 1;
-							s.SeqBars = 0;
-						}
-					}
-				}
-
-				if (s.Phase == 3)
-				{
-					if (close > ema34 && high < s.C2) s.C2 = high; // lower high — better buy entry
-					if (close < ema34)
-					{
-						s.Phase = 0;
+						s.C1 = high;
+						s.C2 = high;
+						s.Phase = 1;
 						s.Touched89 = false;
 						s.SeqBars = 0;
 						return KatSignalKind.Buy;
 					}
+					s.Phase = 1;
+					s.SeqBars = 0;
 				}
 			}
+		}
 
 			return null;
 		}

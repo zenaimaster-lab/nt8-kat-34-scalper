@@ -13,14 +13,14 @@ public class Kat34ScalperLogicTests
 	{
 		var s = new KatA1State();
 		// bar 1: close below ema34 -> armed
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s));
 		// bar 2: cross UP through ema34 (close basis) -> sequence starts, no touch yet
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 101.0, 100.2, 101.0, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 101.0, 100.2, 101.0, 100.5, 101.5, s));
 		// bar 3: high touches ema89, still closing above ema34
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 102.0, 100.8, 101.2, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 102.0, 100.8, 101.2, 100.5, 101.5, s));
 		Assert.True(s.Touched89);
 		// bar 4: U-turn close back below ema34 -> Breakdown fires immediately
-		var signal = Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.8, 99.8, 99.9, 100.5, 101.5, s);
+		var signal = Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 100.8, 99.8, 99.9, 100.5, 101.5, s);
 		Assert.Equal(KatSignalKind.Sell, signal);
 		Assert.Equal(99.8, s.C1);
 		Assert.Equal(99.8, s.C2);
@@ -31,10 +31,10 @@ public class Kat34ScalperLogicTests
 	{
 		var s = new KatA1State();
 		// price was never below ema34: a touch of ema89 from ABOVE followed by a close below ema34 is NOT a setup
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 103.0, 101.0, 102.0, 100.5, 101.5, s));
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 102.5, 101.2, 102.2, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 103.0, 101.0, 102.0, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 102.5, 101.2, 102.2, 100.5, 101.5, s));
 		// this bar only arms (close < ema34) — it must NOT fire, the pullback never happened
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.6, 99.6, 99.8, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 100.6, 99.6, 99.8, 100.5, 101.5, s));
 		Assert.Equal(1, s.Phase);
 	}
 
@@ -42,48 +42,28 @@ public class Kat34ScalperLogicTests
 	public void Sell_WickAboveEma34_DoesNotCountAsCross()
 	{
 		var s = new KatA1State();
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
 		// wick pokes above ema34 but close stays below -> still armed, sequence not started
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 101.5, 99.8, 100.4, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 101.5, 99.8, 100.4, 100.5, 101.5, s));
 		Assert.Equal(1, s.Phase);
 		// real cross on close basis
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 101.0, 100.2, 101.0, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 101.0, 100.2, 101.0, 100.5, 101.5, s));
 		Assert.Equal(2, s.Phase);
-	}
-
-	[Fact]
-	public void Sell_RetestMode_FiresOnlyOnCloseBackAboveEma34_AndTracksC2()
-	{
-		var s = new KatA1State();
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, 30, true, 102.0, 100.2, 101.5, 100.5, 101.5, s)); // cross + touch (high 102)
-		// U-turn close below ema34, low 99.5 -> no signal yet in retest mode
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, 30, true, 101.0, 99.5, 99.8, 100.5, 101.5, s));
-		Assert.Equal(3, s.Phase);
-		Assert.Equal(99.5, s.C1);
-		// still below ema34, higher low 99.9 -> better sell entry candidate
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, 30, true, 100.4, 99.9, 100.1, 100.5, 101.5, s));
-		Assert.Equal(99.9, s.C2);
-		Assert.Equal(99.5, s.C1);
-		// retest bar closes back above ema34 -> Sell; its low (100.2) must NOT become C2
-		var signal = Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.RetestBounce, 30, true, 101.5, 100.2, 101.2, 100.5, 101.5, s);
-		Assert.Equal(KatSignalKind.Sell, signal);
-		Assert.Equal(99.9, s.C2);
 	}
 
 	[Fact]
 	public void Sell_ExpiresAfterMaxSequenceBars()
 	{
 		var s = new KatA1State();
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 3, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 3, true, 102.0, 100.2, 101.5, 100.5, 101.5, s)); // cross+touch, seq=1
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 3, true, 102.0, 100.8, 101.4, 100.5, 101.5, s)); // seq=2
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 3, true, 102.0, 100.8, 101.4, 100.5, 101.5, s)); // seq=3
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 3, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 3, true, 102.0, 100.2, 101.5, 100.5, 101.5, s)); // cross+touch, seq=1
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 3, true, 102.0, 100.8, 101.4, 100.5, 101.5, s)); // seq=2
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 3, true, 102.0, 100.8, 101.4, 100.5, 101.5, s)); // seq=3
 		// seq would be 4 > 3 -> expired and reset (close > ema34 -> no re-arm)
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 3, true, 102.0, 100.8, 101.4, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 3, true, 102.0, 100.8, 101.4, 100.5, 101.5, s));
 		Assert.Equal(0, s.Phase);
 		// late U-turn close below ema34: only re-arms, must NOT fire on the stale touch
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 3, true, 100.8, 99.8, 99.9, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 3, true, 100.8, 99.8, 99.9, 100.5, 101.5, s));
 		Assert.Equal(1, s.Phase);
 	}
 
@@ -91,10 +71,10 @@ public class Kat34ScalperLogicTests
 	public void Sell_UturnOnLastAllowedBar_StillFires()
 	{
 		var s = new KatA1State();
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 2, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 2, true, 102.0, 100.2, 101.5, 100.5, 101.5, s)); // cross+touch, seq=1
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 2, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 2, true, 102.0, 100.2, 101.5, 100.5, 101.5, s)); // cross+touch, seq=1
 		// seq=2 == max -> still alive, U-turn fires
-		var signal = Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 2, true, 100.8, 99.8, 99.9, 100.5, 101.5, s);
+		var signal = Kat34ScalperLogic.Update(KatSignalKind.Sell, 2, true, 100.8, 99.8, 99.9, 100.5, 101.5, s);
 		Assert.Equal(KatSignalKind.Sell, signal);
 	}
 
@@ -102,15 +82,15 @@ public class Kat34ScalperLogicTests
 	public void Sell_FailedPullback_ReArmsWithoutStaleTouch()
 	{
 		var s = new KatA1State();
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
 		// cross up but high stays below ema89 (no touch), then close back below ema34 -> failed pullback, rearmed
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 101.2, 100.2, 101.0, 100.5, 101.5, s));
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.8, 99.7, 99.9, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 101.2, 100.2, 101.0, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 100.8, 99.7, 99.9, 100.5, 101.5, s));
 		Assert.Equal(1, s.Phase);
 		Assert.False(s.Touched89);
 		// new pullback: cross + touch + U-turn -> fires
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 102.0, 100.2, 101.5, 100.5, 101.5, s));
-		var signal = Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.8, 99.8, 99.9, 100.5, 101.5, s);
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 102.0, 100.2, 101.5, 100.5, 101.5, s));
+		var signal = Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 100.8, 99.8, 99.9, 100.5, 101.5, s);
 		Assert.Equal(KatSignalKind.Sell, signal);
 	}
 
@@ -118,14 +98,14 @@ public class Kat34ScalperLogicTests
 	public void Sell_TrendLoss_ResetsSequence()
 	{
 		var s = new KatA1State();
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 102.0, 100.2, 101.5, 100.5, 101.5, s)); // cross+touch
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 100.2, 99.3, 99.5, 100.5, 101.5, s)); // arm
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 102.0, 100.2, 101.5, 100.5, 101.5, s)); // cross+touch
 		// trend flips (ema34 no longer below ema89) -> full reset
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, false, 100.8, 99.8, 99.9, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, false, 100.8, 99.8, 99.9, 100.5, 101.5, s));
 		Assert.Equal(0, s.Phase);
 		Assert.False(s.Touched89);
 		// U-turn-like bar after reset: no fire
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, KatTriggerMode.Breakdown, 30, true, 100.8, 99.8, 99.9, 100.5, 101.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Sell, 30, true, 100.8, 99.8, 99.9, 100.5, 101.5, s));
 	}
 
 	[Fact]
@@ -133,49 +113,34 @@ public class Kat34ScalperLogicTests
 	{
 		var s = new KatA1State();
 		// uptrend: ema34 100.5 above ema89 99.5
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 30, true, 101.8, 101.0, 101.5, 100.5, 99.5, s)); // arm above ema34
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 30, true, 100.8, 99.8, 100.0, 100.5, 99.5, s)); // cross DOWN through ema34
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 30, true, 100.2, 99.4, 99.9, 100.5, 99.5, s)); // low touches ema89
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, 30, true, 101.8, 101.0, 101.5, 100.5, 99.5, s)); // arm above ema34
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, 30, true, 100.8, 99.8, 100.0, 100.5, 99.5, s)); // cross DOWN through ema34
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, 30, true, 100.2, 99.4, 99.9, 100.5, 99.5, s)); // low touches ema89
 		Assert.True(s.Touched89);
-		var signal = Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 30, true, 100.9, 99.9, 100.8, 100.5, 99.5, s); // U-turn close above ema34
+		var signal = Kat34ScalperLogic.Update(KatSignalKind.Buy, 30, true, 100.9, 99.9, 100.8, 100.5, 99.5, s); // U-turn close above ema34
 		Assert.Equal(KatSignalKind.Buy, signal);
 		Assert.Equal(100.9, s.C1);
-	}
-
-	[Fact]
-	public void Buy_RetestMode_FiresOnlyOnCloseBackBelowEma34_AndTracksC2()
-	{
-		var s = new KatA1State();
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, 30, true, 101.8, 101.0, 101.5, 100.5, 99.5, s)); // arm
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, 30, true, 100.8, 99.4, 99.9, 100.5, 99.5, s)); // cross down + touch (low 99.4)
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, 30, true, 100.9, 99.8, 100.8, 100.5, 99.5, s)); // U-turn close above ema34, high 100.9
-		Assert.Equal(3, s.Phase);
-		Assert.Equal(100.9, s.C1);
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, 30, true, 100.6, 100.1, 100.6, 100.5, 99.5, s)); // lower high -> C2
-		Assert.Equal(100.6, s.C2);
-		var signal = Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.RetestBounce, 30, true, 100.4, 99.7, 100.2, 100.5, 99.5, s); // close back below ema34 -> Buy
-		Assert.Equal(KatSignalKind.Buy, signal);
 	}
 
 	[Fact]
 	public void Buy_ExpiresAfterMaxSequenceBars()
 	{
 		var s = new KatA1State();
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 2, true, 101.8, 101.0, 101.5, 100.5, 99.5, s)); // arm
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 2, true, 100.8, 99.4, 99.9, 100.5, 99.5, s)); // cross+touch, seq=1
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 2, true, 100.2, 99.6, 100.0, 100.5, 99.5, s)); // seq=2
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, 2, true, 101.8, 101.0, 101.5, 100.5, 99.5, s)); // arm
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, 2, true, 100.8, 99.4, 99.9, 100.5, 99.5, s)); // cross+touch, seq=1
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, 2, true, 100.2, 99.6, 100.0, 100.5, 99.5, s)); // seq=2
 		// seq=3 > 2 -> expired; this bar closes above ema34 so it only rearms (phase 1)
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 2, true, 100.8, 99.6, 100.6, 100.5, 99.5, s));
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, 2, true, 100.8, 99.6, 100.6, 100.5, 99.5, s));
 		Assert.Equal(1, s.Phase);
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 2, true, 100.9, 100.1, 100.8, 100.5, 99.5, s)); // no fire on stale touch
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, 2, true, 100.9, 100.1, 100.8, 100.5, 99.5, s)); // no fire on stale touch
 	}
 
 	[Fact]
 	public void Buy_RequiresPullbackFromAboveEma34_NoArmNoSignal()
 	{
 		var s = new KatA1State();
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 30, true, 99.0, 98.0, 98.5, 100.5, 99.5, s)); // below both, no arm
-		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, KatTriggerMode.Breakdown, 30, true, 100.9, 99.8, 100.6, 100.5, 99.5, s)); // arm (close > ema34)
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, 30, true, 99.0, 98.0, 98.5, 100.5, 99.5, s)); // below both, no arm
+		Assert.Null(Kat34ScalperLogic.Update(KatSignalKind.Buy, 30, true, 100.9, 99.8, 100.6, 100.5, 99.5, s)); // arm (close > ema34)
 		Assert.Equal(1, s.Phase);
 	}
 
@@ -538,5 +503,36 @@ public class Kat34ScalperLogicTests
 			new[] { KatA2Action.None, KatA2Action.NewEntry, KatA2Action.Cancel,
 				KatA2Action.NewEntry, KatA2Action.Migrate, KatA2Action.Filled },
 			actions);
+	}
+
+	// --- ATM quick-set button labels ---
+	[Fact]
+	public void AtmSetName_WithinLimit_Kept()
+	{
+		Assert.Equal("A", Kat34ScalperLogic.NormalizeAtmSetName("A", "F"));
+		Assert.Equal("ABC", Kat34ScalperLogic.NormalizeAtmSetName("ABC", "F"));
+		Assert.Equal("1x", Kat34ScalperLogic.NormalizeAtmSetName("1x", "F"));
+	}
+
+	[Fact]
+	public void AtmSetName_OverThreeChars_Truncated()
+	{
+		Assert.Equal("SCA", Kat34ScalperLogic.NormalizeAtmSetName("SCALP", "F"));
+		Assert.Equal("ABC", Kat34ScalperLogic.NormalizeAtmSetName("ABCDE", "F"));
+	}
+
+	[Fact]
+	public void AtmSetName_EmptyOrWhitespace_FallsBack()
+	{
+		Assert.Equal("B", Kat34ScalperLogic.NormalizeAtmSetName("", "B"));
+		Assert.Equal("C", Kat34ScalperLogic.NormalizeAtmSetName("   ", "C"));
+		Assert.Equal("D", Kat34ScalperLogic.NormalizeAtmSetName(null, "D"));
+	}
+
+	[Fact]
+	public void AtmSetName_SurroundingWhitespace_Trimmed()
+	{
+		Assert.Equal("TP", Kat34ScalperLogic.NormalizeAtmSetName("  TP ", "F"));
+		Assert.Equal("ABC", Kat34ScalperLogic.NormalizeAtmSetName(" ABCD ", "F"));
 	}
 }

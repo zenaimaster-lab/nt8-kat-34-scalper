@@ -332,6 +332,86 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private readonly SolidColorBrush hudOnBrush = new SolidColorBrush(Color.FromRgb(0, 122, 204));
 		private readonly SolidColorBrush hudOffBrush = new SolidColorBrush(Color.FromRgb(45, 50, 65));
 
+		// ATM quick-set buttons (TradeManager pattern: amber ON when its ATM is the current selection)
+		private ComboBox atmComboBox;
+		private Button[] atmSetButtons;
+		private readonly SolidColorBrush atmSetOffBg = new SolidColorBrush(Color.FromRgb(45, 50, 65));
+		private readonly SolidColorBrush atmSetOnBg = new SolidColorBrush(Color.FromRgb(180, 90, 20));
+
+		private string GetAtmSetTemplate(int idx)
+		{
+			switch (idx)
+			{
+				case 0: return AtmSet1Atm;
+				case 1: return AtmSet2Atm;
+				case 2: return AtmSet3Atm;
+				case 3: return AtmSet4Atm;
+				case 4: return AtmSet5Atm;
+				default: return AtmSet6Atm;
+			}
+		}
+
+		private string GetAtmSetName(int idx)
+		{
+			switch (idx)
+			{
+				case 0: return AtmSet1Name;
+				case 1: return AtmSet2Name;
+				case 2: return AtmSet3Name;
+				case 3: return AtmSet4Name;
+				case 4: return AtmSet5Name;
+				default: return AtmSet6Name;
+			}
+		}
+
+		// Quick-set click: select the assigned ATM immediately (same as picking it from the dropdown).
+		private void ApplyAtmSetSelection(int idx)
+		{
+			string tpl = GetAtmSetTemplate(idx);
+			if (string.IsNullOrEmpty(tpl))
+			{
+				ShowHudStatus(string.Format("Set {0}: no ATM assigned (Indicator Settings)", GetAtmSetName(idx)), Brushes.OrangeRed);
+				return;
+			}
+			if (atmComboBox != null)
+			{
+				bool found = false;
+				for (int i = 0; i < atmComboBox.Items.Count; i++)
+				{
+					if (atmComboBox.Items[i].ToString().Equals(tpl, StringComparison.OrdinalIgnoreCase))
+					{
+						atmComboBox.SelectedIndex = i; // dropdown shows it; SelectionChanged sets cachedBotAtm + BotAtmTemplate
+						found = true;
+						break;
+					}
+				}
+				if (!found)
+				{
+					ShowHudStatus(string.Format("Set {0}: ATM '{1}' not found on disk", GetAtmSetName(idx), tpl), Brushes.OrangeRed);
+					return;
+				}
+			}
+			UpdateAtmSetButtons();
+		}
+
+		// Exactly one set button is ON: the one whose assigned ATM equals the current selection.
+		// "None" turns every button OFF.
+		private void UpdateAtmSetButtons()
+		{
+			if (atmSetButtons == null) return;
+			for (int i = 0; i < atmSetButtons.Length; i++)
+			{
+				if (atmSetButtons[i] == null) continue;
+				string tpl = GetAtmSetTemplate(i);
+				bool on = !string.IsNullOrEmpty(cachedBotAtm)
+					&& !cachedBotAtm.Equals("None", StringComparison.OrdinalIgnoreCase)
+					&& !string.IsNullOrEmpty(tpl)
+					&& tpl.Equals(cachedBotAtm, StringComparison.OrdinalIgnoreCase);
+				atmSetButtons[i].Background = on ? atmSetOnBg : atmSetOffBg;
+				atmSetButtons[i].Foreground = on ? Brushes.White : Brushes.LightGray;
+			}
+		}
+
 		// --- TradeManager-style HUD helpers (same colors, sizes and structure) ---
 		private Button CreateHudButton(string text, Brush bg, RoutedEventHandler handler, double height = 24, double fontSize = 10)
 		{
@@ -695,8 +775,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			AddGridRow(accGrid, "Acc:", accCombo);
 			secBot.Children.Add(accGrid);
 
-			var atmCombo = new ComboBox { FontSize = 11, Height = 22, HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 0, 0, 4) };
-			atmCombo.Items.Add("None");
+			atmComboBox = new ComboBox { FontSize = 11, Height = 22, HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 0, 0, 4) };
+			atmComboBox.Items.Add("None");
 			try
 			{
 				string atmDir = Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "templates", "AtmStrategy");
@@ -706,32 +786,55 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					foreach (string f in Directory.GetFiles(atmDir, "*.xml"))
 						names.Add(Path.GetFileNameWithoutExtension(f));
 					names.Sort(StringComparer.OrdinalIgnoreCase); // filesystem order is not deterministic
-					foreach (string n in names) atmCombo.Items.Add(n);
+					foreach (string n in names) atmComboBox.Items.Add(n);
 				}
 			}
 			catch { }
-			for (int i = 0; i < atmCombo.Items.Count; i++)
-				if (atmCombo.Items[i].ToString().Equals(cachedBotAtm, StringComparison.OrdinalIgnoreCase))
-					atmCombo.SelectedIndex = i;
+			for (int i = 0; i < atmComboBox.Items.Count; i++)
+				if (atmComboBox.Items[i].ToString().Equals(cachedBotAtm, StringComparison.OrdinalIgnoreCase))
+					atmComboBox.SelectedIndex = i;
 			// Force default mnq 1ct template display if present (per user rule)
 			const string mnq1ct = "mnq. 1ct. 15-be20-35move15-50triggertrail5step1";
 			int mnqIdx = -1;
-			for (int i = 0; i < atmCombo.Items.Count; i++)
-				if (atmCombo.Items[i].ToString().Equals(mnq1ct, StringComparison.OrdinalIgnoreCase)) { mnqIdx = i; break; }
-			if (mnqIdx >= 0) atmCombo.SelectedIndex = mnqIdx;
-			else if (atmCombo.SelectedIndex < 0) atmCombo.SelectedIndex = 0;
-			if (atmCombo.SelectedItem != null)
+			for (int i = 0; i < atmComboBox.Items.Count; i++)
+				if (atmComboBox.Items[i].ToString().Equals(mnq1ct, StringComparison.OrdinalIgnoreCase)) { mnqIdx = i; break; }
+			if (mnqIdx >= 0) atmComboBox.SelectedIndex = mnqIdx;
+			else if (atmComboBox.SelectedIndex < 0) atmComboBox.SelectedIndex = 0;
+			if (atmComboBox.SelectedItem != null)
 			{
-				cachedBotAtm = atmCombo.SelectedItem.ToString();
+				cachedBotAtm = atmComboBox.SelectedItem.ToString();
 				BotAtmTemplate = cachedBotAtm;
 			}
-			atmCombo.SelectionChanged += (s, e) =>
+			atmComboBox.SelectionChanged += (s, e) =>
 			{
-				if (atmCombo.SelectedItem == null) return;
-				cachedBotAtm = atmCombo.SelectedItem.ToString();
+				if (atmComboBox.SelectedItem == null) return;
+				cachedBotAtm = atmComboBox.SelectedItem.ToString();
 				BotAtmTemplate = cachedBotAtm;
+				UpdateAtmSetButtons();
 			};
-			secBot.Children.Add(atmCombo);
+			secBot.Children.Add(atmComboBox);
+
+			// ATM quick-set row: 6 equal buttons; click selects the ATM assigned in settings (TradeManager style)
+			atmSetButtons = new Button[6];
+			Grid atmSetGrid = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+			for (int col = 0; col < 6; col++)
+			{
+				atmSetGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+				if (col < 5)
+					atmSetGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2) });
+			}
+			for (int setIdx = 0; setIdx < 6; setIdx++)
+			{
+				int capturedIdx = setIdx;
+				Button setBtn = CreateHudButton(GetAtmSetName(setIdx), atmSetOffBg, null, 22, 10);
+				setBtn.Foreground = Brushes.LightGray;
+				setBtn.Click += (s, ev) => ApplyAtmSetSelection(capturedIdx);
+				Grid.SetColumn(setBtn, setIdx * 2);
+				atmSetButtons[setIdx] = setBtn;
+				atmSetGrid.Children.Add(setBtn);
+			}
+			secBot.Children.Add(atmSetGrid);
+			UpdateAtmSetButtons();
 
 			Button btnBot = CreateHudButton("BOT: OFF", hudOffBrush, null, 26, 11);
 			btnBot.Foreground = Brushes.LightGray;
@@ -784,6 +887,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				host.Children.Remove(hudCanvas);
 			hudCanvas = null;
 			hudStatusText = null;
+			atmComboBox = null;
+			atmSetButtons = null;
 		}
 		#endregion
 	}

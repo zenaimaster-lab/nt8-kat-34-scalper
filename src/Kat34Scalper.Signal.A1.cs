@@ -5,9 +5,7 @@
  *   A1-arm    (phase 1) — close beyond the fast EMA on the pullback side.
  *   A1-pull   (phase 2) — close back through the fast EMA toward the slow EMA, no touch yet.
  *   A1-pull-T (phase 2) — pullback touched/crossed the slow EMA.
- *   A1-U      (phase 3) — U-turn close back through the fast EMA (RetestBounce waits here;
- *                         Breakdown fires the signal on this bar instead).
- *   signal    — Breakdown: on the U-turn close. RetestBounce: later close back through the fast EMA.
+ *   signal    — fires on the U-turn close back through the fast EMA (after pull-T).
  * Default OFF. When switched ON, BackfillA1 computes + draws stages and signals over
  * "History Days" (default 3) and hands the replayed state to the live state machines.
  */
@@ -59,7 +57,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			double fast = fastEma[0];
 			double slow = slowEma[0];
-			KatTriggerMode mode = ToLogicMode(TriggerMode);
 			int sellPhaseBefore = sellState.Phase;
 			int buyPhaseBefore = buyState.Phase;
 			bool sellTouchedBefore = sellState.Touched89;
@@ -70,9 +67,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			// Advance both state machines on every primary bar while their 34/89 trend is valid.
 			// The A0/fan and other filters gate signal emission, not setup progression; otherwise
 			// a normal pullback that collapses the ribbon freezes before it can reach the U-turn.
-			sellSignal = Kat34ScalperLogic.Update(KatSignalKind.Sell, mode, MaxSequenceBars,
+			sellSignal = Kat34ScalperLogic.Update(KatSignalKind.Sell, MaxSequenceBars,
 				fast < slow, high, low, close, fast, slow, sellState);
-			buySignal = Kat34ScalperLogic.Update(KatSignalKind.Buy, mode, MaxSequenceBars,
+			buySignal = Kat34ScalperLogic.Update(KatSignalKind.Buy, MaxSequenceBars,
 				fast > slow, high, low, close, fast, slow, buyState);
 
 			if (sellSignal == KatSignalKind.Sell)
@@ -119,21 +116,20 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				DrawA1PhaseMarkerAt(true, 0, high, low, 2, true);
 
 			if (sellSignal.HasValue || buySignal.HasValue)
-				Print(string.Format("[Kat34Scalper][A1] bar {0} result sell={1}, buy={2}, mode={3}",
+				Print(string.Format("[Kat34Scalper][A1] bar {0} result sell={1}, buy={2}",
 					CurrentBar, sellSignal.HasValue ? sellSignal.Value.ToString() : "none",
-					buySignal.HasValue ? buySignal.Value.ToString() : "none", mode));
+					buySignal.HasValue ? buySignal.Value.ToString() : "none"));
 		}
 
 		// Persistent per-bar milestone marker drawn at the bar where an A1 phase changes or ema89
 		// is first touched. Unique tag per bar so each milestone survives on chart history.
-		// Label: A1-arm (phase 1) / A1-pull (phase 2, no touch yet) / A1-pull-T (phase 2, touched)
-		// / A1-U (phase 3 - retest wait, RetestBounce mode only). Buy below the low, sell above the high.
+		// Label: A1-arm (phase 1) / A1-pull (phase 2, no touch yet) / A1-pull-T (phase 2, touched).
+		// Buy below the low, sell above the high.
 		private void DrawA1PhaseMarkerAt(bool isBuy, int barsAgo, double high, double low, int phase, bool touched)
 		{
 			string label;
 			if (phase == 1) label = "A1-arm";
 			else if (phase == 2) label = touched ? "A1-pull-T" : "A1-pull";
-			else if (phase == 3) label = "A1-U";
 			else return;
 			string tag = "K34S_A1ST_" + (isBuy ? "B" : "S") + "_" + (CurrentBars[0] - barsAgo);
 			double y = isBuy ? low - ArrowOffsetTicks * TickSize : high + ArrowOffsetTicks * TickSize;
@@ -152,7 +148,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (start < 0) return;
 			var tmpSell = new KatA1State();
 			var tmpBuy = new KatA1State();
-			KatTriggerMode mode = ToLogicMode(TriggerMode);
 			for (int ago = start; ago >= 0; ago--)
 			{
 				double h = Highs[0][ago];
@@ -168,9 +163,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				bool sellAllowed, buyAllowed;
 				PassFiltersAt(ago, SeriesFanDirectionAt(0, ago), out sellAllowed, out buyAllowed);
 
-				KatSignalKind? sellSignal = Kat34ScalperLogic.Update(KatSignalKind.Sell, mode, MaxSequenceBars,
+				KatSignalKind? sellSignal = Kat34ScalperLogic.Update(KatSignalKind.Sell, MaxSequenceBars,
 					f < sl, h, l, c, f, sl, tmpSell);
-				KatSignalKind? buySignal = Kat34ScalperLogic.Update(KatSignalKind.Buy, mode, MaxSequenceBars,
+				KatSignalKind? buySignal = Kat34ScalperLogic.Update(KatSignalKind.Buy, MaxSequenceBars,
 					f > sl, h, l, c, f, sl, tmpBuy);
 
 				if (sellSignal == KatSignalKind.Sell && sellAllowed)
