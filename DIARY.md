@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.52] — 2026-08-02
+- **Thorough Drawing Cleanup on HUD Clear**:
+  - Updated `ClearOldSignalDrawings`, `RemoveModuleDrawings`, and `ClearLegacySignalDrawings` in `src/Kat34Scalper.Draw.cs` to inspect both `tool.Name` and `tool.Tag as string` with case-insensitive `OrdinalIgnoreCase` matching and deduplicate via `HashSet<string>`.
+  - Added sub-module pending drawing state resets (`a2SellRecord`, `a2BuyRecord`, `a2SellTextTag`, `a2BuyTextTag`, `a2SellState.Reset()`, `a2BuyState.Reset()`, `a4ActiveBuyPrice`, `a4ActiveSellPrice`) inside `ClearOldSignalDrawings` so no orphaned references remain.
+  - Graphify entity mapping: `Kat34Scalper.Draw.cs` (`ClearOldSignalDrawings`, `RemoveModuleDrawings`, `ClearLegacySignalDrawings`).
+
 ### [v0.51] — 2026-08-02
 - **HUD Section Layout & Signal Button Labels Refactor**:
   - HUD Section Reordering: Moved `BOT` section to the top position (directly after status header), followed by `FILTER`, `SIGNAL`, and `DRAW` sections.

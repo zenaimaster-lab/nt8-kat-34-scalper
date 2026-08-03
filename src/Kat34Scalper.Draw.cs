@@ -151,12 +151,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			legacySignalDrawingsCleared = true;
 			try
 			{
-				var doomed = new List<string>();
+				var doomed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 				foreach (IDrawingTool tool in DrawObjects)
 				{
 					string name = tool.Name;
-					if (name != null && name.StartsWith("K8934_", StringComparison.Ordinal))
+					string tag = tool.Tag as string;
+					if (name != null && name.StartsWith("K8934_", StringComparison.OrdinalIgnoreCase))
 						doomed.Add(name);
+					if (tag != null && tag.StartsWith("K8934_", StringComparison.OrdinalIgnoreCase))
+						doomed.Add(tag);
 				}
 				foreach (string tag in doomed)
 					RemoveDrawObject(tag);
@@ -269,12 +272,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			try
 			{
-				var doomed = new List<string>();
+				var doomed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 				foreach (IDrawingTool tool in DrawObjects)
 				{
 					string name = tool.Name;
-					if (name != null && name.StartsWith(prefix, StringComparison.Ordinal))
+					string tag = tool.Tag as string;
+					if (name != null && name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
 						doomed.Add(name);
+					if (tag != null && tag.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+						doomed.Add(tag);
 				}
 				foreach (string tag in doomed)
 					RemoveDrawObject(tag);
@@ -303,13 +309,26 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			try
 			{
 				signalRecords.Clear();
-				var doomed = new List<string>();
+
+				// Reset sub-module pending drawing states so orphaned tags/records aren't retained
+				a2SellRecord = null;
+				a2BuyRecord = null;
+				a2SellTextTag = null;
+				a2BuyTextTag = null;
+				a2SellState.Reset();
+				a2BuyState.Reset();
+				a4ActiveBuyPrice = 0;
+				a4ActiveSellPrice = 0;
+
+				var doomed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 				foreach (IDrawingTool tool in DrawObjects)
 				{
 					string name = tool.Name;
-					if (name != null &&
-						(name.StartsWith("K34S_", StringComparison.Ordinal) || name.StartsWith("K8934_", StringComparison.Ordinal)))
+					string tag = tool.Tag as string;
+					if (name != null && (name.StartsWith("K34S_", StringComparison.OrdinalIgnoreCase) || name.StartsWith("K8934_", StringComparison.OrdinalIgnoreCase)))
 						doomed.Add(name);
+					if (tag != null && (tag.StartsWith("K34S_", StringComparison.OrdinalIgnoreCase) || tag.StartsWith("K8934_", StringComparison.OrdinalIgnoreCase)))
+						doomed.Add(tag);
 				}
 				foreach (string tag in doomed)
 					RemoveDrawObject(tag);
