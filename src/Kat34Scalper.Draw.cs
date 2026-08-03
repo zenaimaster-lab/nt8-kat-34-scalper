@@ -878,6 +878,67 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				}
 			};
 			secBot.Children.Add(btnBot);
+
+			// --- Daily Max DD & Daily Max Profit toggle buttons (side-by-side below BOT ON/OFF, TradeManager style) ---
+			Grid dailyRiskGrid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
+			dailyRiskGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+			dailyRiskGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4) });
+			dailyRiskGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+			SolidColorBrush dailyOffBg = new SolidColorBrush(Color.FromRgb(45, 50, 65));
+			SolidColorBrush dailyOnBg  = new SolidColorBrush(Color.FromRgb(58, 19, 107)); // Darker purple (#3A136B)
+
+			Button btnDailyMaxDD = CreateHudButton(cachedIsDailyMaxDD ? "Max DD: ON" : "Max DD: OFF",
+				cachedIsDailyMaxDD ? dailyOnBg : dailyOffBg, null, 24, 10);
+			btnDailyMaxDD.Foreground = cachedIsDailyMaxDD ? Brushes.White : Brushes.LightGray;
+
+			btnDailyMaxDD.Click += (s, ev) =>
+			{
+				cachedIsDailyMaxDD = !cachedIsDailyMaxDD;
+				DailyMaxDDEnabled = cachedIsDailyMaxDD;
+				btnDailyMaxDD.Content = cachedIsDailyMaxDD ? "Max DD: ON" : "Max DD: OFF";
+				btnDailyMaxDD.Background = cachedIsDailyMaxDD ? dailyOnBg : dailyOffBg;
+				btnDailyMaxDD.Foreground = cachedIsDailyMaxDD ? Brushes.White : Brushes.LightGray;
+
+				if (IsDailyRiskBreached(out string breachReason))
+				{
+					ShowHudStatus(breachReason, Brushes.OrangeRed);
+					TriggerCustomEvent(o => { CancelPendingBotOrder(breachReason); CancelA4BotOrders(breachReason); }, null);
+				}
+				else
+				{
+					ShowHudStatus("Daily Max DD: " + (cachedIsDailyMaxDD ? "ON ($" + cachedDailyMaxDD + ")" : "OFF"), Brushes.LightGreen);
+				}
+			};
+			Grid.SetColumn(btnDailyMaxDD, 0);
+			dailyRiskGrid.Children.Add(btnDailyMaxDD);
+
+			Button btnDailyMaxProfit = CreateHudButton(cachedIsDailyMaxProfit ? "Max Profit: ON" : "Max Profit: OFF",
+				cachedIsDailyMaxProfit ? dailyOnBg : dailyOffBg, null, 24, 10);
+			btnDailyMaxProfit.Foreground = cachedIsDailyMaxProfit ? Brushes.White : Brushes.LightGray;
+
+			btnDailyMaxProfit.Click += (s, ev) =>
+			{
+				cachedIsDailyMaxProfit = !cachedIsDailyMaxProfit;
+				DailyMaxProfitEnabled = cachedIsDailyMaxProfit;
+				btnDailyMaxProfit.Content = cachedIsDailyMaxProfit ? "Max Profit: ON" : "Max Profit: OFF";
+				btnDailyMaxProfit.Background = cachedIsDailyMaxProfit ? dailyOnBg : dailyOffBg;
+				btnDailyMaxProfit.Foreground = cachedIsDailyMaxProfit ? Brushes.White : Brushes.LightGray;
+
+				if (IsDailyRiskBreached(out string breachReason))
+				{
+					ShowHudStatus(breachReason, Brushes.OrangeRed);
+					TriggerCustomEvent(o => { CancelPendingBotOrder(breachReason); CancelA4BotOrders(breachReason); }, null);
+				}
+				else
+				{
+					ShowHudStatus("Daily Max Profit: " + (cachedIsDailyMaxProfit ? "ON ($" + cachedDailyMaxProfit + ")" : "OFF"), Brushes.LightGreen);
+				}
+			};
+			Grid.SetColumn(btnDailyMaxProfit, 2);
+			dailyRiskGrid.Children.Add(btnDailyMaxProfit);
+
+			secBot.Children.Add(dailyRiskGrid);
 			mainPanel.Children.Add(CreateSectionCard(secBot, 6));
 
 			// --- DRAW module: Clear removes all drawings from this HUD (signals + A0 + A1 stages) ---

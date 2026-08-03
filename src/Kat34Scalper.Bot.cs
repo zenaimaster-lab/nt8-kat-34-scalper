@@ -25,6 +25,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private volatile bool cachedBotOn;
 		private volatile string cachedBotAtm = "";
 		private volatile string cachedBotAccountName = "";
+		private volatile bool cachedIsDailyMaxDD;
+		private double cachedDailyMaxDD = 500;
+		private volatile bool cachedIsDailyMaxProfit;
+		private double cachedDailyMaxProfit = 1000;
+
+		private DateTime lastSessionStartUtc;
+		private double sessionStartRealizedPnL;
+		private bool isSessionStartCaptured;
+		private int dailyRiskFlattened;
+
 		private Order pendingOrder;
 		private Account pendingOrderAccount; // account that owns pendingOrder (cancel must target owner account)
 		private string pendingOrderOwner = "A1"; // signal module that submitted pendingOrder ("A1"/"A2" — per-signal cancel)
@@ -37,6 +47,79 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private string atmLevelsName = "\0"; // never matches a real template name — forces first parse
 		private Kat34ScalperAtmData atmLevels;
 		private readonly System.Collections.Generic.Dictionary<string, bool> signalInTradeMap = new System.Collections.Generic.Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+		#region Daily Risk Protection
+		private double CalculateDailyPnL()
+		{
+			Account acc = ResolveBotAccount();
+			if (acc == null) return 0;
+
+			DateTime currentSessionStartUtc = Kat34ScalperLogic.GetNySessionStartUtc(DateTime.UtcNow);
+			double currentRealizedPnL = 0;
+			bool realizedReadOk;
+			try
+			{
+				currentRealizedPnL = acc.Get(AccountItem.GrossRealizedProfitLoss, Currency.UsDollar);
+				realizedReadOk = true;
+			}
+			catch
+			{
+				realizedReadOk = false;
+			}
+
+			if (Kat34ScalperLogic.ShouldCaptureSessionBaseline(isSessionStartCaptured, currentSessionStartUtc, lastSessionStartUtc, realizedReadOk))
+			{
+				lastSessionStartUtc = currentSessionStartUtc;
+				sessionStartRealizedPnL = currentRealizedPnL;
+				isSessionStartCaptured = true;
+			}
+
+			double dailyRealized = realizedReadOk ? currentRealizedPnL - sessionStartRealizedPnL : 0;
+			double dailyUnrealized = 0;
+			try
+			{
+				dailyUnrealized = acc.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar);
+			}
+			catch { }
+
+			return dailyRealized + dailyUnrealized;
+		}
+
+		private bool IsDailyRiskBreached(out string breachReason)
+		{
+			breachReason = string.Empty;
+			Account acc = ResolveBotAccount();
+			if (acc == null) return false;
+
+			double dailyPnL = CalculateDailyPnL();
+
+			return Kat34ScalperLogic.EvaluateDailyRiskBreach(
+				cachedIsDailyMaxDD, cachedDailyMaxDD,
+				cachedIsDailyMaxProfit, cachedDailyMaxProfit,
+				dailyPnL, out breachReason);
+		}
+
+		private void EvaluateDailyRiskLimits()
+		{
+			Account acc = ResolveBotAccount();
+			if (acc == null) return;
+
+			if (IsDailyRiskBreached(out string breachReason))
+			{
+				if (System.Threading.Interlocked.CompareExchange(ref dailyRiskFlattened, 1, 0) == 0)
+				{
+					Print(string.Format("[Kat34Scalper] EMERGENCY CANCEL triggered by Daily Risk Protection: {0}", breachReason));
+					ShowHudStatus(breachReason, Brushes.OrangeRed);
+					CancelPendingBotOrder(breachReason);
+					CancelA4BotOrders(breachReason);
+				}
+			}
+			else
+			{
+				System.Threading.Interlocked.Exchange(ref dailyRiskFlattened, 0);
+			}
+		}
+		#endregion
 
 		private bool IsSignalInTrade(string owner)
 		{
@@ -131,6 +214,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Account acc = ResolveBotAccount();
 			if (acc == null) return;
 
+			if (IsDailyRiskBreached(out string breachReason))
+			{
+				ShowHudStatus(breachReason, Brushes.OrangeRed);
+				Print(string.Format("[Kat34Scalper] BOT A4 entry blocked: {0}", breachReason));
+				return;
+			}
+
 			// Do NOT submit new entry orders while already in a trade or holding an open position
 			if (a4InTrade || HasOpenPosition(acc)) return;
 
@@ -187,6 +277,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (!SignalOwnerEnabled(owner)) return;
 			Account acc = ResolveBotAccount();
 			if (acc == null) return;
+			if (IsDailyRiskBreached(out string breachReason))
+			{
+				ShowHudStatus(breachReason, Brushes.OrangeRed);
+				Print(string.Format("[Kat34Scalper] BOT [{0}] entry blocked: {1}", owner, breachReason));
+				return;
+			}
 			if (IsSignalInTrade(owner) || HasOpenPosition(acc)) return;
 			if (pendingOrder != null || pendingMigrate) return; // one bot order at a time
 			SubmitBotOrder(isBuy, refExtreme, offsetTicks, owner);
@@ -338,6 +434,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		// Polls the pending order on the data thread: terminal cleanup, trend-flip cancel, migrate to a better extreme.
 		private void ManageBotEntry(double high, double low, double close)
 		{
+			EvaluateDailyRiskLimits();
 			ManageA4BotEntry();
 
 			Account acc = ResolveBotAccount();

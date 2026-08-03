@@ -19,6 +19,17 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.49] — 2026-08-02
+- **Daily Max DD & Max Net Profit Protection (Ported from nt8-kat-TradeManager)**:
+  - Feature: Added Daily Max Drawdown (`Max DD`) and Daily Max Net Profit (`Max Profit`) protection buttons and calculation logic identical to `nt8-kat-TradeManager`.
+  - HUD UI: Placed two side-by-side buttons (`Max DD: ON/OFF` and `Max Profit: ON/OFF`) directly below the `BOT ON/OFF` button in `secBot`, using matching dimensions (height 24, font size 10) and colors (`#2D3241` OFF, `#3A136B` ON).
+  - Protection Logic:
+    - Pure calculations ported to `src/Kat34ScalperLogic.cs` (`GetNySessionStartUtc`, `ShouldCaptureSessionBaseline`, `EvaluateDailyRiskBreach`).
+    - PnL calculations and session baseline tracking added in `src/Kat34Scalper.Bot.cs` (`CalculateDailyPnL`, `IsDailyRiskBreached`, `EvaluateDailyRiskLimits`).
+    - Order submission (`TrySubmitBotEntry` and `TrySubmitA4BotOcoEntries`) checks for daily risk breach and blocks new orders when breached. Pending bot orders are automatically cancelled when daily risk limit is hit.
+    - Added unit tests in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs`.
+- **Graphify entity mapping**: `Kat34ScalperLogic.EvaluateDailyRiskBreach/GetNySessionStartUtc/ShouldCaptureSessionBaseline`, `Kat34Scalper.DailyMaxDDEnabled/DailyMaxDD/DailyMaxProfitEnabled/DailyMaxProfit`, `Kat34Scalper.CalculateDailyPnL/IsDailyRiskBreached/EvaluateDailyRiskLimits`, `Kat34Scalper.Draw.cs` (`btnDailyMaxDD/btnDailyMaxProfit`).
+
 ### [v0.48] — 2026-08-02
 - **Selective Drawing Cleanup on A4 OCO Fill**:
   - Requirement: When an A4 OCO entry fills and the opposite order is cancelled, keep the filled order's text and lines on the chart while deleting only the cancelled order's text and lines.

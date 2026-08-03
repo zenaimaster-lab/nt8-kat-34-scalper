@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.48 (2026-08-02)
+ * Version: 0.49 (2026-08-02)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -89,7 +89,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.48";
+		public const string VERSION = "0.49";
 		public const string RELEASE_DATE = "2026-08-02";
 
 
@@ -191,6 +191,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			BotAtmTemplate				= "mnq. 1ct. 15-be20-35move15-50triggertrail5step1";
 			BotAccountName				= "Sim101";
 
+			DailyMaxDDEnabled			= false;
+			DailyMaxDD					= 500;
+			DailyMaxProfitEnabled		= false;
+			DailyMaxProfit				= 1000;
+
 			// 6. ATM Quick Sets defaults — labels A–F, no ATM assigned (click shows a HUD hint)
 			AtmSet1Name					= "A";
 			AtmSet1Atm					= "";
@@ -268,6 +273,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				cachedBotAtm = BotAtmTemplate ?? "";
 				cachedBotAccountName = BotAccountName ?? "";
 				cachedBotOn = BotEnabled;
+				cachedIsDailyMaxDD = DailyMaxDDEnabled;
+				cachedDailyMaxDD = DailyMaxDD;
+				cachedIsDailyMaxProfit = DailyMaxProfitEnabled;
+				cachedDailyMaxProfit = DailyMaxProfit;
 
 				if (ChartControl != null)
 					ChartControl.Dispatcher.InvokeAsync(BuildHud);
@@ -558,6 +567,44 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "Account Name", Order = 4, GroupName = "5. Bot",
 			Description = "Account the bot trades on (also selectable on the HUD). Default: Sim101.")]
 		public string BotAccountName { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Daily Max DD Enabled", Order = 5, GroupName = "5. Bot", Description = "Enable Daily Max Drawdown limit protection.")]
+		public bool DailyMaxDDEnabled
+		{
+			get { return dailyMaxDDEnabled; }
+			set { dailyMaxDDEnabled = value; cachedIsDailyMaxDD = value; }
+		}
+		private bool dailyMaxDDEnabled;
+
+		[NinjaScriptProperty]
+		[Range(0, 1000000)]
+		[Display(Name = "Daily Max DD ($)", Order = 6, GroupName = "5. Bot", Description = "Max daily drawdown limit in dollars (e.g. 500 for $500 max loss limit).")]
+		public double DailyMaxDD
+		{
+			get { return dailyMaxDD; }
+			set { dailyMaxDD = Math.Max(0, value); cachedDailyMaxDD = dailyMaxDD; }
+		}
+		private double dailyMaxDD;
+
+		[NinjaScriptProperty]
+		[Display(Name = "Daily Max Profit Enabled", Order = 7, GroupName = "5. Bot", Description = "Enable Daily Max Profit limit protection.")]
+		public bool DailyMaxProfitEnabled
+		{
+			get { return dailyMaxProfitEnabled; }
+			set { dailyMaxProfitEnabled = value; cachedIsDailyMaxProfit = value; }
+		}
+		private bool dailyMaxProfitEnabled;
+
+		[NinjaScriptProperty]
+		[Range(0, 1000000)]
+		[Display(Name = "Daily Max Profit ($)", Order = 8, GroupName = "5. Bot", Description = "Max daily profit limit in dollars (e.g. 1000 for $1000 max profit limit).")]
+		public double DailyMaxProfit
+		{
+			get { return dailyMaxProfit; }
+			set { dailyMaxProfit = Math.Max(0, value); cachedDailyMaxProfit = dailyMaxProfit; }
+		}
+		private double dailyMaxProfit;
 
 		// --- 6. ATM Quick Sets (HUD: 6 buttons under the ATM dropdown; click selects the assigned ATM) ---
 		private string atmSet1Name = "A";

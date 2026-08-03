@@ -334,6 +334,75 @@ namespace Kat34Scalper
 			if (existingSell <= 0) return candidateSell;
 			return Math.Max(existingSell, candidateSell);
 		}
+
+		/// <summary>
+		/// Pure daily-risk gate: a limit can only breach while its toggle is ON and the configured
+		/// limit is positive. OFF means never breached, regardless of PnL.
+		/// </summary>
+		public static bool EvaluateDailyRiskBreach(
+			bool isMaxDDEnabled,
+			double maxDD,
+			bool isMaxProfitEnabled,
+			double maxProfit,
+			double dailyPnL,
+			out string breachReason)
+		{
+			breachReason = string.Empty;
+
+			if (isMaxDDEnabled && maxDD > 0 && dailyPnL <= -Math.Abs(maxDD))
+			{
+				breachReason = string.Format("Daily Max DD breached (Current Daily PnL: ${0:F2} <= Max DD limit: -${1:F2})", dailyPnL, Math.Abs(maxDD));
+				return true;
+			}
+
+			if (isMaxProfitEnabled && maxProfit > 0 && dailyPnL >= maxProfit)
+			{
+				breachReason = string.Format("Daily Max Profit reached (Current Daily PnL: ${0:F2} >= Max Profit limit: ${1:F2})", dailyPnL, maxProfit);
+				return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// Session baseline capture gate. The baseline (realized PnL at session start) must only be
+		/// captured when the account read actually succeeded — capturing 0 after a failed read poisons
+		/// the baseline and produces a phantom daily PnL (and a phantom risk breach) on the next read.
+		/// </summary>
+		public static bool ShouldCaptureSessionBaseline(bool isCaptured, DateTime currentSessionStartUtc, DateTime lastSessionStartUtc, bool readSucceeded)
+		{
+			if (!readSucceeded) return false;
+			return !isCaptured || currentSessionStartUtc > lastSessionStartUtc;
+		}
+
+		/// <summary>
+		/// Calculates UTC timestamp corresponding to 6:00 PM NY time (Eastern Time) of active trading session.
+		/// </summary>
+		public static DateTime GetNySessionStartUtc(DateTime nowUtc)
+		{
+			TimeZoneInfo nyZone;
+			try
+			{
+				nyZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+			}
+			catch
+			{
+				nyZone = TimeZoneInfo.Local;
+			}
+
+			DateTime nowNy = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, nyZone);
+			DateTime sessionStartNy;
+			if (nowNy.TimeOfDay >= new TimeSpan(18, 0, 0))
+			{
+				sessionStartNy = nowNy.Date.AddHours(18);
+			}
+			else
+			{
+				sessionStartNy = nowNy.Date.AddDays(-1).AddHours(18);
+			}
+
+			return TimeZoneInfo.ConvertTimeToUtc(sessionStartNy, nyZone);
+		}
 	}
 
 

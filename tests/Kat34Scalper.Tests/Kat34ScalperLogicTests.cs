@@ -590,5 +590,37 @@ public class Kat34ScalperLogicTests
 		Assert.Equal(102.0, Kat34ScalperLogic.SelectA4SellPrice(100.0, 102.0));
 		Assert.Equal(102.0, Kat34ScalperLogic.SelectA4SellPrice(102.0, 98.0));
 	}
+
+	// --- Daily Risk (Max DD & Max Profit) tests ---
+	[Fact]
+	public void EvaluateDailyRiskBreach_OffToggles_NeverBreach()
+	{
+		Assert.False(Kat34ScalperLogic.EvaluateDailyRiskBreach(false, 500.0, false, 1000.0, -50000.0, out _));
+		Assert.False(Kat34ScalperLogic.EvaluateDailyRiskBreach(false, 500.0, false, 1000.0, 99999.0, out _));
+	}
+
+	[Fact]
+	public void EvaluateDailyRiskBreach_MaxDDBreach_WhenEnabledAndBeyondLimit()
+	{
+		Assert.True(Kat34ScalperLogic.EvaluateDailyRiskBreach(true, 500.0, false, 1000.0, -500.0, out string reason));
+		Assert.Contains("Max DD", reason);
+		Assert.True(Kat34ScalperLogic.EvaluateDailyRiskBreach(true, 500.0, false, 1000.0, -750.25, out _));
+	}
+
+	[Fact]
+	public void EvaluateDailyRiskBreach_MaxProfitBreach_WhenEnabledAndReached()
+	{
+		Assert.True(Kat34ScalperLogic.EvaluateDailyRiskBreach(false, 500.0, true, 1000.0, 1000.0, out string reason));
+		Assert.Contains("Max Profit", reason);
+		Assert.False(Kat34ScalperLogic.EvaluateDailyRiskBreach(false, 500.0, true, 1000.0, 999.99, out _));
+	}
+
+	[Fact]
+	public void ShouldCaptureSessionBaseline_Behavior()
+	{
+		DateTime session = new DateTime(2026, 7, 30, 22, 0, 0, DateTimeKind.Utc);
+		Assert.False(Kat34ScalperLogic.ShouldCaptureSessionBaseline(false, session, DateTime.MinValue, false));
+		Assert.True(Kat34ScalperLogic.ShouldCaptureSessionBaseline(false, session, DateTime.MinValue, true));
+	}
 }
 
