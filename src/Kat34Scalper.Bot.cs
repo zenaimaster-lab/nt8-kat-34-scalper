@@ -522,5 +522,81 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				Print(string.Format("[Kat34Scalper] BOT cancel error: {0}", ex.Message));
 			}
 		}
+
+		private static bool IsActiveOrderState(OrderState state)
+		{
+			return state == OrderState.Initialized
+				|| state == OrderState.Submitted
+				|| state == OrderState.Accepted
+				|| state == OrderState.AcceptedByRisk
+				|| state == OrderState.Working
+				|| state == OrderState.TriggerPending
+				|| state == OrderState.ChangePending
+				|| state == OrderState.ChangeSubmitted
+				|| state == OrderState.PartFilled
+				|| state == OrderState.Suspended
+				|| state == OrderState.CancelPending
+				|| state == OrderState.CancelSubmitted;
+		}
+
+		public void FlattenAllPositions()
+		{
+			Account acc = ResolveBotAccount();
+			if (acc == null)
+			{
+				ShowHudStatus("Flatten: no account selected", Brushes.OrangeRed);
+				Print("[Kat34Scalper] Flatten: no account selected.");
+				return;
+			}
+
+			try
+			{
+				// Cancel pending bot entries & A4 OCO orders
+				CancelPendingBotOrder("Close/flatten clicked");
+				CancelA4BotOrders("Close/flatten clicked");
+
+				// Cancel all active working orders on the selected account
+				if (acc.Orders != null)
+				{
+					foreach (Order order in acc.Orders)
+					{
+						if (order != null && IsActiveOrderState(order.OrderState))
+						{
+							try { acc.Cancel(new[] { order }); } catch { }
+						}
+					}
+				}
+
+				// Market close all non-flat positions on the account
+				if (acc.Positions != null)
+				{
+					foreach (Position pos in acc.Positions)
+					{
+						if (pos != null && pos.MarketPosition != MarketPosition.Flat)
+						{
+							OrderAction action = pos.MarketPosition == MarketPosition.Long ? OrderAction.Sell : OrderAction.BuyToCover;
+							try
+							{
+								Order closeOrder = acc.CreateOrder(pos.Instrument, action, OrderType.Market, OrderEntry.Manual, TimeInForce.Gtc, pos.Quantity, 0, 0, "", "KAT_CLOSE", NinjaTrader.Core.Globals.MaxDate, null);
+								if (closeOrder != null)
+									acc.Submit(new[] { closeOrder });
+							}
+							catch (Exception ex)
+							{
+								Print(string.Format("[Kat34Scalper] Error submitting close for {0}: {1}", pos.Instrument != null ? pos.Instrument.FullName : "unknown", ex.Message));
+							}
+						}
+					}
+				}
+
+				ShowHudStatus("Close/flatten executed", Brushes.OrangeRed);
+				Print("[Kat34Scalper] Close/flatten executed: cancelled orders & closed positions.");
+			}
+			catch (Exception ex)
+			{
+				Print(string.Format("[Kat34Scalper] Error flattening account: {0}", ex.Message));
+			}
+		}
 	}
 }
+

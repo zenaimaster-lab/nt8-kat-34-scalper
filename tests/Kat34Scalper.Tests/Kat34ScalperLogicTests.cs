@@ -622,5 +622,15 @@ public class Kat34ScalperLogicTests
 		Assert.False(Kat34ScalperLogic.ShouldCaptureSessionBaseline(false, session, DateTime.MinValue, false));
 		Assert.True(Kat34ScalperLogic.ShouldCaptureSessionBaseline(false, session, DateTime.MinValue, true));
 	}
+
+	[Fact]
+	public void ShouldFlattenAccount_Behavior()
+	{
+		Assert.True(Kat34ScalperLogic.ShouldFlattenAccount(true, false));
+		Assert.True(Kat34ScalperLogic.ShouldFlattenAccount(false, true));
+		Assert.True(Kat34ScalperLogic.ShouldFlattenAccount(true, true));
+		Assert.False(Kat34ScalperLogic.ShouldFlattenAccount(false, false));
+	}
 }
+
 

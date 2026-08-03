@@ -83,6 +83,12 @@ namespace Kat34Scalper
 
 	public static class Kat34ScalperLogic
 	{
+		/// <summary>Close/flatten has work to do only if the account has working orders or an open position.</summary>
+		public static bool ShouldFlattenAccount(bool hasWorkingOrders, bool hasOpenPosition)
+		{
+			return hasWorkingOrders || hasOpenPosition;
+		}
+
 		/// <summary>
 		/// A0 ribbon fan. emasNow/emasPrev ordered fastest to slowest (9,21,34,55,89,144,200).
 		/// Returns +1 = buy fan (ascending, spreading, wide enough), -1 = sell fan, 0 = no fan.

@@ -19,6 +19,13 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.55] — 2026-08-02
+- **Close/Flatten Button in HUD**:
+  - Added `Close/flatten` button in `src/Kat34Scalper.Draw.cs` (`BuildHud()`) underneath `BOT ON/OFF` button in `secBot` panel, styled using TradeManager design system (`height=33`, `fontSize=15`, background `#141414` / `Color.FromRgb(20,20,20)`).
+  - Implemented `FlattenAllPositions()` and `IsActiveOrderState` in `src/Kat34Scalper.Bot.cs` to cancel working bot entries/OCO orders and market close open positions.
+  - Added pure logic helper `Kat34ScalperLogic.ShouldFlattenAccount` in `src/Kat34ScalperLogic.cs` with unit test in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs`.
+  - Graphify entity mapping: `Kat34Scalper.Draw.cs` (`BuildHud`, `btnClose`), `Kat34Scalper.Bot.cs` (`FlattenAllPositions`, `IsActiveOrderState`), `Kat34ScalperLogic.cs` (`ShouldFlattenAccount`).
+
 ### [v0.54] — 2026-08-02
 - **Single Line HUD Status Slot**:
   - Updated `hudStatusText` in `src/Kat34Scalper.Draw.cs` (`BuildHud()`) to `Height = 16`, `MinHeight = 16`, `MaxHeight = 16`, `TextTrimming = CharacterEllipsis`, `TextWrapping = NoWrap`, reducing the status area height from 2 lines (32px) to 1 single line slot (16px).

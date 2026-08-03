@@ -862,6 +862,18 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			};
 			secBot.Children.Add(btnBot);
 
+			SolidColorBrush closeBg = new SolidColorBrush(Color.FromRgb(20, 20, 20)); // Very dark gray (almost black)
+			Button btnClose = CreateHudButton("Close/flatten", closeBg, null, 33, 15);
+			btnClose.Margin = new Thickness(0, 4, 0, 0);
+			btnClose.Click += (s, ev) =>
+			{
+				TriggerCustomEvent(o =>
+				{
+					FlattenAllPositions();
+				}, null);
+			};
+			secBot.Children.Add(btnClose);
+
 			// --- Daily Max DD & Daily Max Profit toggle buttons (side-by-side below BOT ON/OFF, TradeManager style) ---
 			Grid dailyRiskGrid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
 			dailyRiskGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
