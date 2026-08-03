@@ -68,14 +68,37 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			return atmLevels;
 		}
 
+		// BOT trades exactly the signals that are ON: an owner switched OFF never submits
+		// (and its pending order was already cancelled by SetAXSignal(false)).
+		private bool SignalOwnerEnabled(string owner)
+		{
+			if (owner == "A1") return cachedA1;
+			if (owner == "A2") return cachedA2;
+			if (owner == "A3") return cachedA3;
+			return true; // future owners manage their own gating
+		}
+
 		// Called from the Signal module after a signal fires. refExtreme = best candidate extreme (sell: c2 low / buy: c2 high).
 		// offsetTicks = the calling signal's own Entry Offset (order price must match its drawn entry line).
-		// owner = signal module id ("A1"/"A2") — a signal cancels only its own pending order.
+		// owner = signal module id ("A1"/"A2"/"A3") — a signal cancels only its own pending order.
 		private void TrySubmitBotEntry(bool isBuy, double refExtreme, int offsetTicks, string owner = "A1")
 		{
 			if (!cachedBotOn || !BotEnabled || refExtreme == 0) return;
+			if (!SignalOwnerEnabled(owner)) return;
 			if (pendingOrder != null || pendingMigrate) return; // one bot order at a time
 			SubmitBotOrder(isBuy, refExtreme, offsetTicks, owner);
+		}
+
+		// Cancels the bot's pending entry only when it belongs to the given signal (any side).
+		// Used when the signal is switched OFF — OFF must also kill its working order and
+		// stop any in-flight migration re-place.
+		private void CancelSignalBotEntry(string owner, string reason)
+		{
+			if (pendingOrder != null && pendingOrderOwner == owner)
+			{
+				pendingMigrate = false;
+				CancelPendingBotOrder(reason);
+			}
 		}
 
 		private void SubmitBotOrder(bool isBuy, double refExtreme, int offsetTicks, string owner = "A1")
@@ -138,7 +161,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				pendingOrderAccount = null;
 				// A cancelled order left a better entry behind — re-place it while the setup still holds.
-				if (pendingMigrate && cachedBotOn && BotEnabled)
+				// Owner gate: a signal switched OFF mid-migration must not see its order re-placed.
+				if (pendingMigrate && cachedBotOn && BotEnabled && SignalOwnerEnabled(pendingOrderOwner))
 				{
 					pendingMigrate = false;
 					if (fastEma != null && slowEma != null

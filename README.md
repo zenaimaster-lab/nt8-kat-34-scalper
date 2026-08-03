@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.38` (Released: `2026-08-02`)
+**Current Version**: `v0.39` (Released: `2026-08-02`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -61,6 +61,7 @@ Every signal sub-module is **independent and default OFF**; its stages are speci
 
 ## Bot (semi-auto)
 - Trades **only** while the HUD **BOT: ON** button is active (off by default) *and* `Bot Enabled` is set — never runs on its own. Switching BOT OFF cancels the pending entry immediately.
+- **Respects the signal toggles**: BOT trades **every signal switched ON** (A1/A2/A3) on the chosen account + ATM, and **never** a signal that is OFF. Switching a signal OFF also **cancels its pending bot order** (and blocks any migration re-place), so an OFF signal can neither open a new entry nor fill a stale one. One bot order at a time.
 - On an A1 signal it submits a stop order (sell stop below the better candidate low / buy stop above the better candidate high) through the selected **ATM template** on the selected **account**; `None` or a missing template falls back to a bare stop order. If price has **already run past the entry**, the order is submitted as a **limit** instead (a stop on the wrong side of the market would be rejected) — same rule as KatTradeManager.
 - **Migration**: while the entry is still working, a newer bar closing on the setup side of the fast EMA with a better extreme (sell: higher low / buy: lower high) cancels the order and re-places it at the better price once the cancel settles. A 34/89 trend flip cancels the pending entry. One bot order at a time; once filled, the ATM owns the brackets.
 

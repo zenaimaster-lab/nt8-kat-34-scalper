@@ -43,7 +43,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			else
 			{
 				a3BackfillPending = false;
-				TriggerCustomEvent(o => ClearA3Drawings(), null);
+				TriggerCustomEvent(o => { CancelSignalBotEntry("A3", "A3 switched OFF"); ClearA3Drawings(); }, null);
 			}
 		}
 

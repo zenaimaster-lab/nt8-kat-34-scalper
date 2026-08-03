@@ -846,7 +846,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				btnBot.Background = cachedBotOn ? hudOnBrush : hudOffBrush;
 				btnBot.Foreground = cachedBotOn ? Brushes.White : Brushes.LightGray;
 				if (cachedBotOn)
-					ShowHudStatus("BOT ON — A1 signals auto-submit stop orders", Brushes.LightGreen);
+					ShowHudStatus("BOT ON — every signal switched ON auto-submits entries", Brushes.LightGreen);
 				else
 				{
 					ShowHudStatus("BOT OFF — pending entry cancelled", Brushes.OrangeRed);

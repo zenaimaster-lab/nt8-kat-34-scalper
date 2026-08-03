@@ -64,7 +64,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				a2BackfillPending = false;
 				a2SellState.Reset();
 				a2BuyState.Reset();
-				TriggerCustomEvent(o => ClearA2Drawings(), null);
+				TriggerCustomEvent(o => { CancelSignalBotEntry("A2", "A2 switched OFF"); ClearA2Drawings(); }, null);
 			}
 		}
 

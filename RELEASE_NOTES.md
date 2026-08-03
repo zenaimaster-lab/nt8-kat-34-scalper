@@ -1,3 +1,8 @@
+# Release Notes — v0.39 (2026-08-02)
+
+- **BOT now respects the HUD signal toggles (fix)**: previously, switching a signal OFF left its pending bot order working — the stale A1 order could still fill ("bot trades A1 while A1 is OFF") and it occupied the single order slot, starving A2/A3 ("bot only runs A1"). Now: (1) `TrySubmitBotEntry` gates on the calling signal's own ON state (`SignalOwnerEnabled(owner)`); (2) switching any signal OFF cancels its pending bot order and kills any in-flight migration re-place (`CancelSignalBotEntry` in `SetA1Signal`/`SetA2Signal`/`SetA3Signal`); (3) the migration re-place path re-checks the owner's ON state. BOT ON = trades every signal that is ON, on the chosen account + ATM; OFF signals never trade. HUD BOT status text updated to match.
+- Verification: 53/53 xunit, CompileCheck 0 errors.
+
 # Release Notes — v0.38 (2026-08-02)
 
 - **New signal sub-module A3 (8cross34)**: EMA 8 crosses up through EMA 34 → BUY, crosses down → SELL. Stateless single-bar event — no sequence, no stage markers, no filters. Own settings group `3.6 Signal A3 — 8cross34` (Enabled default OFF, History Days 3, Entry Offset 1, Stop/Target Distance fallbacks), own HUD SIGNAL toggle `A3 8x34` (replaces the disabled `A3…` placeholder), own drawings prefix `K34S_A3_`, History Days backfill on enable. Entry = cross candle's extreme ± Entry Offset; an opposite cross cancels A3's own pending bot entry. EMA 34 taken from the fixed ribbon (independent of A1's Fast EMA Period). Pure logic: `Kat34ScalperLogic.CrossDirection` (+1/−1/0; an exact touch on the previous bar counts as the old side), 4 new unit tests.
