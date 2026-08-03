@@ -1019,11 +1019,50 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			mainPanel.Children.Add(CreateSectionCard(secDraw, 0));
 
 			hudBorder.Child = mainPanel;
+			StartPanelWatchdog();
+		}
+
+		private System.Windows.Threading.DispatcherTimer panelWatchdog;
+
+		private void StartPanelWatchdog()
+		{
+			if (panelWatchdog == null)
+			{
+				panelWatchdog = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+				panelWatchdog.Tick += OnPanelWatchdogTick;
+			}
+			panelWatchdog.Start();
+		}
+
+		private void StopPanelWatchdog()
+		{
+			if (panelWatchdog != null)
+			{
+				panelWatchdog.Stop();
+				panelWatchdog = null;
+			}
+		}
+
+		private void OnPanelWatchdogTick(object sender, EventArgs e)
+		{
+			try
+			{
+				EnsureAccountEventSubscription();
+				EvaluateDailyRiskLimits();
+				TrySubmitPendingRevert();
+				ScheduleAtmBracketMerge();
+			}
+			catch (Exception ex)
+			{
+				Print(string.Format("[Kat34Scalper] Watchdog tick error: {0}", ex.Message));
+			}
 		}
 
 		private void RemoveHud()
 		{
 			StopHudDrag();
+			StopPanelWatchdog();
+			RemoveAccountEventSubscription();
 			if (hudStatusTimer != null)
 			{
 				hudStatusTimer.Stop();

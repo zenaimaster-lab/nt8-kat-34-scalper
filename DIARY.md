@@ -19,6 +19,14 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.60] — 2026-08-03
+- **Fix ATM MERGE Scaling Execution & Real-Time Event Sync**:
+  - Identified root cause of MERGE failure: Scalper lacked `Account.OrderUpdate` subscription and 500ms `panelWatchdog` timer, causing MERGE reconciliation to never run on order fills or scaling events.
+  - Subscribed to `subscribedAccount.OrderUpdate += OnAccountOrderUpdate` in `src/Kat34Scalper.Bot.cs` to trigger `ScheduleAtmBracketMerge()` instantly upon any order fill or state change.
+  - Added 500ms `panelWatchdog` WPF DispatcherTimer in `src/Kat34Scalper.Draw.cs` matching TradeManager's `OnPanelWatchdogTick`.
+  - Restored `PlaceMarketOrder(...)` to match TradeManager 100%, removing custom cancel hacks so scale-in, scale-out, and partial fills properly trigger MERGE anchor quantity updates (e.g. 4 -> 3 contracts) and clean duplicate/stale bracket removal.
+  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Bot.cs`, `src/Kat34Scalper.Draw.cs`.
+
 ### [v0.59] — 2026-08-03
 - **Port Full ATM Bracket MERGE Engine (Always ON)**:
   - Ported the entire ATM Bracket MERGE reconciliation engine from `nt8-kat-TradeManager` into `src/Kat34Scalper.Bot.cs`.

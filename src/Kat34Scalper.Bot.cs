@@ -499,6 +499,57 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			catch { }
 		}
 
+		private Account subscribedAccount;
+
+		private void EnsureAccountEventSubscription()
+		{
+			Account acc = ResolveBotAccount();
+			if (ReferenceEquals(subscribedAccount, acc)) return;
+			RemoveAccountEventSubscription();
+			subscribedAccount = acc;
+			if (subscribedAccount != null)
+			{
+				try { subscribedAccount.OrderUpdate += OnAccountOrderUpdate; } catch { }
+			}
+		}
+
+		private void RemoveAccountEventSubscription()
+		{
+			if (subscribedAccount != null)
+			{
+				try { subscribedAccount.OrderUpdate -= OnAccountOrderUpdate; } catch { }
+			}
+			subscribedAccount = null;
+			ClearAtmStartup();
+			ResetAtmScaleInTracking();
+		}
+
+		private void ProcessAtmStartupUpdate(Order observed)
+		{
+			if (observed == null) return;
+			lock (atmScaleInLock)
+			{
+				if (SameOrder(atmStartupOrder, observed))
+					atmLastLifecycleActivityUtc = DateTime.UtcNow;
+			}
+		}
+
+		private void OnAccountOrderUpdate(object sender, OrderEventArgs e)
+		{
+			try
+			{
+				Order observed = e != null ? e.Order : null;
+				if (observed == null) return;
+				ProcessAtmStartupUpdate(observed);
+				if (Instrument == null || observed.Instrument == null || observed.Instrument.FullName != Instrument.FullName) return;
+				ScheduleAtmBracketMerge();
+			}
+			catch (Exception ex)
+			{
+				Print(string.Format("[Kat34Scalper] Account order update error: {0}", ex.Message));
+			}
+		}
+
 		private bool PlaceMarketOrder(OrderAction action)
 		{
 			return PlaceMarketOrder(action, 0);
@@ -530,32 +581,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			try
 			{
 				int qty = quantityOverride > 0 ? quantityOverride : GetEffectiveBotQuantity();
-				Position pos = GetInstrumentPosition();
-				bool isLong = pos != null && pos.MarketPosition == MarketPosition.Long;
-				bool isShort = pos != null && pos.MarketPosition == MarketPosition.Short;
-				bool isOpposite = (isLong && action == OrderAction.Sell) || (isShort && action == OrderAction.Buy);
-
-				if (isOpposite)
-				{
-					// Opposite market order click while in position -> cancel all existing working SL/TP orders first
-					CancelWorkingOrdersForInstrument(acc);
-
-					// If quantity is closing the position (<= pos.Quantity), submit bare market close order without launching new ATM strategy
-					if (qty <= pos.Quantity)
-					{
-						Order closeOrder = acc.CreateOrder(Instrument, action, OrderType.Market, OrderEntry.Manual,
-							TimeInForce.Gtc, qty, 0, 0, "", action == OrderAction.Buy ? "MarketBuyClose" : "MarketSellClose",
-							NinjaTrader.Core.Globals.MaxDate, null);
-						if (closeOrder != null)
-						{
-							acc.Submit(new[] { closeOrder });
-							Print(string.Format("[Kat34Scalper] Market close submitted: {0} qty={1}", action, qty));
-							ShowHudStatus(string.Format("{0} market close executed", action), Brushes.LightGreen);
-							return true;
-						}
-					}
-				}
-
 				string tpl = cachedBotAtm;
 				bool hasAtm = HasAtmTemplate(tpl);
 				string entryName = hasAtm ? "Entry" : (action == OrderAction.Buy ? "MarketBuy" : "MarketSell");
