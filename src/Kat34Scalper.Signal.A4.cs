@@ -13,6 +13,7 @@
 
 #region Using declarations
 using System;
+using NinjaTrader.Cbi;
 using NinjaTrader.NinjaScript;
 using Kat34Scalper;
 #endregion
@@ -55,6 +56,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (!cachedA4) return;
 			if (CurrentBars[0] < 1) return;
 
+			Account acc = ResolveBotAccount();
+			if (a4InTrade || HasOpenPosition(acc))
+			{
+				ClearA4Drawings();
+				return;
+			}
+
 			double prevHigh = Highs[0][1];
 			double prevLow = Lows[0][1];
 
@@ -64,15 +72,18 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			a4ActiveBuyPrice = buyPrice;
 			a4ActiveSellPrice = sellPrice;
 
-			// Draw Buy signal line (refExtreme = prevHigh)
+			// Clear previous bar's A4 lines so only the current active OCO lines remain on chart
+			ClearA4Drawings();
+
+			// Draw Buy signal line (refExtreme = prevHigh), pass replay = true so alert sound is NOT spammed on every bar
 			double refBuyExtreme = prevHigh;
 			DrawSignal(true, CurrentBar, refBuyExtreme, refBuyExtreme, 0, 0,
-				A4EntryOffsetTicks, A4StopDistanceTicks, A4TargetDistanceTicks, false, "A4");
+				A4EntryOffsetTicks, A4StopDistanceTicks, A4TargetDistanceTicks, true, "A4");
 
-			// Draw Sell signal line (refExtreme = prevLow)
+			// Draw Sell signal line (refExtreme = prevLow), pass replay = true so alert sound is NOT spammed on every bar
 			double refSellExtreme = prevLow;
 			DrawSignal(false, CurrentBar, refSellExtreme, refSellExtreme, 0, 0,
-				A4EntryOffsetTicks, A4StopDistanceTicks, A4TargetDistanceTicks, false, "A4");
+				A4EntryOffsetTicks, A4StopDistanceTicks, A4TargetDistanceTicks, true, "A4");
 
 			TrySubmitA4BotOcoEntries(buyPrice, sellPrice);
 		}

@@ -283,6 +283,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					pendingA4SellOrder = null;
 				}
 				pendingA4BuyOrder = null;
+				ClearA4Drawings();
 			}
 			else if (pendingA4SellOrder != null && pendingA4SellOrder.OrderState == OrderState.Filled)
 			{
@@ -295,6 +296,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					pendingA4BuyOrder = null;
 				}
 				pendingA4SellOrder = null;
+				ClearA4Drawings();
 			}
 
 			if (pendingA4BuyOrder != null && (pendingA4BuyOrder.OrderState == OrderState.Cancelled || pendingA4BuyOrder.OrderState == OrderState.Rejected))
@@ -329,7 +331,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				Print(string.Format("[Kat34Scalper] BOT: entry order {0} @ {1:F5}.", state, pendingEntryPrice));
 				if (state == OrderState.Filled)
+				{
 					ShowHudStatus(string.Format("BOT: entry FILLED @ {0:F2} — ATM manages brackets", pendingEntryPrice), Brushes.LightGreen);
+					ClearOldSignalDrawings();
+				}
 				pendingOrder = null;
 				pendingOrderAccount = null;
 				return; // filled: ATM owns the brackets from here

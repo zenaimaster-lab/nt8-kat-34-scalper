@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.44] — 2026-08-02
+- **Alert Suppression & Signal Bypass in Trade**: `EvaluateA4` now checks `a4InTrade || HasOpenPosition(acc)` and immediately bypasses signal evaluation / alert generation while a position is active. `DrawSignal` calls from A4 pass `replay = true` to suppress per-bar sound alert spams.
+- **Chart Line Cleanup on Candle Update & Order Fill**: `EvaluateA4` now executes `ClearA4Drawings()` before drawing the new candle's OCO lines, keeping only the 1 active Buy line set and 1 active Sell line set on the chart (eliminating multi-bar line clutter). `ManageA4BotEntry` and `ManageBotEntry` execute `ClearA4Drawings()` and `ClearOldSignalDrawings()` immediately upon order fill.
+- **Validation**: 55/55 xunit tests passing; CompileCheck 0 errors; NT8 recompile via `Deploy-NT8.ps1`.
+- **Graphify entity mapping**: `Kat34Scalper.Signal.A4.cs` (`EvaluateA4`), `Kat34Scalper.Bot.cs` (`ManageA4BotEntry`, `ManageBotEntry`).
+
 ### [v0.43] — 2026-08-02
 - **Signal A4 In-Trade Position Guard**: Added `a4InTrade` state tracking and `HasOpenPosition(acc)` check to prevent submitting new A4 OCO entry orders while a trade is currently open in the market.
 - **Position Lifecycle Management**: Once an A4 BUY or SELL order is filled, `a4InTrade` is set to `true` and the opposite pending order is cancelled. `TrySubmitA4BotOcoEntries` blocks new entry orders until the position is completely closed (SL/TP hit or manually flattened), at which point `ManageA4BotEntry()` resets `a4InTrade = false` for subsequent signals.
