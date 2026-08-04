@@ -998,37 +998,17 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			secSignal.Children.Add(sRow);
 			mainPanel.Children.Add(CreateSectionCard(secSignal, 6));
 
-			// --- ALERT FILTER module: gates that apply only to Alert signals (A1/A2) ---
-			mainPanel.Children.Add(CreateModuleTitle("ALERT FILTER"));
-			var secAlertFilter = new StackPanel();
-			Grid afRow1 = CreateTwoColGrid();
-			Button tAdxRise = CreateFilterToggle("ADX rising (A1)", () => cachedAdxRise, v => SetAlertFilterToggle(v, x => cachedAdxRise = x));
-			Grid.SetColumn(tAdxRise, 0);
-			afRow1.Children.Add(tAdxRise);
-			Button tErA = CreateFilterToggle("ER (trend)", () => cachedErA, v => SetAlertFilterToggle(v, x => cachedErA = x));
-			Grid.SetColumn(tErA, 2);
-			afRow1.Children.Add(tErA);
-			Grid afRow2 = CreateTwoColGrid();
-			Button tCiA = CreateFilterToggle("CI (chop)", () => cachedCiA, v => SetAlertFilterToggle(v, x => cachedCiA = x));
-			Grid.SetColumn(tCiA, 0);
-			afRow2.Children.Add(tCiA);
-			Button tAdxMtf = CreateFilterToggle("ADX MTF (A1)", () => cachedA1AdxMtf, v => SetAlertA1AdxMtf(v));
-			Grid.SetColumn(tAdxMtf, 2);
-			afRow2.Children.Add(tAdxMtf);
-			secAlertFilter.Children.Add(afRow1);
-			secAlertFilter.Children.Add(afRow2);
-			mainPanel.Children.Add(CreateSectionCard(secAlertFilter, 6));
-
-			// --- BOT FILTER module: gates that apply only to Bot signals (B1/B2) ---
+			// --- BOT FILTER module: the only filter side since v0.79 (ALERT FILTER removed; A1 is a
+			// pure fan). Gates B1/B2 — and the A2 alert placeholder — via PassFilters/PassFiltersAt.
 			mainPanel.Children.Add(CreateModuleTitle("BOT FILTER"));
 			var secBotFilter = new StackPanel();
 			Grid bfRow1 = CreateTwoColGrid();
-			Button tVol = CreateFilterToggle("Volume", () => cachedVol, v => cachedVol = v);
-			Grid.SetColumn(tVol, 0);
-			bfRow1.Children.Add(tVol);
-			Button tTime = CreateFilterToggle("Time window", () => cachedTime, v => cachedTime = v);
-			Grid.SetColumn(tTime, 2);
-			bfRow1.Children.Add(tTime);
+			Button tAdxRise = CreateFilterToggle("ADX rising", () => cachedAdxRise, v => cachedAdxRise = v);
+			Grid.SetColumn(tAdxRise, 0);
+			bfRow1.Children.Add(tAdxRise);
+			Button tAdxMtf = CreateFilterToggle("ADX MTF", () => cachedAdxMtf, v => cachedAdxMtf = v);
+			Grid.SetColumn(tAdxMtf, 2);
+			bfRow1.Children.Add(tAdxMtf);
 			Grid bfRow2 = CreateTwoColGrid();
 			Button tEr = CreateFilterToggle("ER (trend)", () => cachedEr, v => cachedEr = v);
 			Grid.SetColumn(tEr, 0);
@@ -1036,8 +1016,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Button tCi = CreateFilterToggle("CI (chop)", () => cachedCi, v => cachedCi = v);
 			Grid.SetColumn(tCi, 2);
 			bfRow2.Children.Add(tCi);
+			Grid bfRow3 = CreateTwoColGrid();
+			Button tVol = CreateFilterToggle("Volume", () => cachedVol, v => cachedVol = v);
+			Grid.SetColumn(tVol, 0);
+			bfRow3.Children.Add(tVol);
+			Button tTime = CreateFilterToggle("Time window", () => cachedTime, v => cachedTime = v);
+			Grid.SetColumn(tTime, 2);
+			bfRow3.Children.Add(tTime);
 			secBotFilter.Children.Add(bfRow1);
 			secBotFilter.Children.Add(bfRow2);
+			secBotFilter.Children.Add(bfRow3);
 			mainPanel.Children.Add(CreateSectionCard(secBotFilter, 6));
 
 			// --- DRAW module: Clear removes all drawings from this HUD (signals + A0 + A1 stages) ---

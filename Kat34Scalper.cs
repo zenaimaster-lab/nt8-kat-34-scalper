@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.78 (2026-08-04)
+ * Version: 0.79 (2026-08-04)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -14,7 +14,7 @@
  *   src/Kat34Scalper.Signal.cs         — Bot Signal module shared helpers (backfill window)
  *   src/Kat34Scalper.Signal.B1.cs      — Bot Signal sub-module B1: 34bounce8+ (34+8+Bounce ema34-touch pending entry)
  *   src/Kat34Scalper.Signal.B2.cs      — Bot Signal sub-module B2: 89uturn34 (89-34 pullback setup)
- *   src/Kat34Scalper.Filter.cs         — Filter module: BOT side (MTF/ADX/Volume/Time/ER/CI) + ALERT side (ADX/ER/CI) gates
+ *   src/Kat34Scalper.Filter.cs         — Filter module: ADX rising/ADX MTF/ER/CI/Volume/Time gates (single Bot side since v0.79; A1 is pure fan)
  *   src/Kat34Scalper.Bot.cs            — Bot module: order ops, stop/limit, ATM
  *   src/Kat34Scalper.Draw.cs           — Draw module: lines + ATM triggers + HUD
  */
@@ -84,7 +84,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.78";
+		public const string VERSION = "0.79";
 		public const string RELEASE_DATE = "2026-08-04";
 
 
@@ -95,7 +95,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private EMA ema144;
 		private EMA ema200;
 		private ADX adxInd;
-		private ADX adxMtfInd; // A1-only regime ADX on the dedicated MTF series (BarsArray[2])
+		private ADX adxMtfInd; // Bot ADX MTF regime gate on the dedicated MTF series (BarsArray[2])
 		private SMA volSmaInd;
 
 		// Alert Signal A1 (fan) — dedicated EMAs on the dedicated secondary series (BarsArray[1]).
@@ -130,8 +130,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 				// 1. Filters defaults — every gate OFF; toggles boot OFF on every load (session-only)
 				AdxPeriod					= 60; // 60x30s = 30-min regime window; 14 (7 min) whipsaws on 30s
-				AdxRisingEnabled			= false;
 				AdxRisingBars				= 5;
+				AdxMtfMinutes				= 3;
+				AdxMtfPeriod				= 14;
+				AdxMtfMin					= 22;
 				ErPeriod					= 40;
 				ErMin						= 0.25;
 				CiPeriod					= 40;
@@ -157,10 +159,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AlertA1LineWidth			= 2;
 				AlertA1LongLineColor		= Colors.DarkGreen;
 				AlertA1ShortLineColor		= Colors.DarkRed;
-				AlertA1AdxMtfEnabled		= false;
-				AlertA1AdxMtfMinutes		= 3;
-				AlertA1AdxMtfPeriod			= 14;
-				AlertA1AdxMtfMin			= 22;
 
 				// 2.5 Alert Signal A2 defaults — OFF
 				AlertA2Enabled				= false;
@@ -229,8 +227,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				// Alert Signal A1 (fan) dedicated timeframe — always added so BarsArray indexes stay
 				// stable; the AlertA1Enabled toggle only gates evaluation. Series 1 = BarsArray[1].
 				AddDataSeries(Data.BarsPeriodType.Second, Math.Max(1, AlertA1PeriodSeconds));
-				// A1 MTF ADX regime timeframe — always added so BarsArray indexes stay stable. Series 2 = BarsArray[2].
-				AddDataSeries(Data.BarsPeriodType.Minute, Math.Max(1, AlertA1AdxMtfMinutes));
+				// ADX MTF regime timeframe (Bot ADX MTF gate) — always added so BarsArray indexes stay stable. Series 2 = BarsArray[2].
+				AddDataSeries(Data.BarsPeriodType.Minute, Math.Max(1, AdxMtfMinutes));
 			}
 			else if (State == State.DataLoaded)
 			{
@@ -249,7 +247,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				a1Ema144 = EMA(BarsArray[1], 144);
 				a1Ema200 = EMA(BarsArray[1], 200);
 				a1Atr = ATR(BarsArray[1], Math.Max(1, AlertA1AtrPeriod));
-				adxMtfInd = ADX(BarsArray[2], Math.Max(1, AlertA1AdxMtfPeriod));
+				adxMtfInd = ADX(BarsArray[2], Math.Max(1, AdxMtfPeriod));
 
 				timeWindowDisabled = string.Equals(TimeFilterStart, TimeFilterEnd, StringComparison.OrdinalIgnoreCase);
 				if (!timeWindowDisabled)
@@ -259,7 +257,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				}
 
 				cachedAlertA1 = AlertA1Enabled;
-				cachedA1AdxMtf = AlertA1AdxMtfEnabled;
 				cachedAlertA2 = AlertA2Enabled;
 				alertA1BackfillPending = AlertA1Enabled;
 				alertA2BackfillPending = AlertA2Enabled;
@@ -318,14 +315,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double low = Lows[0][0];
 			double close = Closes[0][0];
 
-			bool alertSell, alertBuy;
-			PassAlertFilters(out alertSell, out alertBuy);          // ALERT Filter module (ADX/ER/CI alert side)
-			EvaluateAlertA2(high, low, close, alertSell, alertBuy); // Alert Signal sub-module A2
 			bool sellAllowed, buyAllowed;
-			PassFilters(out sellAllowed, out buyAllowed);          // BOT Filter module (ADX, volume, time, ER, CI)
-			EvaluateB1(high, low, close, sellAllowed, buyAllowed); // Bot Signal sub-module B1 (34bounce8+)
-			EvaluateB2(high, low, close, sellAllowed, buyAllowed); // Bot Signal sub-module B2 (89uturn34)
-			ManageBotEntry(high, low, close);                      // Bot module (pending entry lifecycle)
+			PassFilters(out sellAllowed, out buyAllowed);              // Filter module (ADX rising, ADX MTF, ER, CI, Volume, Time)
+			EvaluateAlertA2(high, low, close, sellAllowed, buyAllowed); // Alert Signal sub-module A2 (placeholder)
+			EvaluateB1(high, low, close, sellAllowed, buyAllowed);      // Bot Signal sub-module B1 (34bounce8+)
+			EvaluateB2(high, low, close, sellAllowed, buyAllowed);      // Bot Signal sub-module B2 (89uturn34)
+			ManageBotEntry(high, low, close);                           // Bot module (pending entry lifecycle)
 		}
 		#endregion
 
@@ -365,11 +360,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		public string AlertSound { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "ADX Rising Enabled", Order = 14, GroupName = "1. Filters",
-			Description = "Only allow entries while ADX is rising (ADX above its value Lookback bars ago) — blocks dying-trend/chop regimes.")]
-		public bool AdxRisingEnabled { get; set; }
-
-		[NinjaScriptProperty]
 		[Display(Name = "ADX Rising Lookback (bars)", Order = 15, GroupName = "1. Filters")]
 		public int AdxRisingBars { get; set; }
 
@@ -392,6 +382,20 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "CI Max", Order = 19, GroupName = "1. Filters",
 			Description = "Maximum Choppiness Index — blocks ranging windows (>61.8 = chop, <38.2 = trend).")]
 		public double CiMax { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "ADX MTF Timeframe (minutes)", Order = 20, GroupName = "1. Filters",
+			Description = "Regime ADX timeframe (dedicated secondary series) — moved from Alert A1 to Bot in v0.79.")]
+		public int AdxMtfMinutes { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "ADX MTF Period", Order = 21, GroupName = "1. Filters")]
+		public int AdxMtfPeriod { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "ADX MTF Min", Order = 22, GroupName = "1. Filters",
+			Description = "Minimum ADX on the MTF timeframe — blocks weak-regime bars.")]
+		public double AdxMtfMin { get; set; }
 
 		// --- 2. Alert Signal A1 (fan 30s — independent 30s series, alert-only, no Bot/order interaction) ---
 		[NinjaScriptProperty]
@@ -479,23 +483,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			get { return AlertA1ShortLineColor.ToString(); }
 			set { AlertA1ShortLineColor = ParseColor(value, Colors.DarkRed); }
 		}
-
-		[NinjaScriptProperty]
-		[Display(Name = "Cond: ADX MTF regime", Order = 14, GroupName = "2. Alert Signal A1 — fan 30s",
-			Description = "Independent regime gate (NOT part of the Global Filter): A1 fires only while the MTF ADX reaches Min. Also toggled live from the HUD GLOBAL FILTER 'ADX MTF (A1)' button.")]
-		public bool AlertA1AdxMtfEnabled { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "ADX MTF Timeframe (minutes)", Order = 15, GroupName = "2. Alert Signal A1 — fan 30s")]
-		public int AlertA1AdxMtfMinutes { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "ADX MTF Period", Order = 16, GroupName = "2. Alert Signal A1 — fan 30s")]
-		public int AlertA1AdxMtfPeriod { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "ADX MTF Min", Order = 17, GroupName = "2. Alert Signal A1 — fan 30s")]
-		public double AlertA1AdxMtfMin { get; set; }
 
 		// --- 2.5 Alert Signal A2 (Placeholder sub-module) ---
 		[NinjaScriptProperty]

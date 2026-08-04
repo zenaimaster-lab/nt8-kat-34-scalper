@@ -227,59 +227,6 @@ public class Kat34ScalperLogicTests
 		Assert.Equal(100, Kat34ScalperLogic.ChoppinessIndex(new double[] { 5, 5, 5 }, new double[] { 5, 5, 5 }, new double[] { 5, 5, 5, 5 }), 10);
 	}
 
-	// --- A1 line gate: filters delay/remove lines, never add ---
-	[Fact]
-	public void LineGate_FiredAndGatePass_DrawsImmediately()
-	{
-		Assert.True(Kat34ScalperLogic.A1LineGateStep(true, true, true, false, out bool pending));
-		Assert.False(pending);
-	}
-
-	[Fact]
-	public void LineGate_GateClosed_PendsThenDrawsWhenGateOpens()
-	{
-		Assert.False(Kat34ScalperLogic.A1LineGateStep(true, true, false, false, out bool pending));
-		Assert.True(pending);
-		Assert.False(Kat34ScalperLogic.A1LineGateStep(false, true, false, pending, out pending));
-		Assert.True(pending);
-		Assert.True(Kat34ScalperLogic.A1LineGateStep(false, true, true, pending, out pending));
-		Assert.False(pending);
-	}
-
-	[Fact]
-	public void LineGate_GateNeverPasses_EpisodeDies_NoDraw()
-	{
-		Assert.False(Kat34ScalperLogic.A1LineGateStep(true, true, false, false, out bool pending));
-		Assert.True(pending);
-		Assert.False(Kat34ScalperLogic.A1LineGateStep(false, false, false, pending, out pending));
-		Assert.False(pending);
-	}
-
-	[Fact]
-	public void LineGate_FilterOn_NeverMoreLinesThanOff()
-	{
-		// common-sense property: a stricter gate may remove or delay lines, never create extra ones
-		int[] env = { 1, 1, 1, 0, 0, 1, 1, 1, 1, -1, -1, 0, 1, 1, 1, 0, 1, 1 };
-		bool[] gate = { true, false, true, true, false, true, false, true, false, true, false, true, false, true, true, true, false, true };
-		Assert.Equal(env.Length, gate.Length);
-		int off = CountLines(env, i => true, 3);
-		int on = CountLines(env, i => gate[i], 3);
-		Assert.True(on <= off, string.Format("on={0} off={1}", on, off));
-	}
-
-	private static int CountLines(int[] env, Func<int, bool> gateAt, int breakBars)
-	{
-		int lastDir = 0, streak = 0, lines = 0;
-		bool pending = false;
-		for (int i = 0; i < env.Length; i++)
-		{
-			bool fired = Kat34ScalperLogic.A1EdgeStep(env[i], lastDir, streak, breakBars, out lastDir, out streak);
-			bool gate = env[i] != 0 && gateAt(i);
-			if (Kat34ScalperLogic.A1LineGateStep(fired, lastDir != 0, gate, pending, out pending)) lines++;
-		}
-		return lines;
-	}
-
 	// --- BarsAgoAtOrBefore (cross-series time mapping) ---
 	[Fact]
 	public void BarsAgo_ExactMatch_ReturnsThatAgo()

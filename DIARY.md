@@ -19,6 +19,15 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.79] — 2026-08-04
+- **Alert-side filters abolished — A1 is now a pure EMA fan**: every gate moved to the single Bot filter side; the ALERT FILTER HUD section is gone. A1 episodes/bands/edge lines run on the fan + angle alone (`EvaluateAlertA1Bar`/`BackfillAlertA1` no longer call any market gate).
+- **Moved gates**: `ADX rising` and `ADX MTF` (both were A1-only alert legs) now gate B1/B2/A2 on series 0 via `MarketPassAt` — ADX MTF keeps the no-lookahead `ClosedBarCutoff` mapping (`Filter.AdxMtfPassAt` + generalized `SeriesPeriodSeconds`; non-time chart series stay conservative). Alert-side ER/CI duplicates (`cachedErA`/`cachedCiA`) dropped — the existing Bot ER/CI remain.
+- **Orphans removed**: `A1LineGateStep` (pure logic) + its 4 xunit cases incl. the subset-property test (no consumer once gates left A1), `a1LinePending`, `AlertA1MarketPassAt`, `Series0BarsAgoAt`, `A1ClosedCutoff`, `SetAlertFilterToggle`, `SetAlertA1AdxMtf`, `ReBackfillAlertA1`, `PassAlertFilters(At)`, dead `AdxRisingEnabled` setting.
+- **Settings**: `AlertA1AdxMtfMinutes/Period/Min` renamed to `AdxMtfMinutes/Period/Min` and moved to group "1. Filters" (rename drops stale saved values, defaults 3m/14/22 unchanged); `AlertA1AdxMtfEnabled` deleted (session-only HUD toggle like every other gate). A2 placeholder now consumes the Bot filter pipeline.
+- **HUD**: BOT FILTER = [ADX rising | ADX MTF] + [ER (trend) | CI (chop)] + [Volume | Time window]; bot toggles stay plain (no re-backfill — B1/B2 pick toggles up on live bars + next backfill, same as the pre-existing Volume/Time/ER/CI buttons).
+- Tests 102 → 98 (4 LineGate cases deleted with the orphaned logic); compile gate green; NT8 recompile accepted.
+  - Graphify entity mapping: `Filter.AdxMtfPassAt/SeriesPeriodSeconds`, `cachedAdxRise/cachedAdxMtf` (bot side), `EvaluateAlertA1Bar/BackfillAlertA1` (gate-free), HUD BOT FILTER rows, `AdxMtfMinutes/Period/Min`.
+
 ### [v0.78] — 2026-08-04
 - **Environment bands actually render now (the long-standing green/red background bug)**: `DrawEnvBand`'s guards were written for barsAgo arguments (`barsAgoStart <= barsAgoEnd → return`), but every caller passes ABSOLUTE bar indexes where a valid episode always has `startIdx < endIdx` — so the guard rejected EVERY episode and the rectangle was never drawn (backfill or live). The v0.73/v0.75 "visible band" analyses verified the time-anchor math and missed the guard direction — owned. The decision + index→barsAgo conversion now lives in pure, tested `Kat34ScalperLogic.EnvBandAnchors(dir, startIdx, endIdx, hi, lo, currentBarIdx, out agoStart, out agoEnd)`; `DrawEnvBand` is a thin wrapper over it.
 - **Tests 98 → 102**: valid episode draws with correct barsAgo anchors (agoStart > agoEnd, older bar = larger barsAgo), ranging (dir 0) not drawn, zero-length episode (startIdx == endIdx) not drawn, flat extent (hi == lo) not drawn.

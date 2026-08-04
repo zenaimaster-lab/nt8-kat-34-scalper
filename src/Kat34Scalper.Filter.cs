@@ -3,9 +3,9 @@
  * Gates that decide whether a signal may fire on a bar. Every gate has a *At(barsAgo)
  * variant so the signal backfill replays evaluate the same gates on historical bars.
  * New filters (MACD, RSI, ...) plug in as a new method here + one clause in PassFiltersAt.
- *   ER (trend), CI (chop), Volume, Time window.
- *   Two independent sides: BOT gates (Volume/Time/ER/CI) feed B1+B2; ALERT gates
- *   (ER/CI + the A1-only ADX rising & ADX MTF legs in the A1 module) feed A1+A2.
+ *   BOT gates (ADX rising, ADX MTF, ER, CI, Volume, Time window) feed B1+B2 and the A2 alert
+ *   placeholder. Since v0.79 there is NO alert-side filter: A1 is a pure EMA fan. The old
+ *   A1-only legs (ADX rising, ADX MTF) moved here; the alert-side ER/CI duplicates were dropped.
  * Every gate is OFF by default (session-only toggles boot OFF on every load).
  */
 
@@ -21,17 +21,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper
 	{
 		// --- Filter module state (HUD toggles — default OFF: every gate open until user enables) ---
-		// BOT side (old A0-era MTF fan toggle removed v0.76; plain ADX toggle removed v0.77)
+		private volatile bool cachedAdxRise; // moved from the alert side v0.79 (was "ADX rising (A1)")
+		private volatile bool cachedAdxMtf;  // moved from the alert side v0.79 (was "ADX MTF (A1)")
 		private volatile bool cachedEr;
 		private volatile bool cachedCi;
 		private volatile bool cachedVol;
 		private volatile bool cachedTime;
-		// ALERT side (independent state; ADX rising + ADX MTF A1-only legs live in the A1 module)
-		private volatile bool cachedAdxRise;
-		private volatile bool cachedErA;
-		private volatile bool cachedCiA;
 
-		// Live entry point (current bar) with the gate-transition diagnostic print. BOT side.
+		// Live entry point (current bar) with the gate-transition diagnostic print.
 		private void PassFilters(out bool sellAllowed, out bool buyAllowed)
 		{
 			PassFiltersAt(0, out sellAllowed, out buyAllowed);
@@ -46,37 +43,23 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 		}
 
-		// Live ALERT side (A2). A1 applies the alert gates inside AlertA1DirectionAt (backfill-aware).
-		private void PassAlertFilters(out bool sellAllowed, out bool buyAllowed)
-		{
-			PassAlertFiltersAt(0, out sellAllowed, out buyAllowed);
-		}
-
-		// BOT market + time at any bar (barsAgo 0 = live, >0 = backfill replay).
+		// Market + time gates at any bar (barsAgo 0 = live, >0 = backfill replay).
 		private void PassFiltersAt(int barsAgo, out bool sellAllowed, out bool buyAllowed)
 		{
-			bool pass = MarketPassAt(barsAgo, false) && TimePassAt(barsAgo);
+			bool pass = MarketPassAt(barsAgo) && TimePassAt(barsAgo);
 			sellAllowed = pass;
 			buyAllowed  = pass;
 		}
 
-		// ALERT market gates at any bar (no time window on the alert side).
-		private void PassAlertFiltersAt(int barsAgo, out bool sellAllowed, out bool buyAllowed)
+		private bool MarketPassAt(int barsAgo)
 		{
-			bool pass = MarketPassAt(barsAgo, true);
-			sellAllowed = pass;
-			buyAllowed  = pass;
-		}
-
-		private bool MarketPassAt(int barsAgo, bool alert)
-		{
-			if ((alert ? cachedErA : cachedEr) && !ErPassAt(barsAgo)) return false;
-			if ((alert ? cachedCiA : cachedCi) && !CiPassAt(barsAgo)) return false;
-			if (!alert)
-			{
-				double volSma = cachedVol && volSmaInd != null ? volSmaInd[barsAgo] : 0;
-				if (!Kat34ScalperLogic.PassMarketFilter(0, 0, Volumes[0][barsAgo], volSma, VolumeMinMult)) return false;
-			}
+			if (cachedEr && !ErPassAt(barsAgo)) return false;
+			if (cachedCi && !CiPassAt(barsAgo)) return false;
+			int riseBars = Math.Max(1, AdxRisingBars); // 0 would compare adx against itself — gate permanently closed
+			if (cachedAdxRise && (adxInd == null || CurrentBars[0] < barsAgo + riseBars || adxInd[barsAgo] <= adxInd[barsAgo + riseBars])) return false;
+			if (cachedAdxMtf && !AdxMtfPassAt(barsAgo)) return false;
+			double volSma = cachedVol && volSmaInd != null ? volSmaInd[barsAgo] : 0;
+			if (!Kat34ScalperLogic.PassMarketFilter(0, 0, Volumes[0][barsAgo], volSma, VolumeMinMult)) return false;
 			return true;
 		}
 
@@ -112,6 +95,27 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (!cachedTime || timeWindowDisabled) return true;
 			return Kat34ScalperLogic.IsInTimeWindow(Times[0][barsAgo].TimeOfDay, timeStart, timeEnd);
+		}
+
+		// ADX regime gate on the dedicated MTF series (BarsArray[2]): the most recent MTF bar CLOSED
+		// at or before the series-0 bar's close must have ADX >= AdxMtfMin (no lookahead, backfill-aware).
+		private bool AdxMtfPassAt(int barsAgo)
+		{
+			if (adxMtfInd == null || CurrentBars == null || CurrentBars.Length < 3 || CurrentBars[2] < 1) return true;
+			DateTime cutoff = Kat34ScalperLogic.ClosedBarCutoff(Times[0][barsAgo], SeriesPeriodSeconds(0), SeriesPeriodSeconds(2));
+			int idx = Kat34ScalperLogic.BarsAgoAtOrBefore(i => Times[2][i], CurrentBars[2], cutoff);
+			if (idx < 0) return true; // MTF series starts after the bar — warmup, gate open
+			return adxMtfInd[idx] >= AdxMtfMin;
+		}
+
+		// Bar period in seconds for time-based series; 0 for non-time-based (tick/volume/range —
+		// their completion time is unknowable from timestamps, so cutoffs stay conservative).
+		private double SeriesPeriodSeconds(int series)
+		{
+			var bp = BarsArray[series].BarsPeriod;
+			if (bp.BarsPeriodType == Data.BarsPeriodType.Second) return Math.Max(1, bp.Value);
+			if (bp.BarsPeriodType == Data.BarsPeriodType.Minute) return Math.Max(1, bp.Value) * 60.0;
+			return 0;
 		}
 	}
 }

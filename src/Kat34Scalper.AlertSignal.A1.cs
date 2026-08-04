@@ -1,9 +1,11 @@
 /*
  * Kat34Scalper.AlertSignal.A1.cs — Alert Signal sub-module A1: fan 30s (partial class Kat34Scalper).
  * Independent Alert Signal A1 (fan) — runs on its OWN secondary series (BarsArray[1], default 30s)
- * with its OWN EMA 8/34/144/200 instances. Shares NOTHING with the Bot Signals (B1/B2): no common
+ * with its OWN EMA 8/34/89/144/200 instances. Shares NOTHING with the Bot Signals (B1/B2): no common
  * series, EMAs, states, signalRecords or drawing records. Alert-only: draws a vertical line and
  * plays the global Alert Sound on environment transitions. Does NOT interact with Bot or orders.
+ * Since v0.79 A1 is a PURE EMA fan — no market gates (they moved to the Bot side; the ALERT FILTER
+ * HUD section is gone). Episodes, bands and edge lines run on the fan + angle alone.
  *
  * LONG environment:  ema8 > ema34 > ema89 > ema144 > ema200 AND ema34 slope angle >= +Min Angle (rising).
  * SHORT environment: ema8 < ema34 < ema89 < ema144 < ema200 AND ema34 slope angle <= -Min Angle (falling).
@@ -24,17 +26,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper
 	{
 		private volatile bool cachedAlertA1 = false;
-		private volatile bool cachedA1AdxMtf = false;
 		private volatile bool alertA1BackfillPending;
 		private int a1LastDir;          // edge-trigger state: last armed environment direction
 		private int a1InvalidStreak;    // consecutive invalid bars; >= BreakBars counts as broken
-		private int a1PrevDir;          // last printed gate direction (diagnostic)
+		private int a1PrevDir;          // last printed direction (diagnostic)
 		private int a1ReplayLines;      // backfill counter
 		private int a1BandDir;          // open background band: episode direction (0 = ranging, no band)
 		private int a1BandStartIdx;     // open background band episode start (series-1 bar index)
 		private double a1BandHi = double.MinValue; // vertical extent of the bands (window extremes, live-extended)
 		private double a1BandLo = double.MaxValue;
-		private bool a1LinePending;     // episode fired but market gate not yet passed — line deferred
 
 		private void SetAlertA1Signal(bool on)
 		{
@@ -54,15 +54,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		// Called from OnBarUpdate on BarsInProgress == 1 (the dedicated A1 series, OnBarClose).
+		// Pure fan since v0.79 — no market gates (they moved to the Bot side).
 		private void EvaluateAlertA1Bar()
 		{
 			if (!cachedAlertA1) return;
 			if (CurrentBars == null || CurrentBars.Length < 2 || CurrentBars[1] < 201) return; // ema200 warmup
 			if (a1Ema8 == null || a1Ema34 == null || a1Ema89 == null || a1Ema144 == null || a1Ema200 == null || a1Atr == null) return;
 
-			int envDir = AlertA1DirectionAt(0, out double angle);
-			bool gate = envDir != 0 && AlertA1MarketPassAt(0);
-			int dir = gate ? envDir : 0;
+			int dir = AlertA1DirectionAt(0, out double angle);
 			if (Highs[1][0] > a1BandHi) a1BandHi = Highs[1][0];
 			if (Lows[1][0] < a1BandLo) a1BandLo = Lows[1][0];
 			if (dir != a1PrevDir)
@@ -72,7 +71,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				a1BandDir = dir;
 				a1BandStartIdx = CurrentBars[1];
 				a1PrevDir = dir;
-				Print(string.Format("[Kat34Scalper][AlertA1][GATE] bar {0} dir={1}, angle={2:F1}deg (min {3}, enabled {4}), e8={5:F2}, e34={6:F2}, e89={7:F2}, e144={8:F2}, e200={9:F2}, atr={10:F2}",
+				Print(string.Format("[Kat34Scalper][AlertA1][FAN] bar {0} dir={1}, angle={2:F1}deg (min {3}, enabled {4}), e8={5:F2}, e34={6:F2}, e89={7:F2}, e144={8:F2}, e200={9:F2}, atr={10:F2}",
 					CurrentBars[1], dir, angle, AlertA1AngleMin, AlertA1AngleEnabled,
 					a1Ema8[0], a1Ema34[0], a1Ema89[0], a1Ema144[0], a1Ema200[0], a1Atr[0]));
 			}
@@ -80,8 +79,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				DrawEnvBand(a1BandDir, a1BandStartIdx, CurrentBars[1], a1BandHi, a1BandLo); // extend the open episode
 			}
-			bool fired = Kat34ScalperLogic.A1EdgeStep(envDir, a1LastDir, a1InvalidStreak, AlertA1BreakBars, out a1LastDir, out a1InvalidStreak);
-			if (Kat34ScalperLogic.A1LineGateStep(fired, a1LastDir != 0, gate, a1LinePending, out a1LinePending))
+			bool fired = Kat34ScalperLogic.A1EdgeStep(dir, a1LastDir, a1InvalidStreak, AlertA1BreakBars, out a1LastDir, out a1InvalidStreak);
+			if (fired)
 			{
 				DrawAlertA1Line(a1LastDir, 0);
 				if (State == State.Realtime) // historical replay would machine-gun the sound on every load
@@ -95,8 +94,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		// Fan+angle environment direction on the A1 series (needs barsAgo+1 for the slope;
 		// slope normalized by the A1-series ATR so the angle needs no manual tuning).
-		// Market gates (ALERT FILTER) are applied separately so episodes stay fan-based and
-		// filters can only remove/delay lines, never add them (see A1LineGateStep).
 		private int AlertA1DirectionAt(int ago, out double angle)
 		{
 			angle = Kat34ScalperLogic.SlopeAngleDeg(a1Ema34[ago], a1Ema34[ago + 1], a1Atr[ago]);
@@ -104,74 +101,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AlertA1CondEma8Above34, AlertA1CondEma34Above89, AlertA1CondEma89Above144, AlertA1CondEma144Above200, AlertA1AngleEnabled,
 				a1Ema8[ago], a1Ema34[ago], a1Ema89[ago], a1Ema144[ago], a1Ema200[ago],
 				angle, Math.Abs(AlertA1AngleMin));
-		}
-
-		// ALERT-side market gates evaluated on the primary series at the A1 bar time (backfill-aware).
-		// The A1-only legs (ADX rising, ADX MTF) live here; the shared alert toggles (ER/CI) too.
-		private bool AlertA1MarketPassAt(int ago)
-		{
-			if (cachedA1AdxMtf && !A1AdxMtfPassAt(ago)) return false;
-			if (!cachedAdxRise && !cachedErA && !cachedCiA) return true;
-			int ago0 = Series0BarsAgoAt(A1ClosedCutoff(ago, 0));
-			if (ago0 < 0) return true;
-			int riseBars = Math.Max(1, AdxRisingBars); // 0 would compare adx against itself — gate permanently closed
-			if (cachedAdxRise && (adxInd == null || CurrentBars[0] < ago0 + riseBars || adxInd[ago0] <= adxInd[ago0 + riseBars])) return false;
-			if (cachedErA && !ErPassAt(ago0)) return false;
-			if (cachedCiA && !CiPassAt(ago0)) return false;
-			return true;
-		}
-
-		// barsAgo on the primary series of the bar closed at or before t (-1 when t precedes series 0).
-		private int Series0BarsAgoAt(DateTime t)
-		{
-			return Kat34ScalperLogic.BarsAgoAtOrBefore(i => Times[0][i], CurrentBars[0], t);
-		}
-
-		// No-lookahead cutoff for cross-series gate reads: backfill replays see the COMPLETE target
-		// series, so a plain "opened at or before the A1 bar time" search would read target bars that
-		// had not closed yet when the A1 bar closed (live evaluation only ever sees closed bars).
-		// Time-based target: cutoff = A1 close - target period. Non-time target: cutoff = A1 open.
-		private DateTime A1ClosedCutoff(int ago, int series)
-		{
-			double a1Secs = Math.Max(1, AlertA1PeriodSeconds);
-			double targetSecs = a1Secs; // non-time target series: stay at the A1 bar open (conservative)
-			var bp = BarsArray[series].BarsPeriod;
-			if (bp.BarsPeriodType == Data.BarsPeriodType.Second) targetSecs = bp.Value;
-			else if (bp.BarsPeriodType == Data.BarsPeriodType.Minute) targetSecs = bp.Value * 60.0;
-			return Kat34ScalperLogic.ClosedBarCutoff(Times[1][ago], a1Secs, targetSecs);
-		}
-
-		// Independent MTF ADX regime gate (NOT part of the Global Filter): the most recent MTF bar
-		// closed at or before the A1 bar time must have ADX >= AlertA1AdxMtfMin (no lookahead).
-		private bool A1AdxMtfPassAt(int ago)
-		{
-			if (adxMtfInd == null || CurrentBars == null || CurrentBars.Length < 3 || CurrentBars[2] < 1) return true;
-			DateTime t = A1ClosedCutoff(ago, 2);
-			int idx = Kat34ScalperLogic.BarsAgoAtOrBefore(i => Times[2][i], CurrentBars[2], t);
-			if (idx < 0) return true; // MTF series starts after t — warmup, gate open
-			return adxMtfInd[idx] >= AlertA1AdxMtfMin;
-		}
-
-		// HUD toggle: flip the gate and replay the A1 history so the drawings match immediately.
-		private void SetAlertA1AdxMtf(bool on)
-		{
-			cachedA1AdxMtf = on;
-			Print(string.Format("[Kat34Scalper][AlertA1] ADX MTF gate toggled {0} (min {1} on {2}m) — re-backfilling.",
-				on ? "ON" : "OFF", AlertA1AdxMtfMin, AlertA1AdxMtfMinutes));
-			ReBackfillAlertA1();
-		}
-
-		// Shared ALERT FILTER HUD toggles: assign then replay A1 so lines/bands match the new gates.
-		private void SetAlertFilterToggle(bool on, Action<bool> assign)
-		{
-			assign(on);
-			ReBackfillAlertA1();
-		}
-
-		private void ReBackfillAlertA1()
-		{
-			alertA1BackfillPending = true; // FlushAlertBackfill no-ops without this — signals would vanish
-			TriggerCustomEvent(o => { ClearAlertA1Drawings(); FlushAlertBackfill(); }, null);
 		}
 
 		// Vertical line anchored at the A1 bar time (time-based draw — safe from any series context).
@@ -205,15 +134,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 			int lastDir = 0;
 			int invalidStreak = 0;
-			bool linePending = false;
 			a1ReplayLines = 0;
 			int bandDir = 0;
 			int bandStartIdx = CurrentBars[1] - start;
 			for (int ago = start; ago >= 1; ago--)
 			{
-				int envDir = AlertA1DirectionAt(ago, out _);
-				bool gate = envDir != 0 && AlertA1MarketPassAt(ago);
-				int dir = gate ? envDir : 0;
+				int dir = AlertA1DirectionAt(ago, out _);
 				if (dir != bandDir)
 				{
 					DrawEnvBand(bandDir, bandStartIdx, CurrentBars[1] - ago, hi, lo);
@@ -221,8 +147,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					bandDir = dir;
 					bandStartIdx = CurrentBars[1] - ago;
 				}
-				bool fired = Kat34ScalperLogic.A1EdgeStep(envDir, lastDir, invalidStreak, AlertA1BreakBars, out lastDir, out invalidStreak);
-				if (Kat34ScalperLogic.A1LineGateStep(fired, lastDir != 0, gate, linePending, out linePending))
+				bool fired = Kat34ScalperLogic.A1EdgeStep(dir, lastDir, invalidStreak, AlertA1BreakBars, out lastDir, out invalidStreak);
+				if (fired)
 				{
 					DrawAlertA1Line(lastDir, ago);
 					a1ReplayLines++;
@@ -230,7 +156,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 			a1LastDir = lastDir;          // live evaluation continues the edge-trigger state
 			a1InvalidStreak = invalidStreak;
-			a1LinePending = linePending;
 			a1PrevDir = bandDir;
 			a1BandDir = bandDir;
 			a1BandStartIdx = bandStartIdx;
@@ -261,7 +186,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			a1BandStartIdx = 0;
 			a1BandHi = double.MinValue;
 			a1BandLo = double.MaxValue;
-			a1LinePending = false;
 			RemoveModuleDrawings("K34S_ALERTA1_");
 		}
 
