@@ -19,6 +19,13 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.70] — 2026-08-04
+- **HUD polish + environment tint**: GLOBAL FILTER buttons now breathe — uniform 4px row gaps + 6px column gap (was glued rows), `ADX rising` renamed `ADX rising (A1)` and paired beside `ADX MTF (A1)` (A1-only gates together), `ER (trend)` + `CI (chop)` on their own row.
+- **Chart environment tint**: while the A1 environment is LONG the whole chart gets a very pale transparent green wash (alpha 16/255), SHORT a pale red wash, ranging/A1-OFF no wash. WPF `Rectangle` overlay in the chart host grid (ZIndex 9998, under the HUD canvas, `IsHitTestVisible=false`), refreshed on A1 direction transitions, after backfill, and cleared with A1 drawings.
+- **A1 vertical lines dark**: defaults LimeGreen/Red → DarkGreen/DarkRed; properties renamed `AlertA1LongLineColor`/`AlertA1ShortLineColor` (v0.67-style orphaning so stale saved bright values drop).
+- 83 tests green; compile gate green; NT8 live recompile accepted.
+  - Graphify entity mapping: `Kat34Scalper.envTintRect`, `Kat34Scalper.UpdateEnvTint(dir)`, `AlertA1LongLineColor/AlertA1ShortLineColor`, HUD row layout (GLOBAL FILTER).
+
 ### [v0.69] — 2026-08-04
 - **Range-regime filters for 30s scalping** — four new gates, each with a friendly HUD toggle button in the GLOBAL FILTER section (session-only, boot OFF like the existing gates):
   - **ADX tuned**: default `AdxPeriod` 14→60 (30-min regime window on 30s; 14 = 7 min whipsaws). New `ADX rising` leg (`AdxRisingEnabled` default OFF / `AdxRisingBars` 5): only entries while ADX above its value N bars ago — blocks dying-trend chops.

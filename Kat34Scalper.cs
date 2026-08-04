@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.69 (2026-08-04)
+ * Version: 0.70 (2026-08-04)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -84,7 +84,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.69";
+		public const string VERSION = "0.70";
 		public const string RELEASE_DATE = "2026-08-04";
 
 
@@ -156,8 +156,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AlertA1BreakBars			= 3;
 				AlertA1AtrPeriod			= 14;
 				AlertA1LineWidth			= 2;
-				AlertA1LongColor			= Colors.LimeGreen;
-				AlertA1ShortColor			= Colors.Red;
+				AlertA1LongLineColor		= Colors.DarkGreen;
+				AlertA1ShortLineColor		= Colors.DarkRed;
 				AlertA1AdxMtfEnabled		= false;
 				AlertA1AdxMtfMinutes		= 3;
 				AlertA1AdxMtfPeriod			= 14;
@@ -460,28 +460,28 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		[NinjaScriptProperty]
 		[Display(Name = "LONG Line Color", Order = 13, GroupName = "2. Alert Signal A1 — fan 30s",
-			Description = "Vertical line color for the LONG environment.")]
+			Description = "Vertical line color for the LONG environment. Renamed in v0.70 so stale saved bright values drop and the dark default applies.")]
 		[XmlIgnore]
-		public Color AlertA1LongColor { get; set; }
+		public Color AlertA1LongLineColor { get; set; }
 
 		[Browsable(false)]
-		public string AlertA1LongColorSerializable
+		public string AlertA1LongLineColorSerializable
 		{
-			get { return AlertA1LongColor.ToString(); }
-			set { AlertA1LongColor = ParseColor(value, Colors.LimeGreen); }
+			get { return AlertA1LongLineColor.ToString(); }
+			set { AlertA1LongLineColor = ParseColor(value, Colors.DarkGreen); }
 		}
 
 		[NinjaScriptProperty]
 		[Display(Name = "SHORT Line Color", Order = 13, GroupName = "2. Alert Signal A1 — fan 30s",
-			Description = "Vertical line color for the SHORT environment.")]
+			Description = "Vertical line color for the SHORT environment. Renamed in v0.70 so stale saved bright values drop and the dark default applies.")]
 		[XmlIgnore]
-		public Color AlertA1ShortColor { get; set; }
+		public Color AlertA1ShortLineColor { get; set; }
 
 		[Browsable(false)]
-		public string AlertA1ShortColorSerializable
+		public string AlertA1ShortLineColorSerializable
 		{
-			get { return AlertA1ShortColor.ToString(); }
-			set { AlertA1ShortColor = ParseColor(value, Colors.Red); }
+			get { return AlertA1ShortLineColor.ToString(); }
+			set { AlertA1ShortLineColor = ParseColor(value, Colors.DarkRed); }
 		}
 
 		[NinjaScriptProperty]

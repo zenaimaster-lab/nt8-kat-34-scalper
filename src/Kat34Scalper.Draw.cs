@@ -342,6 +342,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		#region HUD Panel (sections titled by module: SIGNAL / FILTER / BOT / DRAW)
 		private Border hudBorder;
 		private Canvas hudCanvas;
+		private System.Windows.Shapes.Rectangle envTintRect;
 		private TextBlock hudStatusText;
 		private System.Windows.Threading.DispatcherTimer hudStatusTimer;
 		private bool isHudDragging;
@@ -486,7 +487,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			Grid g = new Grid { Margin = new Thickness(0, 0, 0, 4) };
 			g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-			g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4) });
+			g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(6) });
 			g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 			return g;
 		}
@@ -528,6 +529,21 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				btn.Foreground = on ? Brushes.White : Brushes.LightGray;
 			};
 			return btn;
+		}
+
+		// A1 environment tint: LONG = very pale green, SHORT = very pale red, ranging/off = none.
+		private void UpdateEnvTint(int dir)
+		{
+			if (ChartControl == null || ChartControl.Dispatcher == null) return;
+			ChartControl.Dispatcher.BeginInvoke(new Action(() =>
+			{
+				if (envTintRect == null) return;
+				envTintRect.Fill = dir > 0
+					? new SolidColorBrush(Color.FromArgb(16, 0, 255, 0))
+					: dir < 0
+						? new SolidColorBrush(Color.FromArgb(16, 255, 0, 0))
+						: Brushes.Transparent;
+			}));
 		}
 
 		private void ShowHudStatus(string message, Brush foreground)
@@ -684,6 +700,18 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			};
 			System.Windows.Controls.Panel.SetZIndex(hudCanvas, 9999);
 			host.Children.Add(hudCanvas);
+
+			// Environment tint over the chart: very pale green/red while the A1 environment is
+			// LONG/SHORT, transparent while ranging. Below the HUD canvas, never eats mouse input.
+			envTintRect = new System.Windows.Shapes.Rectangle
+			{
+				Fill = Brushes.Transparent,
+				IsHitTestVisible = false,
+				HorizontalAlignment = HorizontalAlignment.Stretch,
+				VerticalAlignment = VerticalAlignment.Stretch
+			};
+			System.Windows.Controls.Panel.SetZIndex(envTintRect, 9998);
+			host.Children.Add(envTintRect);
 
 			hudBorder = new Border
 			{
@@ -1010,7 +1038,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			fRow1.Children.Add(tAdx);
 			Button tVol = CreateFilterToggle("Volume", () => cachedVol, v => cachedVol = v);
 			Grid fRow2 = CreateTwoColGrid();
-			fRow2.Margin = new Thickness(0);
 			Grid.SetColumn(tVol, 0);
 			fRow2.Children.Add(tVol);
 			Button tTime = CreateFilterToggle("Time window", () => cachedTime, v => cachedTime = v);
@@ -1019,21 +1046,19 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			secFilter.Children.Add(fRow1);
 			secFilter.Children.Add(fRow2);
 			Grid fRow3 = CreateTwoColGrid();
-			fRow3.Margin = new Thickness(0);
-			Button tAdxRise = CreateFilterToggle("ADX rising", () => cachedAdxRise, v => cachedAdxRise = v);
+			Button tAdxRise = CreateFilterToggle("ADX rising (A1)", () => cachedAdxRise, v => cachedAdxRise = v);
 			Grid.SetColumn(tAdxRise, 0);
 			fRow3.Children.Add(tAdxRise);
-			Button tEr = CreateFilterToggle("ER (trend)", () => cachedEr, v => cachedEr = v);
-			Grid.SetColumn(tEr, 2);
-			fRow3.Children.Add(tEr);
-			Grid fRow4 = CreateTwoColGrid();
-			fRow4.Margin = new Thickness(0);
-			Button tCi = CreateFilterToggle("CI (chop)", () => cachedCi, v => cachedCi = v);
-			Grid.SetColumn(tCi, 0);
-			fRow4.Children.Add(tCi);
 			Button tAdxMtf = CreateFilterToggle("ADX MTF (A1)", () => cachedA1AdxMtf, v => SetAlertA1AdxMtf(v));
 			Grid.SetColumn(tAdxMtf, 2);
-			fRow4.Children.Add(tAdxMtf);
+			fRow3.Children.Add(tAdxMtf);
+			Grid fRow4 = CreateTwoColGrid();
+			Button tEr = CreateFilterToggle("ER (trend)", () => cachedEr, v => cachedEr = v);
+			Grid.SetColumn(tEr, 0);
+			fRow4.Children.Add(tEr);
+			Button tCi = CreateFilterToggle("CI (chop)", () => cachedCi, v => cachedCi = v);
+			Grid.SetColumn(tCi, 2);
+			fRow4.Children.Add(tCi);
 			secFilter.Children.Add(fRow3);
 			secFilter.Children.Add(fRow4);
 			mainPanel.Children.Add(CreateSectionCard(secFilter, 6));
@@ -1103,6 +1128,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (hudCanvas != null && hudCanvas.Parent is Grid host)
 				host.Children.Remove(hudCanvas);
 			hudCanvas = null;
+			if (envTintRect != null && envTintRect.Parent is Panel tintHost)
+				tintHost.Children.Remove(envTintRect);
+			envTintRect = null;
 			hudStatusText = null;
 			atmComboBox = null;
 			atmSetButtons = null;

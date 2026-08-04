@@ -59,6 +59,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (dir != a1PrevDir)
 			{
 				a1PrevDir = dir;
+				UpdateEnvTint(dir);
 				Print(string.Format("[Kat34Scalper][AlertA1][GATE] bar {0} dir={1}, angle={2:F1}deg (min {3}, enabled {4}), e8={5:F2}, e34={6:F2}, e89={7:F2}, e144={8:F2}, e200={9:F2}, atr={10:F2}",
 					CurrentBars[1], dir, angle, AlertA1AngleMin, AlertA1AngleEnabled,
 					a1Ema8[0], a1Ema34[0], a1Ema89[0], a1Ema144[0], a1Ema200[0], a1Atr[0]));
@@ -114,7 +115,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private void DrawAlertA1Line(int dir, int ago)
 		{
 			string tag = string.Format("K34S_ALERTA1_VL_{0}_{1}", dir > 0 ? "B" : "S", CurrentBars[1] - ago);
-			Brush brush = new SolidColorBrush(dir > 0 ? AlertA1LongColor : AlertA1ShortColor);
+			Brush brush = new SolidColorBrush(dir > 0 ? AlertA1LongLineColor : AlertA1ShortLineColor);
 			int width = Math.Max(1, Math.Min(AlertA1LineWidth, 10));
 			Draw.VerticalLine(this, tag, Times[1][ago], brush, DashStyleHelper.Dash, width);
 		}
@@ -148,6 +149,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			a1LastDir = lastDir;          // live evaluation continues the edge-trigger state
 			a1InvalidStreak = invalidStreak;
 			a1PrevDir = lastDir;
+			UpdateEnvTint(lastDir);
 			Print(string.Format("[Kat34Scalper][AlertA1] backfill done — {0} day(s), {1} bar(s) replayed: {2} vertical line(s); live lastDir={3}; settings: angleEnabled={4}, minAngle={5}, atrPeriod={6}, breakBars={7}.",
 				AlertA1HistoryDays, start, a1ReplayLines, a1LastDir, AlertA1AngleEnabled, AlertA1AngleMin, AlertA1AtrPeriod, AlertA1BreakBars));
 		}
@@ -168,6 +170,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			a1LastDir = 0;
 			a1InvalidStreak = 0;
 			a1PrevDir = 0;
+			UpdateEnvTint(0);
 			RemoveModuleDrawings("K34S_ALERTA1_");
 		}
 	}
