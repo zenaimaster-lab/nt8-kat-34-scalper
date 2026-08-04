@@ -242,6 +242,62 @@ public class Kat34ScalperLogicTests
 		Assert.False(pending);
 	}
 
+	[Fact]
+	public void LineGate_FilterOn_NeverMoreLinesThanOff()
+	{
+		// common-sense property: a stricter gate may remove or delay lines, never create extra ones
+		int[] env = { 1, 1, 1, 0, 0, 1, 1, 1, 1, -1, -1, 0, 1, 1, 1, 0, 1, 1 };
+		bool[] gate = { true, false, true, true, false, true, false, true, false, true, false, true, false, true, true, true, false, true };
+		Assert.Equal(env.Length, gate.Length);
+		int off = CountLines(env, i => true, 3);
+		int on = CountLines(env, i => gate[i], 3);
+		Assert.True(on <= off, string.Format("on={0} off={1}", on, off));
+	}
+
+	private static int CountLines(int[] env, Func<int, bool> gateAt, int breakBars)
+	{
+		int lastDir = 0, streak = 0, lines = 0;
+		bool pending = false;
+		for (int i = 0; i < env.Length; i++)
+		{
+			bool fired = Kat34ScalperLogic.A1EdgeStep(env[i], lastDir, streak, breakBars, out lastDir, out streak);
+			bool gate = env[i] != 0 && gateAt(i);
+			if (Kat34ScalperLogic.A1LineGateStep(fired, lastDir != 0, gate, pending, out pending)) lines++;
+		}
+		return lines;
+	}
+
+	// --- BarsAgoAtOrBefore (cross-series time mapping) ---
+	[Fact]
+	public void BarsAgo_ExactMatch_ReturnsThatAgo()
+	{
+		var times = new[] { T(10, 0), T(9, 30), T(9, 0), T(8, 30) }; // index 0 = newest
+		Assert.Equal(2, Kat34ScalperLogic.BarsAgoAtOrBefore(i => times[i], times.Length - 1, T(9, 0)));
+	}
+
+	[Fact]
+	public void BarsAgo_BetweenBars_ReturnsNewerClosedBar()
+	{
+		var times = new[] { T(10, 0), T(9, 30), T(9, 0), T(8, 30) };
+		Assert.Equal(1, Kat34ScalperLogic.BarsAgoAtOrBefore(i => times[i], times.Length - 1, T(9, 45)));
+	}
+
+	[Fact]
+	public void BarsAgo_OlderThanAll_ReturnsMinusOne()
+	{
+		var times = new[] { T(10, 0), T(9, 30), T(9, 0) };
+		Assert.Equal(-1, Kat34ScalperLogic.BarsAgoAtOrBefore(i => times[i], times.Length - 1, T(8, 0)));
+	}
+
+	[Fact]
+	public void BarsAgo_NewerThanAll_ReturnsZero()
+	{
+		var times = new[] { T(10, 0), T(9, 30), T(9, 0) };
+		Assert.Equal(0, Kat34ScalperLogic.BarsAgoAtOrBefore(i => times[i], times.Length - 1, T(12, 0)));
+	}
+
+	private static DateTime T(int h, int m) => new DateTime(2026, 8, 4, h, m, 0);
+
 	// --- Time window ---
 	[Fact]
 	public void Time_InsideWindow_True()

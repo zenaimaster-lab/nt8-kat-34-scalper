@@ -32,8 +32,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private int a1ReplayLines;      // backfill counter
 		private int a1BandDir;          // open background band: episode direction (0 = ranging, no band)
 		private int a1BandStartIdx;     // open background band episode start (series-1 bar index)
-		private double a1BandHi;        // vertical extent of the bands (window extremes, live-extended)
-		private double a1BandLo;
+		private double a1BandHi = double.MinValue; // vertical extent of the bands (window extremes, live-extended)
+		private double a1BandLo = double.MaxValue;
 		private bool a1LinePending;     // episode fired but market gate not yet passed — line deferred
 
 		private void SetAlertA1Signal(bool on)
@@ -121,14 +121,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		// barsAgo on the primary series of the bar closed at or before t (-1 when t precedes series 0).
 		private int Series0BarsAgoAt(DateTime t)
 		{
-			if (CurrentBars[0] < 1) return -1;
-			int lo = 0, hi = CurrentBars[0];
-			while (lo < hi)
-			{
-				int mid = (lo + hi) / 2;
-				if (Times[0][mid] <= t) hi = mid; else lo = mid + 1;
-			}
-			return Times[0][lo] <= t ? lo : -1;
+			return Kat34ScalperLogic.BarsAgoAtOrBefore(i => Times[0][i], CurrentBars[0], t);
 		}
 
 		// Independent MTF ADX regime gate (NOT part of the Global Filter): the most recent MTF bar
@@ -137,14 +130,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (adxMtfInd == null || CurrentBars == null || CurrentBars.Length < 3 || CurrentBars[2] < 1) return true;
 			DateTime t = Times[1][ago];
-			int lo = 0, hi = CurrentBars[2];
-			while (lo < hi)
-			{
-				int mid = (lo + hi) / 2;
-				if (Times[2][mid] <= t) hi = mid; else lo = mid + 1;
-			}
-			if (Times[2][lo] > t) return true; // MTF series starts after t — warmup, gate open
-			return adxMtfInd[lo] >= AlertA1AdxMtfMin;
+			int idx = Kat34ScalperLogic.BarsAgoAtOrBefore(i => Times[2][i], CurrentBars[2], t);
+			if (idx < 0) return true; // MTF series starts after t — warmup, gate open
+			return adxMtfInd[idx] >= AlertA1AdxMtfMin;
 		}
 
 		// HUD toggle: flip the gate and replay the A1 history so the drawings match immediately.
@@ -254,6 +242,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			a1PrevDir = 0;
 			a1BandDir = 0;
 			a1BandStartIdx = 0;
+			a1BandHi = double.MinValue;
+			a1BandLo = double.MaxValue;
 			a1LinePending = false;
 			RemoveModuleDrawings("K34S_ALERTA1_");
 		}

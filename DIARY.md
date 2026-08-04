@@ -19,6 +19,13 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.74] — 2026-08-04
+- **Full filter/A1 audit**: one real bug fixed — band hi/lo fields initialized 0/0, so when backfill skipped warmup the live band could anchor lo=0 (prices are always positive, the `< a1BandLo` update never fired); now Min/MaxValue at declaration and in `ClearAlertA1Drawings`.
+- **Decomposition**: the duplicated cross-series binary search (series-0 mapping + MTF mapping) extracted to pure `Kat34ScalperLogic.BarsAgoAtOrBefore(timeAt, maxBarsAgo, t)`; A1 wrappers are one-liners.
+- **Tests 86 → 91**: 4 BarsAgoAtOrBefore cases (exact/between/older/newer) + the common-sense property test `LineGate_FilterOn_NeverMoreLinesThanOff` (simulated env/gate sequences through A1EdgeStep+A1LineGateStep assert lines(ON) ≤ lines(OFF)).
+- No new tooling needed: xunit (pure logic) + net48 compile gate + live NT8 recompile already cover the three layers.
+  - Graphify entity mapping: `Kat34ScalperLogic.BarsAgoAtOrBefore`, `Kat34Scalper.a1BandHi/a1BandLo` init, test `CountLines` simulator.
+
 ### [v0.73] — 2026-08-04
 - **Filters no longer ADD lines (subset semantics)**: gating the environment direction with the market filters fragmented LONG/SHORT episodes, so enabling a stricter filter produced MORE edge-trigger lines — the opposite of common sense. Episodes now run on the fan alone; pure `Kat34ScalperLogic.A1LineGateStep` defers each episode's line to the first bar the ALERT FILTER passes (pending dropped when the episode dies). Filters can now only remove or delay lines (3 new xunit cases; 86 green).
 - **Environment bands finally visible**: the invisible-band bug was the Draw.Rectangle fill overload — its last int is `areaOpacity` (0-100), not line width; passing 1 rendered a 1%-opacity area. Verified the exact overloads by decoding NinjaTrader.Custom.dll metadata (System.Reflection.Metadata probe). Bands now use the time-anchored overload `(isAutoScale, startTime, startY, endTime, endY, brush, areaBrush, areaOpacity)` with solid green/red area at opacity 8, anchored by A1 bar times (no series-mismatch).

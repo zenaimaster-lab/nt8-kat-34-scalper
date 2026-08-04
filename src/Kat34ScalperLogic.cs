@@ -333,6 +333,23 @@ namespace Kat34Scalper
 		}
 
 		/// <summary>
+		/// Binary search over a descending time series addressed by barsAgo (index 0 = newest):
+		/// the smallest barsAgo whose bar time is at or before t; -1 when t precedes every bar.
+		/// Shared by the A1 module's cross-series time mappings (no lookahead by construction).
+		/// </summary>
+		public static int BarsAgoAtOrBefore(Func<int, DateTime> timeAt, int maxBarsAgo, DateTime t)
+		{
+			if (maxBarsAgo < 1) return -1;
+			int lo = 0, hi = maxBarsAgo;
+			while (lo < hi)
+			{
+				int mid = (lo + hi) / 2;
+				if (timeAt(mid) <= t) hi = mid; else lo = mid + 1;
+			}
+			return timeAt(lo) <= t ? lo : -1;
+		}
+
+		/// <summary>
 		/// A1 line gate: environment episodes run on the fan alone; the market-gate (filters) only
 		/// delays the episode's line to the first bar the gate passes (pending until then, dropped
 		/// when the episode dies). Stricter filters can therefore only remove or delay lines —
