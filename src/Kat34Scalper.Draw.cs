@@ -974,7 +974,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			var secAlert = new StackPanel();
 			Grid aRow = CreateTwoColGrid();
 			aRow.Margin = new Thickness(0);
-			Button btnAlertA1 = CreateFilterToggle("A1", () => cachedAlertA1, v => SetAlertA1Signal(v));
+			Button btnAlertA1 = CreateFilterToggle("A1 (fan 30s)", () => cachedAlertA1, v => SetAlertA1Signal(v));
 			Grid.SetColumn(btnAlertA1, 0);
 			aRow.Children.Add(btnAlertA1);
 			Button btnAlertA2 = CreateFilterToggle("A2", () => cachedAlertA2, v => SetAlertA2Signal(v));

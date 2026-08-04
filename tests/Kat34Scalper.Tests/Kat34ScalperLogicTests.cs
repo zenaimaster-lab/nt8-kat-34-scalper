@@ -627,5 +627,72 @@ public class Kat34ScalperLogicTests
 		Assert.False(Kat34ScalperLogic.IsAtmExitAction(false, true)); // Short -> Sell
 	}
 	#endregion
+
+	#region Alert Signal A1 (fan) — SlopeAngleDeg
+	[Fact]
+	public void SlopeAngleDeg_FlatEma_IsZero()
+	{
+		Assert.Equal(0, Kat34ScalperLogic.SlopeAngleDeg(100.0, 100.0, 1.0), 10);
+	}
+
+	[Fact]
+	public void SlopeAngleDeg_SlopeEqualsNorm_IsPlusMinus45()
+	{
+		Assert.Equal(45, Kat34ScalperLogic.SlopeAngleDeg(101.0, 100.0, 1.0), 10);
+		Assert.Equal(-45, Kat34ScalperLogic.SlopeAngleDeg(99.0, 100.0, 1.0), 10);
+	}
+
+	[Fact]
+	public void SlopeAngleDeg_NonPositiveNorm_FallsBackToOne()
+	{
+		Assert.Equal(45, Kat34ScalperLogic.SlopeAngleDeg(101.0, 100.0, 0), 10);
+		Assert.Equal(45, Kat34ScalperLogic.SlopeAngleDeg(101.0, 100.0, -5), 10);
+	}
+	#endregion
+
+	#region Alert Signal A1 (fan) — A1Direction
+	// Buy stack: 104 > 103 > 102 > 101. Sell stack mirrored.
+	private const bool C = true;  // condition enabled
+
+	[Fact]
+	public void A1Direction_BuyStack_AndRisingAngle_ReturnsLong()
+	{
+		Assert.Equal(1, Kat34ScalperLogic.A1Direction(C, C, C, C, 104, 103, 102, 101, 35, 30));
+		Assert.Equal(1, Kat34ScalperLogic.A1Direction(C, C, C, C, 104, 103, 102, 101, 30, 30)); // boundary
+	}
+
+	[Fact]
+	public void A1Direction_SellStack_AndFallingAngle_ReturnsShort()
+	{
+		Assert.Equal(-1, Kat34ScalperLogic.A1Direction(C, C, C, C, 101, 102, 103, 104, -35, 30));
+		Assert.Equal(-1, Kat34ScalperLogic.A1Direction(C, C, C, C, 101, 102, 103, 104, -30, 30)); // boundary
+	}
+
+	[Fact]
+	public void A1Direction_AngleTooShallow_ReturnsZero()
+	{
+		Assert.Equal(0, Kat34ScalperLogic.A1Direction(C, C, C, C, 104, 103, 102, 101, 20, 30));  // long stack, weak slope
+		Assert.Equal(0, Kat34ScalperLogic.A1Direction(C, C, C, C, 101, 102, 103, 104, -20, 30)); // short stack, weak slope
+		Assert.Equal(0, Kat34ScalperLogic.A1Direction(C, C, C, C, 104, 103, 102, 101, -35, 30)); // long stack but falling
+	}
+
+	[Fact]
+	public void A1Direction_BrokenStack_ReturnsZero()
+	{
+		Assert.Equal(0, Kat34ScalperLogic.A1Direction(C, C, C, C, 102, 103, 102, 101, 35, 30)); // ema8 below ema34
+		Assert.Equal(0, Kat34ScalperLogic.A1Direction(C, C, C, C, 104, 103, 104, 101, 35, 30)); // ema34 below ema144
+		Assert.Equal(0, Kat34ScalperLogic.A1Direction(C, C, C, C, 104, 103, 102, 103, 35, 30)); // ema144 below ema200
+	}
+
+	[Fact]
+	public void A1Direction_ToggleOff_SkipsThatCondition()
+	{
+		// ema8-below-34 tolerated when its toggle is off
+		Assert.Equal(1, Kat34ScalperLogic.A1Direction(false, C, C, C, 102, 103, 102, 101, 35, 30));
+		// angle tolerated when its toggle is off
+		Assert.Equal(1, Kat34ScalperLogic.A1Direction(C, C, C, false, 104, 103, 102, 101, -10, 30));
+		Assert.Equal(-1, Kat34ScalperLogic.A1Direction(C, C, false, C, 101, 102, 103, 102, -35, 30)); // 144>200 broken but disabled
+	}
+	#endregion
 }
 

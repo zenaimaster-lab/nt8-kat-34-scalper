@@ -18,9 +18,19 @@ Chuẩn mô tả cho MỌI signal trong indicator. Mỗi signal là một sub-mo
 
 ## ALERT SIGNALS (A1, A2...)
 
-### A1 — Alert Signal A1 (Placeholder)
-- File: `src/Kat34Scalper.AlertSignal.A1.cs` | Settings group: `2. Alert Signal A1` | HUD toggle: ALERT SIGNAL › `A1`
-- Mục đích: Cảnh báo tín hiệu âm thanh và vẽ marker/đường giá trên chart cho người dùng theo dõi. KHÔNG bắn lệnh Bot.
+### A1 — Alert Signal A1 (fan 30s)
+- File: `src/Kat34Scalper.AlertSignal.A1.cs` | Settings group: `2. Alert Signal A1 — fan 30s` | HUD toggle: ALERT SIGNAL › `A1 (fan 30s)`
+- Mục đích: Cảnh báo môi trường trend "fan" (EMA xếp quạt + góc nghiêng EMA 34) bằng vertical line + âm thanh. KHÔNG bắn lệnh Bot. **Độc lập hoàn toàn** với Bot Signals: series riêng, EMA riêng, không dùng chung state/drawing/logic.
+- Series riêng: `AddDataSeries(Second, AlertA1PeriodSeconds)` (default 30s) — chạy đúng TF này dù chart TF bất kỳ. EMA 8/34/144/200 tính riêng trên `BarsArray[1]`.
+- Điều kiện môi trường — LONG (SHORT mirror ngược lại), **mỗi điều kiện có toggle riêng**:
+  1. `Cond: EMA 8 above EMA 34` — strict `>`.
+  2. `Cond: EMA 34 above EMA 144` — strict `>`.
+  3. `Cond: EMA 144 above EMA 200` — strict `>`.
+  4. `Cond: EMA 34 slope angle` — góc nghiêng EMA 34 tối thiểu `+Min Angle` độ (lên) cho LONG; tối thiểu `-Min Angle` độ (xuống) cho SHORT. Góc chuẩn hoá: `atan(Δema34/bar / Angle Norm)` — không phụ thuộc zoom, backfill được. `Angle Norm` = mức giá/bar tính là 45° (chỉnh theo instrument).
+- Alert: **edge trigger** — 1 vertical line (dash, width default 2, màu LONG lime / SHORT đỏ — đổi được) + 1 Alert Sound (global `Alert Sound`) mỗi lần môi trường chuyển invalid → valid.
+- Settings: `AlertA1Enabled` (true), `AlertA1HistoryDays` (3), `AlertA1PeriodSeconds` (30), 4 cond toggles (true), `AlertA1AngleMin` (30), `AlertA1AngleNorm` (1.0), `AlertA1LineWidth` (2), `AlertA1LongColor` (LimeGreen), `AlertA1ShortColor` (Red).
+- Tag drawing: `K34S_ALERTA1_VL_<B/S>_<bar>` (vertical line neo theo thời gian bar 30s).
+- Filter: KHÔNG áp Global Filter (độc lập). Backfill replay History Days trên series 30s (vẽ line, không sound), sync edge state cho realtime.
 
 ### A2 — Alert Signal A2 (Placeholder)
 - File: `src/Kat34Scalper.AlertSignal.A2.cs` | Settings group: `2.5 Alert Signal A2` | HUD toggle: ALERT SIGNAL › `A2`

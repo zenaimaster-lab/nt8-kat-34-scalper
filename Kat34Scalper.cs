@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.63 (2026-08-03)
+ * Version: 0.64 (2026-08-04)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -9,7 +9,7 @@
  *   Kat34Scalper.cs                    — main: state, OnStateChange, OnBarUpdate orchestration, settings
  *   src/Kat34ScalperLogic.cs           — pure signal/filter math + ATM parser (zero NT8 deps, xunit-tested)
  *   src/Kat34Scalper.AlertSignal.cs    — Alert Signal module shared helpers (alert backfill)
- *   src/Kat34Scalper.AlertSignal.A1.cs — Alert Signal sub-module A1: placeholder (independent, alert-only)
+ *   src/Kat34Scalper.AlertSignal.A1.cs — Alert Signal sub-module A1: fan 30s (independent, alert-only)
  *   src/Kat34Scalper.AlertSignal.A2.cs — Alert Signal sub-module A2: placeholder (independent, alert-only)
  *   src/Kat34Scalper.Signal.cs         — Bot Signal module shared helpers (backfill window)
  *   src/Kat34Scalper.Signal.B1.cs      — Bot Signal sub-module B1: 34bounce8+ (34+8+Bounce ema34-touch pending entry)
@@ -84,8 +84,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.63";
-		public const string RELEASE_DATE = "2026-08-03";
+		public const string VERSION = "0.64";
+		public const string RELEASE_DATE = "2026-08-04";
 
 
 		// Indicator series (primary chart TF)
@@ -96,6 +96,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private EMA ema200;
 		private ADX adxInd;
 		private SMA volSmaInd;
+
+		// Alert Signal A1 (fan) — dedicated EMAs on the dedicated secondary series (BarsArray[1]).
+		// Fully independent from the primary-series EMAs used by the Bot Signals (B1/B2).
+		private EMA a1Ema8;
+		private EMA a1Ema34;
+		private EMA a1Ema144;
+		private EMA a1Ema200;
 
 		// Time-window filter parsed values
 		private TimeSpan timeStart;
@@ -127,9 +134,19 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				TimeFilterEnd				= "17:00";
 				AlertSound					= "Alert1.wav";
 
-				// 2. Alert Signal A1 defaults — OFF
-				AlertA1Enabled				= false;
+				// 2. Alert Signal A1 (fan) defaults — ON (independent 30s series)
+				AlertA1Enabled				= true;
 				AlertA1HistoryDays			= 3;
+				AlertA1PeriodSeconds		= 30;
+				AlertA1CondEma8Above34		= true;
+				AlertA1CondEma34Above144	= true;
+				AlertA1CondEma144Above200	= true;
+				AlertA1CondAngle			= true;
+				AlertA1AngleMin				= 30;
+				AlertA1AngleNorm			= 1.0;
+				AlertA1LineWidth			= 2;
+				AlertA1LongColor			= Colors.LimeGreen;
+				AlertA1ShortColor			= Colors.Red;
 
 				// 2.5 Alert Signal A2 defaults — OFF
 				AlertA2Enabled				= false;
@@ -193,6 +210,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				SellTextColor				= Colors.Red;
 				BuyTextColor				= Colors.LimeGreen;
 			}
+			else if (State == State.Configure)
+			{
+				// Alert Signal A1 (fan) dedicated timeframe — always added so BarsArray indexes stay
+				// stable; the AlertA1Enabled toggle only gates evaluation. Series 1 = BarsArray[1].
+				AddDataSeries(Data.BarsPeriodType.Second, Math.Max(1, AlertA1PeriodSeconds));
+			}
 			else if (State == State.DataLoaded)
 			{
 				fastEma = EMA(BarsArray[0], EmaFastPeriod);
@@ -202,6 +225,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				ema200 = EMA(BarsArray[0], 200);
 				adxInd = ADX(BarsArray[0], AdxPeriod);
 				volSmaInd = SMA(Volumes[0], VolumeSmaPeriod);
+
+				// A1 (fan) — its own EMAs on the 30s series; nothing shared with B1/B2 series-0 EMAs.
+				a1Ema8 = EMA(BarsArray[1], 8);
+				a1Ema34 = EMA(BarsArray[1], 34);
+				a1Ema144 = EMA(BarsArray[1], 144);
+				a1Ema200 = EMA(BarsArray[1], 200);
 
 				timeWindowDisabled = string.Equals(TimeFilterStart, TimeFilterEnd, StringComparison.OrdinalIgnoreCase);
 				if (!timeWindowDisabled)
@@ -245,6 +274,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		#region Orchestration (module pipeline per bar)
 		protected override void OnBarUpdate()
 		{
+			if (BarsInProgress == 1)
+			{
+				EvaluateAlertA1Bar();                                // Alert Signal sub-module A1 (fan) — dedicated 30s series
+				return;
+			}
 			if (BarsInProgress != 0 || CurrentBars[0] < 1) return;
 
 			if (ShowVersion && !versionDrawn)
@@ -266,7 +300,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			bool sellAllowed, buyAllowed;
 			PassFilters(out sellAllowed, out buyAllowed);          // Global Filter module (ADX, volume, time)
-			EvaluateAlertA1(high, low, close, sellAllowed, buyAllowed); // Alert Signal sub-module A1
 			EvaluateAlertA2(high, low, close, sellAllowed, buyAllowed); // Alert Signal sub-module A2
 			EvaluateB1(high, low, close, sellAllowed, buyAllowed); // Bot Signal sub-module B1 (34bounce8+)
 			EvaluateB2(high, low, close, sellAllowed, buyAllowed); // Bot Signal sub-module B2 (89uturn34)
@@ -314,16 +347,82 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[TypeConverter(typeof(Kat34ScalperSoundConverter))]
 		public string AlertSound { get; set; }
 
-		// --- 2. Alert Signal A1 (Placeholder sub-module) ---
+		// --- 2. Alert Signal A1 (fan 30s — independent 30s series, alert-only, no Bot/order interaction) ---
 		[NinjaScriptProperty]
-		[Display(Name = "Enabled", Order = 1, GroupName = "2. Alert Signal A1",
-			Description = "Default OFF. Alert Signal A1 generates sound alerts and chart drawings only.")]
+		[Display(Name = "Enabled", Order = 1, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "Default ON. Alert Signal A1 (fan) generates sound alerts and vertical-line drawings only — fully independent from the Bot Signals.")]
 		public bool AlertA1Enabled { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "History Days", Order = 2, GroupName = "2. Alert Signal A1",
+		[Display(Name = "History Days", Order = 2, GroupName = "2. Alert Signal A1 — fan 30s",
 			Description = "How many days back Alert A1 signals are replayed and drawn.")]
 		public int AlertA1HistoryDays { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Timeframe (seconds)", Order = 3, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "A1 runs on its own secondary series of this period (default 30s), regardless of the chart timeframe.")]
+		public int AlertA1PeriodSeconds { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Cond: EMA 8 above EMA 34", Order = 4, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "LONG: EMA 8 above EMA 34. SHORT mirrored. Toggle applies to both directions.")]
+		public bool AlertA1CondEma8Above34 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Cond: EMA 34 above EMA 144", Order = 5, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "LONG: EMA 34 above EMA 144. SHORT mirrored.")]
+		public bool AlertA1CondEma34Above144 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Cond: EMA 144 above EMA 200", Order = 6, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "LONG: EMA 144 above EMA 200. SHORT mirrored.")]
+		public bool AlertA1CondEma144Above200 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Cond: EMA 34 slope angle", Order = 7, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "LONG: EMA 34 slope at least +Min Angle (rising). SHORT: at most -Min Angle (falling).")]
+		public bool AlertA1CondAngle { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Min Angle (deg)", Order = 8, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "Minimum EMA 34 slope angle in degrees — up for LONG, down for SHORT.")]
+		public double AlertA1AngleMin { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Angle Norm (price/bar = 45 deg)", Order = 9, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "Normalization for the slope angle: the EMA34 price change per bar that counts as 45 degrees. Tune per instrument.")]
+		public double AlertA1AngleNorm { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Line Width (px)", Order = 10, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "Vertical alert line thickness.")]
+		public int AlertA1LineWidth { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "LONG Line Color", Order = 11, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "Vertical line color for the LONG environment.")]
+		[XmlIgnore]
+		public Color AlertA1LongColor { get; set; }
+
+		[Browsable(false)]
+		public string AlertA1LongColorSerializable
+		{
+			get { return AlertA1LongColor.ToString(); }
+			set { AlertA1LongColor = ParseColor(value, Colors.LimeGreen); }
+		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "SHORT Line Color", Order = 12, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "Vertical line color for the SHORT environment.")]
+		[XmlIgnore]
+		public Color AlertA1ShortColor { get; set; }
+
+		[Browsable(false)]
+		public string AlertA1ShortColorSerializable
+		{
+			get { return AlertA1ShortColor.ToString(); }
+			set { AlertA1ShortColor = ParseColor(value, Colors.Red); }
+		}
 
 		// --- 2.5 Alert Signal A2 (Placeholder sub-module) ---
 		[NinjaScriptProperty]

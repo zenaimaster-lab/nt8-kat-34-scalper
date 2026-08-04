@@ -19,6 +19,16 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.64] — 2026-08-04
+- **Alert Signal A1 implemented: fan 30s (independent, alert-only)**:
+  - A1 runs on its OWN secondary series (`AddDataSeries(Data.BarsPeriodType.Second, AlertA1PeriodSeconds)`, default 30s) with its OWN EMA 8/34/144/200 on `BarsArray[1]` — shares nothing with Bot Signals B1/B2 (no series, EMAs, states, signalRecords).
+  - LONG environment: ema8 > ema34 > ema144 > ema200 AND ema34 slope angle >= +Min Angle (rising). SHORT mirrored with falling angle. Each condition has its own settings toggle.
+  - Edge trigger: one vertical line (dash, width 2 default, LONG lime / SHORT red — colors configurable) + one global Alert Sound per invalid->valid transition. Tags `K34S_ALERTA1_VL_*`; OFF removes only A1 drawings.
+  - Slope angle normalized: `atan(delta_ema34 / AlertA1AngleNorm)` degrees — zoom-independent, backfillable. `AlertA1AngleNorm` = price/bar that counts as 45 deg (tune per instrument).
+  - Pure logic `Kat34ScalperLogic.SlopeAngleDeg` + `Kat34ScalperLogic.A1Direction` (xunit-tested, 68 tests green). Backfill replays History Days on the 30s series (no sound), syncs edge state; Global Filter not applied (A1 independence).
+  - Default ON; HUD button renamed `A1 (fan 30s)`; settings group `2. Alert Signal A1 — fan 30s`.
+  - Graphify entity mapping: `Kat34Scalper.a1Ema8/34/144/200`, `Kat34Scalper.EvaluateAlertA1Bar` (bip1 branch), `Kat34Scalper.AlertA1DirectionAt`, `Kat34Scalper.DrawAlertA1Line`, `Kat34Scalper.BackfillAlertA1`, `State.Configure` (AddDataSeries), `Kat34ScalperLogic.SlopeAngleDeg/A1Direction`.
+
 ### [v0.63] — 2026-08-03
 - **Swap Bot Signal Names and Positions**:
   - Re-assigned Bot Signal names and ordering:

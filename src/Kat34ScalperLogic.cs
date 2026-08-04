@@ -236,6 +236,41 @@ namespace Kat34Scalper
 		}
 
 		/// <summary>
+		/// A1 (fan) — normalized EMA slope in degrees: slope per bar (price units) divided by the
+		/// normalization unit (the price-per-bar move that reads as 45 degrees), then atan. Rising
+		/// EMA yields positive degrees, falling negative. Zoom-independent and backfillable.
+		/// </summary>
+		public static double SlopeAngleDeg(double emaNow, double emaPrev, double normUnit)
+		{
+			if (normUnit <= 0) normUnit = 1;
+			return Math.Atan((emaNow - emaPrev) / normUnit) * 180.0 / Math.PI;
+		}
+
+		/// <summary>
+		/// A1 (fan) environment direction: +1 LONG when the EMA stack is 8 &gt; 34 &gt; 144 &gt; 200 and the
+		/// EMA34 slope angle is at least +minAngleDeg (rising); -1 SHORT when the stack mirrors
+		/// (8 &lt; 34 &lt; 144 &lt; 200) and the angle is at most -minAngleDeg (falling); 0 otherwise.
+		/// Each stack/angle condition can be disabled via its own toggle.
+		/// </summary>
+		public static int A1Direction(
+			bool cond8Above34, bool cond34Above144, bool cond144Above200, bool condAngle,
+			double e8, double e34, double e144, double e200,
+			double angleDeg, double minAngleDeg)
+		{
+			bool buy = (!cond8Above34 || e8 > e34)
+				&& (!cond34Above144 || e34 > e144)
+				&& (!cond144Above200 || e144 > e200)
+				&& (!condAngle || angleDeg >= minAngleDeg);
+			if (buy) return 1;
+
+			bool sell = (!cond8Above34 || e8 < e34)
+				&& (!cond34Above144 || e34 < e144)
+				&& (!cond144Above200 || e144 < e200)
+				&& (!condAngle || angleDeg <= -minAngleDeg);
+			return sell ? -1 : 0;
+		}
+
+		/// <summary>
 		/// A2 (34+8+Bounce) — advances one pending-entry state machine by one bar.
 		/// Buy: trend stack valid (caller evaluates the enabled ema conditions), price pulls back
 		/// and TOUCHES ema34 (wick low &lt;= ema34) while CLOSING above it → pending stop LONG at the
