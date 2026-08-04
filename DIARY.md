@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.67] — 2026-08-04
+- **A1 angle gate property renamed `AlertA1CondAngle` → `AlertA1AngleEnabled`**: NT8 restores saved per-chart property values over SetDefaults — charts saved under v0.65 kept `AlertA1CondAngle=true`, silently overriding the v0.66 OFF default and blocking every signal. The rename orphans the stale saved value so the OFF default truly applies; user can re-enable from settings.
+- Added A1 gate diagnostics: `[AlertA1][GATE]` print on direction change (dir, angle, min, enabled, EMA stack, ATR) + backfill summary prints active settings — verify live behavior from the NT8 Output window.
+- New xunit case: slope = 0.5 x norm reads ~26.6° (documents why 30° rarely passes on 30s bars). 76 tests green.
+  - Graphify entity mapping: `Kat34Scalper.AlertA1AngleEnabled`, `Kat34Scalper.a1PrevDir`, `Kat34Scalper.AlertA1DirectionAt(ago, out angle)`.
+
 ### [v0.66] — 2026-08-04
 - **A1 angle gate default OFF**: on 30s bars the EMA34 slope-per-bar is tiny vs ATR, so the 30° gate almost never passed and A1 drew nothing. `AlertA1CondAngle` now defaults false — A1 fires on the EMA stack alone until the angle gate is enabled manually. New xunit case proves tiny-slope blocks with the gate ON and fires with it OFF (75 tests green).
   - Graphify entity mapping: `Kat34Scalper.SetDefaults` (AlertA1CondAngle default), `Kat34ScalperLogicTests.A1Direction_TinySlopeVsNorm...`.

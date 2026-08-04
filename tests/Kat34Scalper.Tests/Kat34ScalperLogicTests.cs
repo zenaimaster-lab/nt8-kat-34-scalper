@@ -648,6 +648,13 @@ public class Kat34ScalperLogicTests
 		Assert.Equal(45, Kat34ScalperLogic.SlopeAngleDeg(101.0, 100.0, 0), 10);
 		Assert.Equal(45, Kat34ScalperLogic.SlopeAngleDeg(101.0, 100.0, -5), 10);
 	}
+
+	[Fact]
+	public void SlopeAngleDeg_SlopeHalfNorm_ReadsAbout26_6_Deg()
+	{
+		// why the 30deg gate rarely passes on 30s bars: slope must reach ~0.58 x ATR/bar
+		Assert.Equal(26.57, Kat34ScalperLogic.SlopeAngleDeg(100.5, 100.0, 1.0), 2);
+	}
 	#endregion
 
 	#region Alert Signal A1 (fan) — A1Direction

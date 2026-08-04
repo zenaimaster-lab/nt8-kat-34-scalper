@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.66 (2026-08-04)
+ * Version: 0.67 (2026-08-04)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -84,7 +84,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.66";
+		public const string VERSION = "0.67";
 		public const string RELEASE_DATE = "2026-08-04";
 
 
@@ -142,7 +142,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AlertA1CondEma8Above34		= true;
 				AlertA1CondEma34Above144	= true;
 				AlertA1CondEma144Above200	= true;
-				AlertA1CondAngle			= false; // ponytail: default OFF — 30s-bar slope is tiny vs ATR so 30deg rarely hits; enable manually once norm feels right
+				AlertA1AngleEnabled			= false; // ponytail: default OFF — 30s-bar slope is tiny vs ATR so 30deg rarely hits; enable manually once norm feels right
 				AlertA1AngleMin				= 30;
 				AlertA1BreakBars			= 3;
 				AlertA1AtrPeriod			= 14;
@@ -383,8 +383,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		[NinjaScriptProperty]
 		[Display(Name = "Cond: EMA 34 slope angle", Order = 7, GroupName = "2. Alert Signal A1 — fan 30s",
-			Description = "LONG: EMA 34 slope at least +Min Angle (rising). SHORT: at most -Min Angle (falling).")]
-		public bool AlertA1CondAngle { get; set; }
+			Description = "LONG: EMA 34 slope at least +Min Angle (rising). SHORT: at most -Min Angle (falling). Renamed in v0.67 so stale saved 'true' values from v0.65/0.66 drop and the OFF default applies.")]
+		public bool AlertA1AngleEnabled { get; set; }
 
 		[NinjaScriptProperty]
 		[Display(Name = "Min Angle (deg)", Order = 8, GroupName = "2. Alert Signal A1 — fan 30s",
