@@ -19,6 +19,14 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.75] — 2026-08-04
+- **Alert filter/signal re-audit — backfill lookahead fixed**: the A1 alert gates (`AlertA1MarketPassAt` series-0 legs ADX/ADX-rising/ER/CI + `A1AdxMtfPassAt`) searched target-series bars "opened at or before the A1 bar time". Live evaluation only ever sees CLOSED target bars, but the one-shot backfill searches the COMPLETE series — so near gate thresholds the backfill could read a target bar that had not closed yet at the A1 bar's close (lookahead, backfill≠live). New pure `Kat34ScalperLogic.ClosedBarCutoff(sourceOpen, sourceSecs, targetSecs)` = sourceClose − targetPeriod; new `A1ClosedCutoff(ago, series)` wrapper (Second/Minute periods; non-time target series stay at the A1 open — conservative). Live behavior unchanged; backfill now matches live.
+- **Load sound spam killed**: `EvaluateAlertA1Bar` runs on every historical 30s bar and its fire block called `PlayAlertSound()` unguarded — NT8 plays sounds on historical bars, so every load/F5 machine-gunned one sound per historical environment edge. Sound + its Print now gated to `State == State.Realtime` (line drawing stays — backfill overwrites same tags).
+- **Tests 91 → 95**: 4 `ClosedBarCutoff` cases — slower MTF target excludes the not-yet-closed bar / admits it once closed (composed with `BarsAgoAtOrBefore`), faster target admits bars closed by the source close, non-time target falls back to the source open.
+- Audit notes (no change): `MarketPassAt` bot path re-checks the ADX leg inside `PassMarketFilter` after line-76 already gated it (harmless redundancy); `DrawEnvBand` param names say barsAgo but receive absolute bar indexes — the double conversion cancels, math verified correct on both live and backfill paths; ER/CI legs fail-closed at the history edge (intended, conservative).
+- No new tooling needed: xunit + net48 compile gate + live NT8 recompile cover the fix.
+  - Graphify entity mapping: `Kat34ScalperLogic.ClosedBarCutoff`, `Kat34Scalper.A1ClosedCutoff`, `AlertA1MarketPassAt`/`A1AdxMtfPassAt` (cutoff call sites), `EvaluateAlertA1Bar` (Realtime sound gate).
+
 ### [v0.74] — 2026-08-04
 - **Full filter/A1 audit**: one real bug fixed — band hi/lo fields initialized 0/0, so when backfill skipped warmup the live band could anchor lo=0 (prices are always positive, the `< a1BandLo` update never fired); now Min/MaxValue at declaration and in `ClearAlertA1Drawings`.
 - **Decomposition**: the duplicated cross-series binary search (series-0 mapping + MTF mapping) extracted to pure `Kat34ScalperLogic.BarsAgoAtOrBefore(timeAt, maxBarsAgo, t)`; A1 wrappers are one-liners.

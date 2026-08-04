@@ -298,6 +298,41 @@ public class Kat34ScalperLogicTests
 
 	private static DateTime T(int h, int m) => new DateTime(2026, 8, 4, h, m, 0);
 
+	// --- ClosedBarCutoff (no-lookahead cross-series gate reads) ---
+	[Fact]
+	public void Cutoff_SlowerTimeTarget_ExcludesBarNotClosedBySourceClose()
+	{
+		// A1 30s bar opened 10:04:30 closes 10:05:00; a 3m MTF bar opened 10:03 closes 10:06 — NOT readable.
+		var cutoff = Kat34ScalperLogic.ClosedBarCutoff(T(10, 4).AddSeconds(30), 30, 180);
+		var mtfOpens = new[] { T(10, 3), T(10, 0) }; // index 0 = newest
+		Assert.Equal(1, Kat34ScalperLogic.BarsAgoAtOrBefore(i => mtfOpens[i], mtfOpens.Length - 1, cutoff));
+	}
+
+	[Fact]
+	public void Cutoff_SlowerTimeTarget_AdmitsBarOnceClosed()
+	{
+		// Same MTF bar IS readable by the A1 bar opened 10:05:30 (closes 10:06:00 = MTF close).
+		var cutoff = Kat34ScalperLogic.ClosedBarCutoff(T(10, 5).AddSeconds(30), 30, 180);
+		var mtfOpens = new[] { T(10, 3), T(10, 0) };
+		Assert.Equal(0, Kat34ScalperLogic.BarsAgoAtOrBefore(i => mtfOpens[i], mtfOpens.Length - 1, cutoff));
+	}
+
+	[Fact]
+	public void Cutoff_FasterTimeTarget_IncludesBarsClosedBySourceClose()
+	{
+		// Chart 10s, A1 30s: series-0 bar opened 10:04:50 closes 10:05:00 — readable by the A1 bar opened 10:04:30.
+		var cutoff = Kat34ScalperLogic.ClosedBarCutoff(T(10, 4).AddSeconds(30), 30, 10);
+		Assert.Equal(T(10, 4).AddSeconds(50), cutoff);
+	}
+
+	[Fact]
+	public void Cutoff_NonTimeTarget_FallsBackToSourceOpen()
+	{
+		// Tick/volume target: completion time unknowable — cutoff stays at the source open (conservative).
+		var t = T(10, 4).AddSeconds(30);
+		Assert.Equal(t, Kat34ScalperLogic.ClosedBarCutoff(t, 30, 30));
+	}
+
 	// --- Time window ---
 	[Fact]
 	public void Time_InsideWindow_True()

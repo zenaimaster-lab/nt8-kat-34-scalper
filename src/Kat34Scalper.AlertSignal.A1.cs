@@ -84,9 +84,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (Kat34ScalperLogic.A1LineGateStep(fired, a1LastDir != 0, gate, a1LinePending, out a1LinePending))
 			{
 				DrawAlertA1Line(a1LastDir, 0);
-				PlayAlertSound();
-				Print(string.Format("[Kat34Scalper][AlertA1] {0} environment @ bar {1} — vertical line + sound.",
-					a1LastDir > 0 ? "LONG" : "SHORT", CurrentBars[1]));
+				if (State == State.Realtime) // historical replay would machine-gun the sound on every load
+				{
+					PlayAlertSound();
+					Print(string.Format("[Kat34Scalper][AlertA1] {0} environment @ bar {1} — vertical line + sound.",
+						a1LastDir > 0 ? "LONG" : "SHORT", CurrentBars[1]));
+				}
 			}
 		}
 
@@ -109,7 +112,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (cachedA1AdxMtf && !A1AdxMtfPassAt(ago)) return false;
 			if (!cachedAdxA && !cachedAdxRise && !cachedErA && !cachedCiA) return true;
-			int ago0 = Series0BarsAgoAt(Times[1][ago]);
+			int ago0 = Series0BarsAgoAt(A1ClosedCutoff(ago, 0));
 			if (ago0 < 0) return true;
 			if (cachedAdxA && (adxInd == null || adxInd[ago0] < AdxMin)) return false;
 			if (cachedAdxRise && (adxInd == null || CurrentBars[0] < ago0 + AdxRisingBars || adxInd[ago0] <= adxInd[ago0 + AdxRisingBars])) return false;
@@ -124,12 +127,26 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			return Kat34ScalperLogic.BarsAgoAtOrBefore(i => Times[0][i], CurrentBars[0], t);
 		}
 
+		// No-lookahead cutoff for cross-series gate reads: backfill replays see the COMPLETE target
+		// series, so a plain "opened at or before the A1 bar time" search would read target bars that
+		// had not closed yet when the A1 bar closed (live evaluation only ever sees closed bars).
+		// Time-based target: cutoff = A1 close - target period. Non-time target: cutoff = A1 open.
+		private DateTime A1ClosedCutoff(int ago, int series)
+		{
+			double a1Secs = Math.Max(1, AlertA1PeriodSeconds);
+			double targetSecs = a1Secs; // non-time target series: stay at the A1 bar open (conservative)
+			var bp = BarsArray[series].BarsPeriod;
+			if (bp.BarsPeriodType == Data.BarsPeriodType.Second) targetSecs = bp.Value;
+			else if (bp.BarsPeriodType == Data.BarsPeriodType.Minute) targetSecs = bp.Value * 60.0;
+			return Kat34ScalperLogic.ClosedBarCutoff(Times[1][ago], a1Secs, targetSecs);
+		}
+
 		// Independent MTF ADX regime gate (NOT part of the Global Filter): the most recent MTF bar
 		// closed at or before the A1 bar time must have ADX >= AlertA1AdxMtfMin (no lookahead).
 		private bool A1AdxMtfPassAt(int ago)
 		{
 			if (adxMtfInd == null || CurrentBars == null || CurrentBars.Length < 3 || CurrentBars[2] < 1) return true;
-			DateTime t = Times[1][ago];
+			DateTime t = A1ClosedCutoff(ago, 2);
 			int idx = Kat34ScalperLogic.BarsAgoAtOrBefore(i => Times[2][i], CurrentBars[2], t);
 			if (idx < 0) return true; // MTF series starts after t — warmup, gate open
 			return adxMtfInd[idx] >= AlertA1AdxMtfMin;

@@ -333,6 +333,19 @@ namespace Kat34Scalper
 		}
 
 		/// <summary>
+		/// No-lookahead cutoff for cross-series gate reads: the latest bar-open timestamp a
+		/// target-series bar may have and still be CLOSED by the time the source bar (opened at
+		/// sourceBarOpen, period sourcePeriodSeconds) closes: sourceClose - targetPeriod.
+		/// Pass targetPeriodSeconds = sourcePeriodSeconds for non-time-based target series (their
+		/// completion time is unknowable from timestamps alone) so the cutoff stays at the source
+		/// bar's open — conservative, never peeks.
+		/// </summary>
+		public static DateTime ClosedBarCutoff(DateTime sourceBarOpen, double sourcePeriodSeconds, double targetPeriodSeconds)
+		{
+			return sourceBarOpen.AddSeconds(sourcePeriodSeconds - targetPeriodSeconds);
+		}
+
+		/// <summary>
 		/// Binary search over a descending time series addressed by barsAgo (index 0 = newest):
 		/// the smallest barsAgo whose bar time is at or before t; -1 when t precedes every bar.
 		/// Shared by the A1 module's cross-series time mappings (no lookahead by construction).
