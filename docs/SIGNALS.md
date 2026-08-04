@@ -26,9 +26,9 @@ Chuẩn mô tả cho MỌI signal trong indicator. Mỗi signal là một sub-mo
   1. `Cond: EMA 8 above EMA 34` — strict `>`.
   2. `Cond: EMA 34 above EMA 144` — strict `>`.
   3. `Cond: EMA 144 above EMA 200` — strict `>`.
-  4. `Cond: EMA 34 slope angle` — góc nghiêng EMA 34 tối thiểu `+Min Angle` độ (lên) cho LONG; tối thiểu `-Min Angle` độ (xuống) cho SHORT. Góc chuẩn hoá: `atan(Δema34/bar / Angle Norm)` — không phụ thuộc zoom, backfill được. `Angle Norm` = mức giá/bar tính là 45° (chỉnh theo instrument).
-- Alert: **edge trigger** — 1 vertical line (dash, width default 2, màu LONG lime / SHORT đỏ — đổi được) + 1 Alert Sound (global `Alert Sound`) mỗi lần môi trường chuyển invalid → valid.
-- Settings: `AlertA1Enabled` (true), `AlertA1HistoryDays` (3), `AlertA1PeriodSeconds` (30), 4 cond toggles (true), `AlertA1AngleMin` (30), `AlertA1AngleNorm` (1.0), `AlertA1LineWidth` (2), `AlertA1LongColor` (LimeGreen), `AlertA1ShortColor` (Red).
+  4. `Cond: EMA 34 slope angle` — góc nghiêng EMA 34 tối thiểu `+Min Angle` độ (lên) cho LONG; tối thiểu `-Min Angle` độ (xuống) cho SHORT. Góc chuẩn hoá tự động bằng ATR trên series 30s: `atan(Δema34/bar / ATR(period))` — 45° = slope 1 ATR/bar, không phụ thuộc zoom, không cần chỉnh tay theo instrument (`ATR Period` chỉnh được).
+- Alert: **edge trigger + break debounce** — 1 vertical line (dash, width default 2, màu LONG lime / SHORT đỏ — đổi được) + 1 Alert Sound (global `Alert Sound`) khi môi trường chuyển invalid → valid. Sau khi fire, môi trường phải invalid LIÊN TIẾP `Break Bars` bar mới coi là phá vỡ — wobble 1-2 bar không sinh line mới. Đổi hướng (LONG→SHORT) fire ngay.
+- Settings: `AlertA1Enabled` (true), `AlertA1HistoryDays` (3), `AlertA1PeriodSeconds` (30), 4 cond toggles (true), `AlertA1AngleMin` (30), `AlertA1BreakBars` (3), `AlertA1AtrPeriod` (14), `AlertA1LineWidth` (2), `AlertA1LongColor` (LimeGreen), `AlertA1ShortColor` (Red).
 - Tag drawing: `K34S_ALERTA1_VL_<B/S>_<bar>` (vertical line neo theo thời gian bar 30s).
 - Filter: KHÔNG áp Global Filter (độc lập). Backfill replay History Days trên series 30s (vẽ line, không sound), sync edge state cho realtime.
 

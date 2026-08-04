@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.65] — 2026-08-04
+- **A1 fan 30s tuning: break debounce + auto ATR angle normalization**:
+  - `AlertA1BreakBars` (default 3): after a fired environment, the condition must stay invalid this many consecutive A1 bars before it counts as broken ("điều kiện phá vỡ") — 1-2 bar stack/angle wobbles no longer re-fire a line. Direction flip LONG↔SHORT still fires immediately. Pure `Kat34ScalperLogic.A1EdgeStep` (xunit-tested, 74 tests green).
+  - Removed `AlertA1AngleNorm` manual setting — angle now normalized by `ATR(AlertA1AtrPeriod)` on the A1 series (45° = 1 ATR/bar slope), auto-adapts per instrument; ATR period itself is a setting (default 14) for experimentation. `Min Angle` stays user-tunable (default 30, not fixed).
+  - Graphify entity mapping: `Kat34Scalper.a1Atr`, `AlertA1BreakBars/AlertA1AtrPeriod` settings, `Kat34ScalperLogic.A1EdgeStep`, `Kat34Scalper.EvaluateAlertA1Bar/BackfillAlertA1` (debounce state).
+
 ### [v0.64] — 2026-08-04
 - **Alert Signal A1 implemented: fan 30s (independent, alert-only)**:
   - A1 runs on its OWN secondary series (`AddDataSeries(Data.BarsPeriodType.Second, AlertA1PeriodSeconds)`, default 30s) with its OWN EMA 8/34/144/200 on `BarsArray[1]` — shares nothing with Bot Signals B1/B2 (no series, EMAs, states, signalRecords).

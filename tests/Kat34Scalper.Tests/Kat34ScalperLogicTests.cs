@@ -694,5 +694,63 @@ public class Kat34ScalperLogicTests
 		Assert.Equal(-1, Kat34ScalperLogic.A1Direction(C, C, false, C, 101, 102, 103, 102, -35, 30)); // 144>200 broken but disabled
 	}
 	#endregion
+
+	#region Alert Signal A1 (fan) — A1EdgeStep (break debounce)
+	[Fact]
+	public void A1EdgeStep_FiresOnNewValidEnvironment()
+	{
+		bool fired = Kat34ScalperLogic.A1EdgeStep(1, 0, 0, 3, out int lastDir, out int streak);
+		Assert.True(fired);
+		Assert.Equal(1, lastDir);
+		Assert.Equal(0, streak);
+	}
+
+	[Fact]
+	public void A1EdgeStep_NoRefireWhileEnvironmentHolds()
+	{
+		bool fired = Kat34ScalperLogic.A1EdgeStep(1, 1, 0, 3, out int lastDir, out _);
+		Assert.False(fired);
+		Assert.Equal(1, lastDir);
+	}
+
+	[Fact]
+	public void A1EdgeStep_ShortWobble_DoesNotRearm()
+	{
+		// armed LONG, 2 invalid bars (< break 3) -> still armed, no re-fire on return
+		Kat34ScalperLogic.A1EdgeStep(0, 1, 0, 3, out int lastDir, out int streak);
+		Assert.Equal(1, lastDir); Assert.Equal(1, streak);
+		Kat34ScalperLogic.A1EdgeStep(0, lastDir, streak, 3, out lastDir, out streak);
+		Assert.Equal(1, lastDir); Assert.Equal(2, streak);
+		bool fired = Kat34ScalperLogic.A1EdgeStep(1, lastDir, streak, 3, out lastDir, out _);
+		Assert.False(fired);
+		Assert.Equal(1, lastDir);
+	}
+
+	[Fact]
+	public void A1EdgeStep_SustainedBreak_RearmsAndRefires()
+	{
+		int lastDir = 1, streak = 0;
+		for (int i = 0; i < 3; i++)
+			Kat34ScalperLogic.A1EdgeStep(0, lastDir, streak, 3, out lastDir, out streak);
+		Assert.Equal(0, lastDir); // broken
+		bool fired = Kat34ScalperLogic.A1EdgeStep(1, lastDir, streak, 3, out _, out _);
+		Assert.True(fired);
+	}
+
+	[Fact]
+	public void A1EdgeStep_DirectionFlip_FiresImmediately()
+	{
+		bool fired = Kat34ScalperLogic.A1EdgeStep(-1, 1, 0, 3, out int lastDir, out _);
+		Assert.True(fired);
+		Assert.Equal(-1, lastDir);
+	}
+
+	[Fact]
+	public void A1EdgeStep_NonPositiveBreakBars_FallsBackToOne()
+	{
+		Kat34ScalperLogic.A1EdgeStep(0, 1, 0, 0, out int lastDir, out _);
+		Assert.Equal(0, lastDir); // one invalid bar already breaks
+	}
+	#endregion
 }
 

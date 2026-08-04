@@ -271,6 +271,28 @@ namespace Kat34Scalper
 		}
 
 		/// <summary>
+		/// A1 (fan) edge-trigger step with break debounce: a fired environment stays armed until it
+		/// has been invalid for breakBars consecutive bars ("điều kiện phá vỡ"), then the next valid
+		/// environment fires again. Returns true when this bar fires a new alert line; a direction
+		/// flip (1 -> -1) always fires.
+		/// </summary>
+		public static bool A1EdgeStep(int dir, int lastDir, int invalidStreak, int breakBars,
+			out int newLastDir, out int newStreak)
+		{
+			if (breakBars < 1) breakBars = 1;
+			if (dir != 0)
+			{
+				newStreak = 0;
+				bool fired = dir != lastDir;
+				newLastDir = dir;
+				return fired;
+			}
+			newStreak = invalidStreak + 1;
+			newLastDir = newStreak >= breakBars ? 0 : lastDir;
+			return false;
+		}
+
+		/// <summary>
 		/// A2 (34+8+Bounce) — advances one pending-entry state machine by one bar.
 		/// Buy: trend stack valid (caller evaluates the enabled ema conditions), price pulls back
 		/// and TOUCHES ema34 (wick low &lt;= ema34) while CLOSING above it → pending stop LONG at the

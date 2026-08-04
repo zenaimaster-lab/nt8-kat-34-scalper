@@ -25,7 +25,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	{
 		private volatile bool cachedAlertA1 = false;
 		private volatile bool alertA1BackfillPending;
-		private int a1LastDir;          // edge-trigger state: last evaluated environment direction
+		private int a1LastDir;          // edge-trigger state: last armed environment direction
+		private int a1InvalidStreak;    // consecutive invalid bars; >= BreakBars counts as broken
 		private int a1ReplayLines;      // backfill counter
 
 		private void SetAlertA1Signal(bool on)
@@ -50,23 +51,23 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (!cachedAlertA1) return;
 			if (CurrentBars == null || CurrentBars.Length < 2 || CurrentBars[1] < 201) return; // ema200 warmup
-			if (a1Ema8 == null || a1Ema34 == null || a1Ema144 == null || a1Ema200 == null) return;
+			if (a1Ema8 == null || a1Ema34 == null || a1Ema144 == null || a1Ema200 == null || a1Atr == null) return;
 
 			int dir = AlertA1DirectionAt(0);
-			if (dir != 0 && dir != a1LastDir)
+			if (Kat34ScalperLogic.A1EdgeStep(dir, a1LastDir, a1InvalidStreak, AlertA1BreakBars, out a1LastDir, out a1InvalidStreak))
 			{
-				DrawAlertA1Line(dir, 0);
+				DrawAlertA1Line(a1LastDir, 0);
 				PlayAlertSound();
 				Print(string.Format("[Kat34Scalper][AlertA1] {0} environment @ bar {1} — vertical line + sound.",
-					dir > 0 ? "LONG" : "SHORT", CurrentBars[1]));
+					a1LastDir > 0 ? "LONG" : "SHORT", CurrentBars[1]));
 			}
-			a1LastDir = dir;
 		}
 
-		// Environment direction on the A1 series at barsAgo (needs barsAgo+1 for the slope).
+		// Environment direction on the A1 series at barsAgo (needs barsAgo+1 for the slope;
+		// slope normalized by the A1-series ATR so the angle needs no manual tuning).
 		private int AlertA1DirectionAt(int ago)
 		{
-			double angle = Kat34ScalperLogic.SlopeAngleDeg(a1Ema34[ago], a1Ema34[ago + 1], AlertA1AngleNorm);
+			double angle = Kat34ScalperLogic.SlopeAngleDeg(a1Ema34[ago], a1Ema34[ago + 1], a1Atr[ago]);
 			return Kat34ScalperLogic.A1Direction(
 				AlertA1CondEma8Above34, AlertA1CondEma34Above144, AlertA1CondEma144Above200, AlertA1CondAngle,
 				a1Ema8[ago], a1Ema34[ago], a1Ema144[ago], a1Ema200[ago],
@@ -86,6 +87,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (!cachedAlertA1) return;
 			if (CurrentBars == null || CurrentBars.Length < 2) return;
+			if (a1Ema8 == null || a1Ema34 == null || a1Ema144 == null || a1Ema200 == null || a1Atr == null) return;
 			int warm = 201;
 			int max = CurrentBars[1] - 1;
 			if (max < warm)
@@ -96,18 +98,19 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 			int start = Math.Min(AlertA1HistoryStartBarsAgo(AlertA1HistoryDays), max - warm);
 			int lastDir = 0;
+			int invalidStreak = 0;
 			a1ReplayLines = 0;
 			for (int ago = start; ago >= 1; ago--)
 			{
 				int dir = AlertA1DirectionAt(ago);
-				if (dir != 0 && dir != lastDir)
+				if (Kat34ScalperLogic.A1EdgeStep(dir, lastDir, invalidStreak, AlertA1BreakBars, out lastDir, out invalidStreak))
 				{
-					DrawAlertA1Line(dir, ago);
+					DrawAlertA1Line(lastDir, ago);
 					a1ReplayLines++;
 				}
-				lastDir = dir;
 			}
-			a1LastDir = lastDir; // live evaluation continues the edge-trigger state
+			a1LastDir = lastDir;          // live evaluation continues the edge-trigger state
+			a1InvalidStreak = invalidStreak;
 			Print(string.Format("[Kat34Scalper][AlertA1] backfill done — {0} day(s), {1} bar(s) replayed: {2} vertical line(s); live lastDir={3}.",
 				AlertA1HistoryDays, start, a1ReplayLines, a1LastDir));
 		}
@@ -126,6 +129,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private void ClearAlertA1Drawings()
 		{
 			a1LastDir = 0;
+			a1InvalidStreak = 0;
 			RemoveModuleDrawings("K34S_ALERTA1_");
 		}
 	}

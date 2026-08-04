@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.64 (2026-08-04)
+ * Version: 0.65 (2026-08-04)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -84,7 +84,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.64";
+		public const string VERSION = "0.65";
 		public const string RELEASE_DATE = "2026-08-04";
 
 
@@ -103,6 +103,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private EMA a1Ema34;
 		private EMA a1Ema144;
 		private EMA a1Ema200;
+		private ATR a1Atr; // angle normalization unit (45 deg = 1 ATR/bar on the A1 series)
 
 		// Time-window filter parsed values
 		private TimeSpan timeStart;
@@ -143,7 +144,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AlertA1CondEma144Above200	= true;
 				AlertA1CondAngle			= true;
 				AlertA1AngleMin				= 30;
-				AlertA1AngleNorm			= 1.0;
+				AlertA1BreakBars			= 3;
+				AlertA1AtrPeriod			= 14;
 				AlertA1LineWidth			= 2;
 				AlertA1LongColor			= Colors.LimeGreen;
 				AlertA1ShortColor			= Colors.Red;
@@ -231,6 +233,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				a1Ema34 = EMA(BarsArray[1], 34);
 				a1Ema144 = EMA(BarsArray[1], 144);
 				a1Ema200 = EMA(BarsArray[1], 200);
+				a1Atr = ATR(BarsArray[1], Math.Max(1, AlertA1AtrPeriod));
 
 				timeWindowDisabled = string.Equals(TimeFilterStart, TimeFilterEnd, StringComparison.OrdinalIgnoreCase);
 				if (!timeWindowDisabled)
@@ -389,17 +392,22 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		public double AlertA1AngleMin { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Angle Norm (price/bar = 45 deg)", Order = 9, GroupName = "2. Alert Signal A1 — fan 30s",
-			Description = "Normalization for the slope angle: the EMA34 price change per bar that counts as 45 degrees. Tune per instrument.")]
-		public double AlertA1AngleNorm { get; set; }
+		[Display(Name = "Break Bars (invalid before re-arm)", Order = 9, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "After a fired environment, the condition must stay invalid this many consecutive A1 bars before it counts as broken and the next valid environment fires a new line. Prevents re-triggering on 1-2 bar wobbles.")]
+		public int AlertA1BreakBars { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Line Width (px)", Order = 10, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "ATR Period (angle normalization)", Order = 10, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "ATR period on the A1 series used as the slope-angle normalization unit (a slope of 1 ATR per bar reads as 45 degrees). Auto-adapts per instrument — no manual price tuning.")]
+		public int AlertA1AtrPeriod { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Line Width (px)", Order = 11, GroupName = "2. Alert Signal A1 — fan 30s",
 			Description = "Vertical alert line thickness.")]
 		public int AlertA1LineWidth { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "LONG Line Color", Order = 11, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "LONG Line Color", Order = 12, GroupName = "2. Alert Signal A1 — fan 30s",
 			Description = "Vertical line color for the LONG environment.")]
 		[XmlIgnore]
 		public Color AlertA1LongColor { get; set; }
@@ -412,7 +420,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		[NinjaScriptProperty]
-		[Display(Name = "SHORT Line Color", Order = 12, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "SHORT Line Color", Order = 13, GroupName = "2. Alert Signal A1 — fan 30s",
 			Description = "Vertical line color for the SHORT environment.")]
 		[XmlIgnore]
 		public Color AlertA1ShortColor { get; set; }
