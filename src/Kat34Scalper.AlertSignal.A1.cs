@@ -266,16 +266,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		// Pale background band over the price panel for a LONG/SHORT episode (ranging draws nothing).
-		// Time-anchored Draw.Rectangle with areaOpacity — stays inside the candle panel only.
-		private void DrawEnvBand(int dir, int barsAgoStart, int barsAgoEnd, double hi, double lo)
+		// Args are ABSOLUTE series-1 bar indexes (startIdx < endIdx) — the old barsAgo-style guards
+		// here silently rejected every valid episode (index start is always < index end), so the
+		// bands never rendered; the decision + barsAgo conversion now live in EnvBandAnchors (tested).
+		private void DrawEnvBand(int dir, int startIdx, int endIdx, double hi, double lo)
 		{
-			if (dir == 0 || barsAgoStart <= barsAgoEnd || hi <= lo) return;
-			int i1 = CurrentBars[1] - barsAgoStart;
-			int i2 = CurrentBars[1] - barsAgoEnd;
-			if (i1 < 0 || i2 < 0 || i1 >= i2) return;
+			if (!Kat34ScalperLogic.EnvBandAnchors(dir, startIdx, endIdx, hi, lo, CurrentBars[1], out int agoStart, out int agoEnd)) return;
 			Brush area = new SolidColorBrush(dir > 0 ? Colors.Green : Colors.Red);
-			string tag = string.Format("K34S_ALERTA1_BAND_{0}_{1}", dir > 0 ? "B" : "S", barsAgoStart);
-			Draw.Rectangle(this, tag, false, Times[1][i1], hi, Times[1][i2], lo, Brushes.Transparent, area, 8);
+			string tag = string.Format("K34S_ALERTA1_BAND_{0}_{1}", dir > 0 ? "B" : "S", startIdx);
+			Draw.Rectangle(this, tag, false, Times[1][agoStart], hi, Times[1][agoEnd], lo, Brushes.Transparent, area, 8);
 		}
 
 		// Gray vertical line marking the start of a ranging episode.

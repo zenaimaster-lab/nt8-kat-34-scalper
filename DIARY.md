@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.78] — 2026-08-04
+- **Environment bands actually render now (the long-standing green/red background bug)**: `DrawEnvBand`'s guards were written for barsAgo arguments (`barsAgoStart <= barsAgoEnd → return`), but every caller passes ABSOLUTE bar indexes where a valid episode always has `startIdx < endIdx` — so the guard rejected EVERY episode and the rectangle was never drawn (backfill or live). The v0.73/v0.75 "visible band" analyses verified the time-anchor math and missed the guard direction — owned. The decision + index→barsAgo conversion now lives in pure, tested `Kat34ScalperLogic.EnvBandAnchors(dir, startIdx, endIdx, hi, lo, currentBarIdx, out agoStart, out agoEnd)`; `DrawEnvBand` is a thin wrapper over it.
+- **Tests 98 → 102**: valid episode draws with correct barsAgo anchors (agoStart > agoEnd, older bar = larger barsAgo), ranging (dir 0) not drawn, zero-length episode (startIdx == endIdx) not drawn, flat extent (hi == lo) not drawn.
+- Note: band fill stays areaOpacity 8 (deliberately pale). If it reads as "too faint" on your theme, the fix is the `8` in `DrawEnvBand` — one constant.
+  - Graphify entity mapping: `Kat34ScalperLogic.EnvBandAnchors`, `Kat34Scalper.DrawEnvBand` (guard fix + index semantics).
+
 ### [v0.77] — 2026-08-04
 - **Plain ADX toggles removed (both sides)** per user request: the ALERT FILTER "ADX" button (`cachedAdxA`) and the BOT FILTER "ADX" button (`cachedAdx`) are gone, together with both gate clauses (`AlertA1MarketPassAt` alert leg + `MarketPassAt` shared leg). The alert side keeps its ADX family via the A1-only `ADX rising` + `ADX MTF (A1)` legs; the bot side keeps Volume/Time/ER/CI. `PassMarketFilter` pure logic untouched (bot caller now passes the ADX leg open: `0, 0`).
 - **Orphaned `AdxMin` setting deleted** with the gates (it had no consumer left — same dead-control trap as the v0.76 MTF button). `AdxPeriod` stays: `adxInd` still feeds the ADX-rising leg.

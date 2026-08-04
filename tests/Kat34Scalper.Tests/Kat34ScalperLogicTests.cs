@@ -346,6 +346,35 @@ public class Kat34ScalperLogicTests
 		Assert.Equal(t, Kat34ScalperLogic.ClosedBarCutoff(t, 30, 30));
 	}
 
+	// --- EnvBandAnchors (environment band draw decision; args are absolute bar INDEXES) ---
+	[Fact]
+	public void EnvBand_ValidEpisode_DrawsAndConvertsToBarsAgo()
+	{
+		// episode bars 100..150 on a series whose current index is 200
+		Assert.True(Kat34ScalperLogic.EnvBandAnchors(1, 100, 150, 4500, 4400, 200, out int agoStart, out int agoEnd));
+		Assert.Equal(100, agoStart); // 200 - 100: episode start is the older bar
+		Assert.Equal(50, agoEnd);    // 200 - 150: episode end is the newer bar
+	}
+
+	[Fact]
+	public void EnvBand_Ranging_NotDrawn()
+	{
+		Assert.False(Kat34ScalperLogic.EnvBandAnchors(0, 100, 150, 4500, 4400, 200, out _, out _));
+	}
+
+	[Fact]
+	public void EnvBand_SameBarEpisode_NotDrawn()
+	{
+		// dir changed THIS bar — the closed episode would be zero-length (startIdx == endIdx)
+		Assert.False(Kat34ScalperLogic.EnvBandAnchors(1, 150, 150, 4500, 4400, 200, out _, out _));
+	}
+
+	[Fact]
+	public void EnvBand_FlatExtent_NotDrawn()
+	{
+		Assert.False(Kat34ScalperLogic.EnvBandAnchors(1, 100, 150, 4400, 4400, 200, out _, out _));
+	}
+
 	// --- Time window ---
 	[Fact]
 	public void Time_InsideWindow_True()

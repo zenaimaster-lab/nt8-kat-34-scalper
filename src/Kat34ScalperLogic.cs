@@ -363,6 +363,23 @@ namespace Kat34Scalper
 		}
 
 		/// <summary>
+		/// Environment band draw decision: a LONG/SHORT episode band is drawn only for a real
+		/// direction over a real span (episode start bar index strictly before the end bar index)
+		/// with a real price extent (hi &gt; lo). Args are ABSOLUTE bar indexes on the episode series
+		/// (not barsAgo); the returned anchors ARE barsAgo (agoStart = episode start, agoEnd =
+		/// episode end) for a time-anchored rectangle. False when nothing may be drawn.
+		/// </summary>
+		public static bool EnvBandAnchors(int dir, int startIdx, int endIdx, double hi, double lo,
+			int currentBarIdx, out int agoStart, out int agoEnd)
+		{
+			agoStart = currentBarIdx - startIdx;
+			agoEnd = currentBarIdx - endIdx;
+			if (dir == 0 || startIdx >= endIdx || hi <= lo) return false;
+			if (agoEnd < 0 || agoStart > currentBarIdx) return false;
+			return true;
+		}
+
+		/// <summary>
 		/// A1 line gate: environment episodes run on the fan alone; the market-gate (filters) only
 		/// delays the episode's line to the first bar the gate passes (pending until then, dropped
 		/// when the episode dies). Stricter filters can therefore only remove or delay lines —
