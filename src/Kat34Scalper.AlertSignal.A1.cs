@@ -115,7 +115,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			int ago0 = Series0BarsAgoAt(A1ClosedCutoff(ago, 0));
 			if (ago0 < 0) return true;
 			if (cachedAdxA && (adxInd == null || adxInd[ago0] < AdxMin)) return false;
-			if (cachedAdxRise && (adxInd == null || CurrentBars[0] < ago0 + AdxRisingBars || adxInd[ago0] <= adxInd[ago0 + AdxRisingBars])) return false;
+			int riseBars = Math.Max(1, AdxRisingBars); // 0 would compare adx against itself — gate permanently closed
+			if (cachedAdxRise && (adxInd == null || CurrentBars[0] < ago0 + riseBars || adxInd[ago0] <= adxInd[ago0 + riseBars])) return false;
 			if (cachedErA && !ErPassAt(ago0)) return false;
 			if (cachedCiA && !CiPassAt(ago0)) return false;
 			return true;

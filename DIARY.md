@@ -19,6 +19,14 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.76] — 2026-08-04
+- **Filter/alert re-audit round 2 — dead MTF toggle removed**: the BOT FILTER "MTF" HUD button flipped `cachedMtf`, but no gate read it — orphan of the A0-era MTF fan (3m/5m/15m) that died when A0 was removed in v0.56. Toggling it did nothing while looking armed. Button + field + stale header mentions deleted; a real MTF fan gate would be a feature (new series/EMAs/settings), not a fix.
+- **AdxRisingBars=0 footgun clamped**: with Lookback 0 the alert-side ADX-rising leg compared `adxInd[ago0] <= adxInd[ago0]` — always true, so the gate stayed permanently closed and silently killed every A1 alert while the toggle was ON. Now `Math.Max(1, AdxRisingBars)`.
+- **Tests 95 → 98**: `A1EdgeStep_FlipDuringDebounceStreak_FiresWithoutFullBreak` (pins the documented "direction flip always fires" mid-streak), `Market_AdxExactlyAtMin_Passes` (boundary), `Er_DegenerateWindow_IsZero` (null/single bar).
+- Audit notes (no change): `diagnosticA0Dir` never assigned (CS0649, pre-existing dead field); `TimePassAt` garbage time strings fall back to window-open (acceptable); ER/CI gates allocate per call (perf only).
+- No new tooling needed.
+  - Graphify entity mapping: `Kat34Scalper.cachedMtf` (removed), HUD BOT FILTER "MTF" button (removed), `AlertA1MarketPassAt` (riseBars clamp).
+
 ### [v0.75] — 2026-08-04
 - **Alert filter/signal re-audit — backfill lookahead fixed**: the A1 alert gates (`AlertA1MarketPassAt` series-0 legs ADX/ADX-rising/ER/CI + `A1AdxMtfPassAt`) searched target-series bars "opened at or before the A1 bar time". Live evaluation only ever sees CLOSED target bars, but the one-shot backfill searches the COMPLETE series — so near gate thresholds the backfill could read a target bar that had not closed yet at the A1 bar's close (lookahead, backfill≠live). New pure `Kat34ScalperLogic.ClosedBarCutoff(sourceOpen, sourceSecs, targetSecs)` = sourceClose − targetPeriod; new `A1ClosedCutoff(ago, series)` wrapper (Second/Minute periods; non-time target series stay at the A1 open — conservative). Live behavior unchanged; backfill now matches live.
 - **Load sound spam killed**: `EvaluateAlertA1Bar` runs on every historical 30s bar and its fire block called `PlayAlertSound()` unguarded — NT8 plays sounds on historical bars, so every load/F5 machine-gunned one sound per historical environment edge. Sound + its Print now gated to `State == State.Realtime` (line drawing stays — backfill overwrites same tags).

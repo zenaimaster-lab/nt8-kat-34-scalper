@@ -3,8 +3,8 @@
  * Gates that decide whether a signal may fire on a bar. Every gate has a *At(barsAgo)
  * variant so the signal backfill replays evaluate the same gates on historical bars.
  * New filters (MACD, RSI, ...) plug in as a new method here + one clause in PassFiltersAt.
- *   Fan gate (uses A0 direction), MTF fan (3m/5m/15m), ADX, ER (trend), CI (chop), Volume, Time window.
- *   Two independent sides: BOT gates (MTF/ADX/Volume/Time/ER/CI) feed B1+B2; ALERT gates
+ *   ADX, ER (trend), CI (chop), Volume, Time window.
+ *   Two independent sides: BOT gates (ADX/Volume/Time/ER/CI) feed B1+B2; ALERT gates
  *   (ADX/ER/CI + the A1-only ADX rising & ADX MTF legs in the A1 module) feed A1+A2.
  * Every gate is OFF by default (session-only toggles boot OFF on every load).
  */
@@ -21,8 +21,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper
 	{
 		// --- Filter module state (HUD toggles — default OFF: every gate open until user enables) ---
-		// BOT side
-		private volatile bool cachedMtf;
+		// BOT side (the old A0-era MTF fan toggle died with A0 in v0.56 — field/button removed v0.76)
 		private volatile bool cachedAdx;
 		private volatile bool cachedEr;
 		private volatile bool cachedCi;

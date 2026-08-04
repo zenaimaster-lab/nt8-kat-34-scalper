@@ -1028,9 +1028,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			mainPanel.Children.Add(CreateModuleTitle("BOT FILTER"));
 			var secBotFilter = new StackPanel();
 			Grid bfRow1 = CreateTwoColGrid();
-			Button tMtf = CreateFilterToggle("MTF", () => cachedMtf, v => cachedMtf = v);
-			Grid.SetColumn(tMtf, 0);
-			bfRow1.Children.Add(tMtf);
 			Button tAdx = CreateFilterToggle("ADX", () => cachedAdx, v => cachedAdx = v);
 			Grid.SetColumn(tAdx, 2);
 			bfRow1.Children.Add(tAdx);

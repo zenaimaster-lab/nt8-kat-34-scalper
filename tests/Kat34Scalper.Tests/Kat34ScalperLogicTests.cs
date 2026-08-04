@@ -169,6 +169,12 @@ public class Kat34ScalperLogicTests
 		Assert.True(Kat34ScalperLogic.PassMarketFilter(25, 20, 0, 0, 1.0));
 	}
 
+	[Fact]
+	public void Market_AdxExactlyAtMin_Passes()
+	{
+		Assert.True(Kat34ScalperLogic.PassMarketFilter(20, 20, 1000, 500, 1.0));
+	}
+
 	// --- Range filters: EfficiencyRatio / ChoppinessIndex ---
 	[Fact]
 	public void Er_FlatCloses_IsZero()
@@ -186,6 +192,13 @@ public class Kat34ScalperLogicTests
 	public void Er_Sawtooth_IsChoppy()
 	{
 		Assert.True(Kat34ScalperLogic.EfficiencyRatio(new double[] { 0, 1, 0, 1, 0, 1, 0, 1 }) < 0.25);
+	}
+
+	[Fact]
+	public void Er_DegenerateWindow_IsZero()
+	{
+		Assert.Equal(0, Kat34ScalperLogic.EfficiencyRatio(new double[] { 100 }), 10);
+		Assert.Equal(0, Kat34ScalperLogic.EfficiencyRatio(null), 10);
 	}
 
 	[Fact]
@@ -943,6 +956,18 @@ public class Kat34ScalperLogicTests
 	{
 		Kat34ScalperLogic.A1EdgeStep(0, 1, 0, 0, out int lastDir, out _);
 		Assert.Equal(0, lastDir); // one invalid bar already breaks
+	}
+
+	[Fact]
+	public void A1EdgeStep_FlipDuringDebounceStreak_FiresWithoutFullBreak()
+	{
+		// armed LONG, 1 invalid bar (< break 3) -> still armed LONG; SHORT arrives mid-streak -> fires immediately
+		Kat34ScalperLogic.A1EdgeStep(0, 1, 0, 3, out int lastDir, out int streak);
+		Assert.Equal(1, lastDir);
+		bool fired = Kat34ScalperLogic.A1EdgeStep(-1, lastDir, streak, 3, out lastDir, out streak);
+		Assert.True(fired);
+		Assert.Equal(-1, lastDir);
+		Assert.Equal(0, streak);
 	}
 	#endregion
 }
