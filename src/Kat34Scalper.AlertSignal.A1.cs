@@ -5,8 +5,8 @@
  * series, EMAs, states, signalRecords or drawing records. Alert-only: draws a vertical line and
  * plays the global Alert Sound on environment transitions. Does NOT interact with Bot or orders.
  *
- * LONG environment:  ema8 > ema34 > ema144 > ema200 AND ema34 slope angle >= +Min Angle (rising).
- * SHORT environment: ema8 < ema34 < ema144 < ema200 AND ema34 slope angle <= -Min Angle (falling).
+ * LONG environment:  ema8 > ema34 > ema89 > ema144 > ema200 AND ema34 slope angle >= +Min Angle (rising).
+ * SHORT environment: ema8 < ema34 < ema89 < ema144 < ema200 AND ema34 slope angle <= -Min Angle (falling).
  * Edge trigger: one vertical line + one sound per invalid->valid transition.
  */
 
@@ -52,15 +52,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (!cachedAlertA1) return;
 			if (CurrentBars == null || CurrentBars.Length < 2 || CurrentBars[1] < 201) return; // ema200 warmup
-			if (a1Ema8 == null || a1Ema34 == null || a1Ema144 == null || a1Ema200 == null || a1Atr == null) return;
+			if (a1Ema8 == null || a1Ema34 == null || a1Ema89 == null || a1Ema144 == null || a1Ema200 == null || a1Atr == null) return;
 
 			int dir = AlertA1DirectionAt(0, out double angle);
 			if (dir != a1PrevDir)
 			{
 				a1PrevDir = dir;
-				Print(string.Format("[Kat34Scalper][AlertA1][GATE] bar {0} dir={1}, angle={2:F1}deg (min {3}, enabled {4}), e8={5:F2}, e34={6:F2}, e144={7:F2}, e200={8:F2}, atr={9:F2}",
+				Print(string.Format("[Kat34Scalper][AlertA1][GATE] bar {0} dir={1}, angle={2:F1}deg (min {3}, enabled {4}), e8={5:F2}, e34={6:F2}, e89={7:F2}, e144={8:F2}, e200={9:F2}, atr={10:F2}",
 					CurrentBars[1], dir, angle, AlertA1AngleMin, AlertA1AngleEnabled,
-					a1Ema8[0], a1Ema34[0], a1Ema144[0], a1Ema200[0], a1Atr[0]));
+					a1Ema8[0], a1Ema34[0], a1Ema89[0], a1Ema144[0], a1Ema200[0], a1Atr[0]));
 			}
 			if (Kat34ScalperLogic.A1EdgeStep(dir, a1LastDir, a1InvalidStreak, AlertA1BreakBars, out a1LastDir, out a1InvalidStreak))
 			{
@@ -77,8 +77,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			angle = Kat34ScalperLogic.SlopeAngleDeg(a1Ema34[ago], a1Ema34[ago + 1], a1Atr[ago]);
 			return Kat34ScalperLogic.A1Direction(
-				AlertA1CondEma8Above34, AlertA1CondEma34Above144, AlertA1CondEma144Above200, AlertA1AngleEnabled,
-				a1Ema8[ago], a1Ema34[ago], a1Ema144[ago], a1Ema200[ago],
+				AlertA1CondEma8Above34, AlertA1CondEma34Above89, AlertA1CondEma89Above144, AlertA1CondEma144Above200, AlertA1AngleEnabled,
+				a1Ema8[ago], a1Ema34[ago], a1Ema89[ago], a1Ema144[ago], a1Ema200[ago],
 				angle, Math.Abs(AlertA1AngleMin));
 		}
 
@@ -95,7 +95,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		{
 			if (!cachedAlertA1) return;
 			if (CurrentBars == null || CurrentBars.Length < 2) return;
-			if (a1Ema8 == null || a1Ema34 == null || a1Ema144 == null || a1Ema200 == null || a1Atr == null) return;
+			if (a1Ema8 == null || a1Ema34 == null || a1Ema89 == null || a1Ema144 == null || a1Ema200 == null || a1Atr == null) return;
 			int warm = 201;
 			int max = CurrentBars[1] - 1;
 			if (max < warm)

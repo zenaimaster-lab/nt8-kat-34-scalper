@@ -247,24 +247,26 @@ namespace Kat34Scalper
 		}
 
 		/// <summary>
-		/// A1 (fan) environment direction: +1 LONG when the EMA stack is 8 &gt; 34 &gt; 144 &gt; 200 and the
-		/// EMA34 slope angle is at least +minAngleDeg (rising); -1 SHORT when the stack mirrors
-		/// (8 &lt; 34 &lt; 144 &lt; 200) and the angle is at most -minAngleDeg (falling); 0 otherwise.
-		/// Each stack/angle condition can be disabled via its own toggle.
+		/// A1 (fan) environment direction: +1 LONG when the EMA fan is 8 &gt; 34 &gt; 89 &gt; 144 &gt; 200
+		/// (per enabled condition) and the EMA34 slope angle is at least +minAngleDeg (rising);
+		/// -1 SHORT when the fan mirrors and the angle is at most -minAngleDeg (falling); 0 otherwise.
+		/// Each fan/angle condition can be disabled via its own toggle.
 		/// </summary>
 		public static int A1Direction(
-			bool cond8Above34, bool cond34Above144, bool cond144Above200, bool condAngle,
-			double e8, double e34, double e144, double e200,
+			bool cond8Above34, bool cond34Above89, bool cond89Above144, bool cond144Above200, bool condAngle,
+			double e8, double e34, double e89, double e144, double e200,
 			double angleDeg, double minAngleDeg)
 		{
 			bool buy = (!cond8Above34 || e8 > e34)
-				&& (!cond34Above144 || e34 > e144)
+				&& (!cond34Above89 || e34 > e89)
+				&& (!cond89Above144 || e89 > e144)
 				&& (!cond144Above200 || e144 > e200)
 				&& (!condAngle || angleDeg >= minAngleDeg);
 			if (buy) return 1;
 
 			bool sell = (!cond8Above34 || e8 < e34)
-				&& (!cond34Above144 || e34 < e144)
+				&& (!cond34Above89 || e34 < e89)
+				&& (!cond89Above144 || e89 < e144)
 				&& (!cond144Above200 || e144 < e200)
 				&& (!condAngle || angleDeg <= -minAngleDeg);
 			return sell ? -1 : 0;

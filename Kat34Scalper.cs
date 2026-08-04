@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.67 (2026-08-04)
+ * Version: 0.68 (2026-08-04)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -84,7 +84,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.67";
+		public const string VERSION = "0.68";
 		public const string RELEASE_DATE = "2026-08-04";
 
 
@@ -101,6 +101,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		// Fully independent from the primary-series EMAs used by the Bot Signals (B1/B2).
 		private EMA a1Ema8;
 		private EMA a1Ema34;
+		private EMA a1Ema89;
 		private EMA a1Ema144;
 		private EMA a1Ema200;
 		private ATR a1Atr; // angle normalization unit (45 deg = 1 ATR/bar on the A1 series)
@@ -140,7 +141,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AlertA1HistoryDays			= 3;
 				AlertA1PeriodSeconds		= 30;
 				AlertA1CondEma8Above34		= true;
-				AlertA1CondEma34Above144	= true;
+				AlertA1CondEma34Above89		= true;
+				AlertA1CondEma89Above144	= true;
 				AlertA1CondEma144Above200	= true;
 				AlertA1AngleEnabled			= false; // ponytail: default OFF — 30s-bar slope is tiny vs ATR so 30deg rarely hits; enable manually once norm feels right
 				AlertA1AngleMin				= 30;
@@ -231,6 +233,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				// A1 (fan) — its own EMAs on the 30s series; nothing shared with B1/B2 series-0 EMAs.
 				a1Ema8 = EMA(BarsArray[1], 8);
 				a1Ema34 = EMA(BarsArray[1], 34);
+				a1Ema89 = EMA(BarsArray[1], 89);
 				a1Ema144 = EMA(BarsArray[1], 144);
 				a1Ema200 = EMA(BarsArray[1], 200);
 				a1Atr = ATR(BarsArray[1], Math.Max(1, AlertA1AtrPeriod));
@@ -372,42 +375,47 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		public bool AlertA1CondEma8Above34 { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Cond: EMA 34 above EMA 144", Order = 5, GroupName = "2. Alert Signal A1 — fan 30s",
-			Description = "LONG: EMA 34 above EMA 144. SHORT mirrored.")]
-		public bool AlertA1CondEma34Above144 { get; set; }
+		[Display(Name = "Cond: EMA 34 above EMA 89", Order = 5, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "LONG: EMA 34 above EMA 89 (trend confirmed, not just a fast-EMA spike). SHORT mirrored.")]
+		public bool AlertA1CondEma34Above89 { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Cond: EMA 144 above EMA 200", Order = 6, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Cond: EMA 89 above EMA 144", Order = 6, GroupName = "2. Alert Signal A1 — fan 30s",
+			Description = "LONG: EMA 89 above EMA 144. SHORT mirrored.")]
+		public bool AlertA1CondEma89Above144 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Cond: EMA 144 above EMA 200", Order = 7, GroupName = "2. Alert Signal A1 — fan 30s",
 			Description = "LONG: EMA 144 above EMA 200. SHORT mirrored.")]
 		public bool AlertA1CondEma144Above200 { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Cond: EMA 34 slope angle", Order = 7, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Cond: EMA 34 slope angle", Order = 8, GroupName = "2. Alert Signal A1 — fan 30s",
 			Description = "LONG: EMA 34 slope at least +Min Angle (rising). SHORT: at most -Min Angle (falling). Renamed in v0.67 so stale saved 'true' values from v0.65/0.66 drop and the OFF default applies.")]
 		public bool AlertA1AngleEnabled { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Min Angle (deg)", Order = 8, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Min Angle (deg)", Order = 9, GroupName = "2. Alert Signal A1 — fan 30s",
 			Description = "Minimum EMA 34 slope angle in degrees — up for LONG, down for SHORT.")]
 		public double AlertA1AngleMin { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Break Bars (invalid before re-arm)", Order = 9, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Break Bars (invalid before re-arm)", Order = 10, GroupName = "2. Alert Signal A1 — fan 30s",
 			Description = "After a fired environment, the condition must stay invalid this many consecutive A1 bars before it counts as broken and the next valid environment fires a new line. Prevents re-triggering on 1-2 bar wobbles.")]
 		public int AlertA1BreakBars { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "ATR Period (angle normalization)", Order = 10, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "ATR Period (angle normalization)", Order = 11, GroupName = "2. Alert Signal A1 — fan 30s",
 			Description = "ATR period on the A1 series used as the slope-angle normalization unit (a slope of 1 ATR per bar reads as 45 degrees). Auto-adapts per instrument — no manual price tuning.")]
 		public int AlertA1AtrPeriod { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Line Width (px)", Order = 11, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Line Width (px)", Order = 12, GroupName = "2. Alert Signal A1 — fan 30s",
 			Description = "Vertical alert line thickness.")]
 		public int AlertA1LineWidth { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "LONG Line Color", Order = 12, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "LONG Line Color", Order = 13, GroupName = "2. Alert Signal A1 — fan 30s",
 			Description = "Vertical line color for the LONG environment.")]
 		[XmlIgnore]
 		public Color AlertA1LongColor { get; set; }

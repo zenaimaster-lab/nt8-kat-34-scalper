@@ -19,6 +19,10 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.68] — 2026-08-04
+- **A1 fan completed to 5 EMAs (8>34>89>144>200), both LONG and SHORT**: user audit caught a LONG line firing while EMA34 still below EMA89 — the v0.64 spec omitted the 89 link. Added `AlertA1CondEma34Above89` + renamed `AlertA1CondEma34Above144` → `AlertA1CondEma89Above144` (stale saved values orphan; defaults true). Dedicated `a1Ema89` on the A1 30s series. Transitional fans (fast EMAs turned, 34 vs 89 unconfirmed) now block both sides — xunit `A1Direction_TransitionalFan_34Below89_BlocksBothSides`. 77 tests green.
+  - Graphify entity mapping: `Kat34Scalper.a1Ema89`, `AlertA1CondEma34Above89/AlertA1CondEma89Above144`, `Kat34ScalperLogic.A1Direction` (5-EMA fan).
+
 ### [v0.67] — 2026-08-04
 - **A1 angle gate property renamed `AlertA1CondAngle` → `AlertA1AngleEnabled`**: NT8 restores saved per-chart property values over SetDefaults — charts saved under v0.65 kept `AlertA1CondAngle=true`, silently overriding the v0.66 OFF default and blocking every signal. The rename orphans the stale saved value so the OFF default truly applies; user can re-enable from settings.
 - Added A1 gate diagnostics: `[AlertA1][GATE]` print on direction change (dir, angle, min, enabled, EMA stack, ATR) + backfill summary prints active settings — verify live behavior from the NT8 Output window.
