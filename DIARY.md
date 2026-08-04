@@ -19,6 +19,13 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.71] — 2026-08-04
+- **Environment background fixed & segmented**: the whole-chart tint rectangle (v0.70) painted the current color over the entire chart (a SHORT episode still showed green history) and leaked onto lower indicator panels. Replaced with per-episode pale `Draw.Rectangle` bands (alpha 10): LONG episode = pale green, SHORT = pale red, ranging = no band; barsAgo-anchored fill overload (the only NT8 Rectangle overload with a fill brush) so bands sit only in the candle panel. Bands replayed in backfill and extended live each bar.
+- **Gray vertical line** marks the start of every ranging episode (live + backfill), tag `K34S_ALERTA1_VR_*`.
+- **GLOBAL FILTER split into ALERT FILTER + BOT FILTER** (independent session toggles): ALERT (ADX, ADX rising (A1), ER, CI, ADX MTF (A1)) gates A1+A2 — A1 applies them backfill-aware via series-0 time mapping (`Series0BarsAgoAt`); BOT (MTF, ADX, Volume, Time window, ER, CI) gates B1+B2. A2 backfill/live now uses `PassAlertFiltersAt`. Note: A2 lost the volume/time legs it inherited from the old global gate (placeholder module, default OFF). Alert-side toggles re-backfill A1 on flip so lines/bands match instantly.
+- 83 tests green; compile gate green; NT8 live recompile accepted.
+  - Graphify entity mapping: `Kat34Scalper.a1BandDir/a1BandStartIdx/a1BandHi/a1BandLo`, `DrawEnvBand`, `DrawAlertA1RangeLine`, `Series0BarsAgoAt`, `AlertA1MarketPassAt`, `PassAlertFilters(At)`, `cachedAdxA/cachedErA/cachedCiA`, HUD sections ALERT FILTER / BOT FILTER.
+
 ### [v0.70] — 2026-08-04
 - **HUD polish + environment tint**: GLOBAL FILTER buttons now breathe — uniform 4px row gaps + 6px column gap (was glued rows), `ADX rising` renamed `ADX rising (A1)` and paired beside `ADX MTF (A1)` (A1-only gates together), `ER (trend)` + `CI (chop)` on their own row.
 - **Chart environment tint**: while the A1 environment is LONG the whole chart gets a very pale transparent green wash (alpha 16/255), SHORT a pale red wash, ranging/A1-OFF no wash. WPF `Rectangle` overlay in the chart host grid (ZIndex 9998, under the HUD canvas, `IsHitTestVisible=false`), refreshed on A1 direction transitions, after backfill, and cleared with A1 drawings.

@@ -342,7 +342,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		#region HUD Panel (sections titled by module: SIGNAL / FILTER / BOT / DRAW)
 		private Border hudBorder;
 		private Canvas hudCanvas;
-		private System.Windows.Shapes.Rectangle envTintRect;
 		private TextBlock hudStatusText;
 		private System.Windows.Threading.DispatcherTimer hudStatusTimer;
 		private bool isHudDragging;
@@ -531,21 +530,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			return btn;
 		}
 
-		// A1 environment tint: LONG = very pale green, SHORT = very pale red, ranging/off = none.
-		private void UpdateEnvTint(int dir)
-		{
-			if (ChartControl == null || ChartControl.Dispatcher == null) return;
-			ChartControl.Dispatcher.BeginInvoke(new Action(() =>
-			{
-				if (envTintRect == null) return;
-				envTintRect.Fill = dir > 0
-					? new SolidColorBrush(Color.FromArgb(16, 0, 255, 0))
-					: dir < 0
-						? new SolidColorBrush(Color.FromArgb(16, 255, 0, 0))
-						: Brushes.Transparent;
-			}));
-		}
-
 		private void ShowHudStatus(string message, Brush foreground)
 		{
 			if (ChartControl == null || ChartControl.Dispatcher == null) return;
@@ -700,18 +684,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			};
 			System.Windows.Controls.Panel.SetZIndex(hudCanvas, 9999);
 			host.Children.Add(hudCanvas);
-
-			// Environment tint over the chart: very pale green/red while the A1 environment is
-			// LONG/SHORT, transparent while ranging. Below the HUD canvas, never eats mouse input.
-			envTintRect = new System.Windows.Shapes.Rectangle
-			{
-				Fill = Brushes.Transparent,
-				IsHitTestVisible = false,
-				HorizontalAlignment = HorizontalAlignment.Stretch,
-				VerticalAlignment = VerticalAlignment.Stretch
-			};
-			System.Windows.Controls.Panel.SetZIndex(envTintRect, 9998);
-			host.Children.Add(envTintRect);
 
 			hudBorder = new Border
 			{
@@ -1026,42 +998,60 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			secSignal.Children.Add(sRow);
 			mainPanel.Children.Add(CreateSectionCard(secSignal, 6));
 
-			// --- GLOBAL FILTER module: MTF, ADX, Volume, Time window ---
-			mainPanel.Children.Add(CreateModuleTitle("GLOBAL FILTER"));
-			var secFilter = new StackPanel();
-			Grid fRow1 = CreateTwoColGrid();
+			// --- ALERT FILTER module: gates that apply only to Alert signals (A1/A2) ---
+			mainPanel.Children.Add(CreateModuleTitle("ALERT FILTER"));
+			var secAlertFilter = new StackPanel();
+			Grid afRow1 = CreateTwoColGrid();
+			Button tAdxA = CreateFilterToggle("ADX", () => cachedAdxA, v => SetAlertFilterToggle(v, x => cachedAdxA = x));
+			Grid.SetColumn(tAdxA, 0);
+			afRow1.Children.Add(tAdxA);
+			Button tAdxRise = CreateFilterToggle("ADX rising (A1)", () => cachedAdxRise, v => SetAlertFilterToggle(v, x => cachedAdxRise = x));
+			Grid.SetColumn(tAdxRise, 2);
+			afRow1.Children.Add(tAdxRise);
+			Grid afRow2 = CreateTwoColGrid();
+			Button tErA = CreateFilterToggle("ER (trend)", () => cachedErA, v => SetAlertFilterToggle(v, x => cachedErA = x));
+			Grid.SetColumn(tErA, 0);
+			afRow2.Children.Add(tErA);
+			Button tCiA = CreateFilterToggle("CI (chop)", () => cachedCiA, v => SetAlertFilterToggle(v, x => cachedCiA = x));
+			Grid.SetColumn(tCiA, 2);
+			afRow2.Children.Add(tCiA);
+			Grid afRow3 = CreateTwoColGrid();
+			Button tAdxMtf = CreateFilterToggle("ADX MTF (A1)", () => cachedA1AdxMtf, v => SetAlertA1AdxMtf(v));
+			Grid.SetColumn(tAdxMtf, 0);
+			afRow3.Children.Add(tAdxMtf);
+			secAlertFilter.Children.Add(afRow1);
+			secAlertFilter.Children.Add(afRow2);
+			secAlertFilter.Children.Add(afRow3);
+			mainPanel.Children.Add(CreateSectionCard(secAlertFilter, 6));
+
+			// --- BOT FILTER module: gates that apply only to Bot signals (B1/B2) ---
+			mainPanel.Children.Add(CreateModuleTitle("BOT FILTER"));
+			var secBotFilter = new StackPanel();
+			Grid bfRow1 = CreateTwoColGrid();
 			Button tMtf = CreateFilterToggle("MTF", () => cachedMtf, v => cachedMtf = v);
 			Grid.SetColumn(tMtf, 0);
-			fRow1.Children.Add(tMtf);
+			bfRow1.Children.Add(tMtf);
 			Button tAdx = CreateFilterToggle("ADX", () => cachedAdx, v => cachedAdx = v);
 			Grid.SetColumn(tAdx, 2);
-			fRow1.Children.Add(tAdx);
+			bfRow1.Children.Add(tAdx);
+			Grid bfRow2 = CreateTwoColGrid();
 			Button tVol = CreateFilterToggle("Volume", () => cachedVol, v => cachedVol = v);
-			Grid fRow2 = CreateTwoColGrid();
 			Grid.SetColumn(tVol, 0);
-			fRow2.Children.Add(tVol);
+			bfRow2.Children.Add(tVol);
 			Button tTime = CreateFilterToggle("Time window", () => cachedTime, v => cachedTime = v);
 			Grid.SetColumn(tTime, 2);
-			fRow2.Children.Add(tTime);
-			secFilter.Children.Add(fRow1);
-			secFilter.Children.Add(fRow2);
-			Grid fRow3 = CreateTwoColGrid();
-			Button tAdxRise = CreateFilterToggle("ADX rising (A1)", () => cachedAdxRise, v => cachedAdxRise = v);
-			Grid.SetColumn(tAdxRise, 0);
-			fRow3.Children.Add(tAdxRise);
-			Button tAdxMtf = CreateFilterToggle("ADX MTF (A1)", () => cachedA1AdxMtf, v => SetAlertA1AdxMtf(v));
-			Grid.SetColumn(tAdxMtf, 2);
-			fRow3.Children.Add(tAdxMtf);
-			Grid fRow4 = CreateTwoColGrid();
+			bfRow2.Children.Add(tTime);
+			Grid bfRow3 = CreateTwoColGrid();
 			Button tEr = CreateFilterToggle("ER (trend)", () => cachedEr, v => cachedEr = v);
 			Grid.SetColumn(tEr, 0);
-			fRow4.Children.Add(tEr);
+			bfRow3.Children.Add(tEr);
 			Button tCi = CreateFilterToggle("CI (chop)", () => cachedCi, v => cachedCi = v);
 			Grid.SetColumn(tCi, 2);
-			fRow4.Children.Add(tCi);
-			secFilter.Children.Add(fRow3);
-			secFilter.Children.Add(fRow4);
-			mainPanel.Children.Add(CreateSectionCard(secFilter, 6));
+			bfRow3.Children.Add(tCi);
+			secBotFilter.Children.Add(bfRow1);
+			secBotFilter.Children.Add(bfRow2);
+			secBotFilter.Children.Add(bfRow3);
+			mainPanel.Children.Add(CreateSectionCard(secBotFilter, 6));
 
 			// --- DRAW module: Clear removes all drawings from this HUD (signals + A0 + A1 stages) ---
 			mainPanel.Children.Add(CreateModuleTitle("DRAW"));
@@ -1128,9 +1118,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (hudCanvas != null && hudCanvas.Parent is Grid host)
 				host.Children.Remove(hudCanvas);
 			hudCanvas = null;
-			if (envTintRect != null && envTintRect.Parent is Panel tintHost)
-				tintHost.Children.Remove(envTintRect);
-			envTintRect = null;
 			hudStatusText = null;
 			atmComboBox = null;
 			atmSetButtons = null;

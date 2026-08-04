@@ -3,7 +3,9 @@
  * Gates that decide whether a signal may fire on a bar. Every gate has a *At(barsAgo)
  * variant so the signal backfill replays evaluate the same gates on historical bars.
  * New filters (MACD, RSI, ...) plug in as a new method here + one clause in PassFiltersAt.
- *   Fan gate (uses A0 direction), MTF fan (3m/5m/15m), ADX, ADX rising, ER (trend), CI (chop), Volume, Time window.
+ *   Fan gate (uses A0 direction), MTF fan (3m/5m/15m), ADX, ER (trend), CI (chop), Volume, Time window.
+ *   Two independent sides: BOT gates (MTF/ADX/Volume/Time/ER/CI) feed B1+B2; ALERT gates
+ *   (ADX/ER/CI + the A1-only ADX rising & ADX MTF legs in the A1 module) feed A1+A2.
  * Every gate is OFF by default (session-only toggles boot OFF on every load).
  */
 
@@ -19,15 +21,20 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper
 	{
 		// --- Filter module state (HUD toggles — default OFF: every gate open until user enables) ---
+		// BOT side
 		private volatile bool cachedMtf;
 		private volatile bool cachedAdx;
-		private volatile bool cachedAdxRise;
 		private volatile bool cachedEr;
 		private volatile bool cachedCi;
 		private volatile bool cachedVol;
 		private volatile bool cachedTime;
+		// ALERT side (independent state; ADX rising + ADX MTF A1-only legs live in the A1 module)
+		private volatile bool cachedAdxA;
+		private volatile bool cachedAdxRise;
+		private volatile bool cachedErA;
+		private volatile bool cachedCiA;
 
-		// Live entry point (current bar) with the gate-transition diagnostic print.
+		// Live entry point (current bar) with the gate-transition diagnostic print. BOT side.
 		private void PassFilters(out bool sellAllowed, out bool buyAllowed)
 		{
 			PassFiltersAt(0, out sellAllowed, out buyAllowed);
@@ -42,26 +49,39 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 		}
 
-		// Market + time at any bar (barsAgo 0 = live, >0 = backfill replay).
+		// Live ALERT side (A2). A1 applies the alert gates inside AlertA1DirectionAt (backfill-aware).
+		private void PassAlertFilters(out bool sellAllowed, out bool buyAllowed)
+		{
+			PassAlertFiltersAt(0, out sellAllowed, out buyAllowed);
+		}
+
+		// BOT market + time at any bar (barsAgo 0 = live, >0 = backfill replay).
 		private void PassFiltersAt(int barsAgo, out bool sellAllowed, out bool buyAllowed)
 		{
-			bool pass = MarketPassAt(barsAgo) && TimePassAt(barsAgo);
+			bool pass = MarketPassAt(barsAgo, false) && TimePassAt(barsAgo);
 			sellAllowed = pass;
 			buyAllowed  = pass;
 		}
 
-		private bool MarketPassAt(int barsAgo)
+		// ALERT market gates at any bar (no time window on the alert side).
+		private void PassAlertFiltersAt(int barsAgo, out bool sellAllowed, out bool buyAllowed)
 		{
-			double adxMin = cachedAdx ? AdxMin : 0;
-			double volSma = cachedVol && volSmaInd != null ? volSmaInd[barsAgo] : 0;
-			double adx = adxInd != null ? adxInd[barsAgo] : 0;
-			if (!Kat34ScalperLogic.PassMarketFilter(adx, adxMin, Volumes[0][barsAgo], volSma, VolumeMinMult)) return false;
-			if (cachedAdxRise && adxInd != null)
+			bool pass = MarketPassAt(barsAgo, true);
+			sellAllowed = pass;
+			buyAllowed  = pass;
+		}
+
+		private bool MarketPassAt(int barsAgo, bool alert)
+		{
+			if ((alert ? cachedAdxA : cachedAdx) && (adxInd == null || adxInd[barsAgo] < AdxMin)) return false;
+			if ((alert ? cachedErA : cachedEr) && !ErPassAt(barsAgo)) return false;
+			if ((alert ? cachedCiA : cachedCi) && !CiPassAt(barsAgo)) return false;
+			if (!alert)
 			{
-				if (CurrentBars[0] < barsAgo + AdxRisingBars || adx <= adxInd[barsAgo + AdxRisingBars]) return false;
+				double volSma = cachedVol && volSmaInd != null ? volSmaInd[barsAgo] : 0;
+				double adx = adxInd != null ? adxInd[barsAgo] : 0;
+				if (!Kat34ScalperLogic.PassMarketFilter(adx, cachedAdx ? AdxMin : 0, Volumes[0][barsAgo], volSma, VolumeMinMult)) return false;
 			}
-			if (cachedEr && !ErPassAt(barsAgo)) return false;
-			if (cachedCi && !CiPassAt(barsAgo)) return false;
 			return true;
 		}
 

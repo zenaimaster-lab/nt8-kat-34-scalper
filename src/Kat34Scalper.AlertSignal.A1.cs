@@ -30,6 +30,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private int a1InvalidStreak;    // consecutive invalid bars; >= BreakBars counts as broken
 		private int a1PrevDir;          // last printed gate direction (diagnostic)
 		private int a1ReplayLines;      // backfill counter
+		private int a1BandDir;          // open background band: episode direction (0 = ranging, no band)
+		private int a1BandStartIdx;     // open background band episode start (series-1 bar index)
+		private double a1BandHi;        // vertical extent of the bands (window extremes, live-extended)
+		private double a1BandLo;
 
 		private void SetAlertA1Signal(bool on)
 		{
@@ -56,13 +60,22 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (a1Ema8 == null || a1Ema34 == null || a1Ema89 == null || a1Ema144 == null || a1Ema200 == null || a1Atr == null) return;
 
 			int dir = AlertA1DirectionAt(0, out double angle);
+			if (Highs[1][0] > a1BandHi) a1BandHi = Highs[1][0];
+			if (Lows[1][0] < a1BandLo) a1BandLo = Lows[1][0];
 			if (dir != a1PrevDir)
 			{
+				DrawEnvBand(a1BandDir, a1BandStartIdx, CurrentBars[1], a1BandHi, a1BandLo);
+				if (dir == 0) DrawAlertA1RangeLine(0);
+				a1BandDir = dir;
+				a1BandStartIdx = CurrentBars[1];
 				a1PrevDir = dir;
-				UpdateEnvTint(dir);
 				Print(string.Format("[Kat34Scalper][AlertA1][GATE] bar {0} dir={1}, angle={2:F1}deg (min {3}, enabled {4}), e8={5:F2}, e34={6:F2}, e89={7:F2}, e144={8:F2}, e200={9:F2}, atr={10:F2}",
 					CurrentBars[1], dir, angle, AlertA1AngleMin, AlertA1AngleEnabled,
 					a1Ema8[0], a1Ema34[0], a1Ema89[0], a1Ema144[0], a1Ema200[0], a1Atr[0]));
+			}
+			else if (a1BandDir != 0)
+			{
+				DrawEnvBand(a1BandDir, a1BandStartIdx, CurrentBars[1], a1BandHi, a1BandLo); // extend the open episode
 			}
 			if (Kat34ScalperLogic.A1EdgeStep(dir, a1LastDir, a1InvalidStreak, AlertA1BreakBars, out a1LastDir, out a1InvalidStreak))
 			{
@@ -82,8 +95,36 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AlertA1CondEma8Above34, AlertA1CondEma34Above89, AlertA1CondEma89Above144, AlertA1CondEma144Above200, AlertA1AngleEnabled,
 				a1Ema8[ago], a1Ema34[ago], a1Ema89[ago], a1Ema144[ago], a1Ema200[ago],
 				angle, Math.Abs(AlertA1AngleMin));
-			if (dir != 0 && cachedA1AdxMtf && !A1AdxMtfPassAt(ago)) dir = 0;
+			if (dir != 0 && !AlertA1MarketPassAt(ago)) dir = 0;
 			return dir;
+		}
+
+		// ALERT-side market gates evaluated on the primary series at the A1 bar time (backfill-aware).
+		// The A1-only legs (ADX rising, ADX MTF) live here; the shared alert toggles (ADX/ER/CI) too.
+		private bool AlertA1MarketPassAt(int ago)
+		{
+			if (cachedA1AdxMtf && !A1AdxMtfPassAt(ago)) return false;
+			if (!cachedAdxA && !cachedAdxRise && !cachedErA && !cachedCiA) return true;
+			int ago0 = Series0BarsAgoAt(Times[1][ago]);
+			if (ago0 < 0) return true;
+			if (cachedAdxA && (adxInd == null || adxInd[ago0] < AdxMin)) return false;
+			if (cachedAdxRise && (adxInd == null || CurrentBars[0] < ago0 + AdxRisingBars || adxInd[ago0] <= adxInd[ago0 + AdxRisingBars])) return false;
+			if (cachedErA && !ErPassAt(ago0)) return false;
+			if (cachedCiA && !CiPassAt(ago0)) return false;
+			return true;
+		}
+
+		// barsAgo on the primary series of the bar closed at or before t (-1 when t precedes series 0).
+		private int Series0BarsAgoAt(DateTime t)
+		{
+			if (CurrentBars[0] < 1) return -1;
+			int lo = 0, hi = CurrentBars[0];
+			while (lo < hi)
+			{
+				int mid = (lo + hi) / 2;
+				if (Times[0][mid] <= t) hi = mid; else lo = mid + 1;
+			}
+			return Times[0][lo] <= t ? lo : -1;
 		}
 
 		// Independent MTF ADX regime gate (NOT part of the Global Filter): the most recent MTF bar
@@ -108,6 +149,18 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			cachedA1AdxMtf = on;
 			Print(string.Format("[Kat34Scalper][AlertA1] ADX MTF gate toggled {0} (min {1} on {2}m) — re-backfilling.",
 				on ? "ON" : "OFF", AlertA1AdxMtfMin, AlertA1AdxMtfMinutes));
+			ReBackfillAlertA1();
+		}
+
+		// Shared ALERT FILTER HUD toggles: assign then replay A1 so lines/bands match the new gates.
+		private void SetAlertFilterToggle(bool on, Action<bool> assign)
+		{
+			assign(on);
+			ReBackfillAlertA1();
+		}
+
+		private void ReBackfillAlertA1()
+		{
 			TriggerCustomEvent(o => { ClearAlertA1Drawings(); FlushAlertBackfill(); }, null);
 		}
 
@@ -134,12 +187,27 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				return;
 			}
 			int start = Math.Min(AlertA1HistoryStartBarsAgo(AlertA1HistoryDays), max - warm);
+			double hi = double.MinValue, lo = double.MaxValue;
+			for (int ago = start; ago >= 1; ago--)
+			{
+				if (Highs[1][ago] > hi) hi = Highs[1][ago];
+				if (Lows[1][ago] < lo) lo = Lows[1][ago];
+			}
 			int lastDir = 0;
 			int invalidStreak = 0;
 			a1ReplayLines = 0;
+			int bandDir = 0;
+			int bandStartIdx = CurrentBars[1] - start;
 			for (int ago = start; ago >= 1; ago--)
 			{
 				int dir = AlertA1DirectionAt(ago, out _);
+				if (dir != bandDir)
+				{
+					DrawEnvBand(bandDir, bandStartIdx, CurrentBars[1] - ago, hi, lo);
+					if (dir == 0) DrawAlertA1RangeLine(ago);
+					bandDir = dir;
+					bandStartIdx = CurrentBars[1] - ago;
+				}
 				if (Kat34ScalperLogic.A1EdgeStep(dir, lastDir, invalidStreak, AlertA1BreakBars, out lastDir, out invalidStreak))
 				{
 					DrawAlertA1Line(lastDir, ago);
@@ -149,7 +217,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			a1LastDir = lastDir;          // live evaluation continues the edge-trigger state
 			a1InvalidStreak = invalidStreak;
 			a1PrevDir = lastDir;
-			UpdateEnvTint(lastDir);
+			a1BandDir = bandDir;
+			a1BandStartIdx = bandStartIdx;
+			a1BandHi = hi;
+			a1BandLo = lo;
+			DrawEnvBand(a1BandDir, a1BandStartIdx, CurrentBars[1], hi, lo); // open episode up to now
 			Print(string.Format("[Kat34Scalper][AlertA1] backfill done — {0} day(s), {1} bar(s) replayed: {2} vertical line(s); live lastDir={3}; settings: angleEnabled={4}, minAngle={5}, atrPeriod={6}, breakBars={7}.",
 				AlertA1HistoryDays, start, a1ReplayLines, a1LastDir, AlertA1AngleEnabled, AlertA1AngleMin, AlertA1AtrPeriod, AlertA1BreakBars));
 		}
@@ -170,8 +242,26 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			a1LastDir = 0;
 			a1InvalidStreak = 0;
 			a1PrevDir = 0;
-			UpdateEnvTint(0);
+			a1BandDir = 0;
+			a1BandStartIdx = 0;
 			RemoveModuleDrawings("K34S_ALERTA1_");
+		}
+
+		// Pale background band over the price panel for a LONG/SHORT episode (ranging draws nothing).
+		// Time/bar-anchored Draw.Rectangle stays inside the candle panel — other panels untouched.
+		private void DrawEnvBand(int dir, int barsAgoStart, int barsAgoEnd, double hi, double lo)
+		{
+			if (dir == 0 || barsAgoStart <= barsAgoEnd || hi <= lo) return;
+			Brush fill = new SolidColorBrush(dir > 0 ? Color.FromArgb(10, 0, 255, 0) : Color.FromArgb(10, 255, 0, 0));
+			string tag = string.Format("K34S_ALERTA1_BAND_{0}_{1}", dir > 0 ? "B" : "S", barsAgoStart);
+			Draw.Rectangle(this, tag, false, barsAgoStart, hi, barsAgoEnd, lo, Brushes.Transparent, fill, 1);
+		}
+
+		// Gray vertical line marking the start of a ranging episode.
+		private void DrawAlertA1RangeLine(int ago)
+		{
+			string tag = string.Format("K34S_ALERTA1_VR_{0}", CurrentBars[1] - ago);
+			Draw.VerticalLine(this, tag, Times[1][ago], Brushes.Gray, DashStyleHelper.Dash, 1);
 		}
 	}
 }

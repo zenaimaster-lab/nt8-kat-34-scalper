@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.70 (2026-08-04)
+ * Version: 0.71 (2026-08-04)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -14,7 +14,7 @@
  *   src/Kat34Scalper.Signal.cs         — Bot Signal module shared helpers (backfill window)
  *   src/Kat34Scalper.Signal.B1.cs      — Bot Signal sub-module B1: 34bounce8+ (34+8+Bounce ema34-touch pending entry)
  *   src/Kat34Scalper.Signal.B2.cs      — Bot Signal sub-module B2: 89uturn34 (89-34 pullback setup)
- *   src/Kat34Scalper.Filter.cs         — Global Filter module: MTF, ADX, Volume, Time window gates
+ *   src/Kat34Scalper.Filter.cs         — Filter module: BOT side (MTF/ADX/Volume/Time/ER/CI) + ALERT side (ADX/ER/CI) gates
  *   src/Kat34Scalper.Bot.cs            — Bot module: order ops, stop/limit, ATM
  *   src/Kat34Scalper.Draw.cs           — Draw module: lines + ATM triggers + HUD
  */
@@ -84,7 +84,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.70";
+		public const string VERSION = "0.71";
 		public const string RELEASE_DATE = "2026-08-04";
 
 
@@ -319,9 +319,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double low = Lows[0][0];
 			double close = Closes[0][0];
 
+			bool alertSell, alertBuy;
+			PassAlertFilters(out alertSell, out alertBuy);          // ALERT Filter module (ADX/ER/CI alert side)
+			EvaluateAlertA2(high, low, close, alertSell, alertBuy); // Alert Signal sub-module A2
 			bool sellAllowed, buyAllowed;
-			PassFilters(out sellAllowed, out buyAllowed);          // Global Filter module (ADX, volume, time)
-			EvaluateAlertA2(high, low, close, sellAllowed, buyAllowed); // Alert Signal sub-module A2
+			PassFilters(out sellAllowed, out buyAllowed);          // BOT Filter module (ADX, volume, time, ER, CI)
 			EvaluateB1(high, low, close, sellAllowed, buyAllowed); // Bot Signal sub-module B1 (34bounce8+)
 			EvaluateB2(high, low, close, sellAllowed, buyAllowed); // Bot Signal sub-module B2 (89uturn34)
 			ManageBotEntry(high, low, close);                      // Bot module (pending entry lifecycle)
