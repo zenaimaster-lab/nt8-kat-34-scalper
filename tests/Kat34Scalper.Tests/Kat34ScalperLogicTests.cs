@@ -214,6 +214,34 @@ public class Kat34ScalperLogicTests
 		Assert.Equal(100, Kat34ScalperLogic.ChoppinessIndex(new double[] { 5, 5, 5 }, new double[] { 5, 5, 5 }, new double[] { 5, 5, 5, 5 }), 10);
 	}
 
+	// --- A1 line gate: filters delay/remove lines, never add ---
+	[Fact]
+	public void LineGate_FiredAndGatePass_DrawsImmediately()
+	{
+		Assert.True(Kat34ScalperLogic.A1LineGateStep(true, true, true, false, out bool pending));
+		Assert.False(pending);
+	}
+
+	[Fact]
+	public void LineGate_GateClosed_PendsThenDrawsWhenGateOpens()
+	{
+		Assert.False(Kat34ScalperLogic.A1LineGateStep(true, true, false, false, out bool pending));
+		Assert.True(pending);
+		Assert.False(Kat34ScalperLogic.A1LineGateStep(false, true, false, pending, out pending));
+		Assert.True(pending);
+		Assert.True(Kat34ScalperLogic.A1LineGateStep(false, true, true, pending, out pending));
+		Assert.False(pending);
+	}
+
+	[Fact]
+	public void LineGate_GateNeverPasses_EpisodeDies_NoDraw()
+	{
+		Assert.False(Kat34ScalperLogic.A1LineGateStep(true, true, false, false, out bool pending));
+		Assert.True(pending);
+		Assert.False(Kat34ScalperLogic.A1LineGateStep(false, false, false, pending, out pending));
+		Assert.False(pending);
+	}
+
 	// --- Time window ---
 	[Fact]
 	public void Time_InsideWindow_True()

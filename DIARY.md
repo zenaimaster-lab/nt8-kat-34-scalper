@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.73] — 2026-08-04
+- **Filters no longer ADD lines (subset semantics)**: gating the environment direction with the market filters fragmented LONG/SHORT episodes, so enabling a stricter filter produced MORE edge-trigger lines — the opposite of common sense. Episodes now run on the fan alone; pure `Kat34ScalperLogic.A1LineGateStep` defers each episode's line to the first bar the ALERT FILTER passes (pending dropped when the episode dies). Filters can now only remove or delay lines (3 new xunit cases; 86 green).
+- **Environment bands finally visible**: the invisible-band bug was the Draw.Rectangle fill overload — its last int is `areaOpacity` (0-100), not line width; passing 1 rendered a 1%-opacity area. Verified the exact overloads by decoding NinjaTrader.Custom.dll metadata (System.Reflection.Metadata probe). Bands now use the time-anchored overload `(isAutoScale, startTime, startY, endTime, endY, brush, areaBrush, areaOpacity)` with solid green/red area at opacity 8, anchored by A1 bar times (no series-mismatch).
+- 86 tests green; compile gate green; NT8 live recompile accepted.
+  - Graphify entity mapping: `Kat34ScalperLogic.A1LineGateStep`, `Kat34Scalper.a1LinePending`, `DrawEnvBand` (time anchor + areaOpacity), `AlertA1DirectionAt` (fan-only).
+
 ### [v0.72] — 2026-08-04
 - **Filter-toggle re-backfill fixed (signals vanished)**: `ReBackfillAlertA1` (used by every ALERT FILTER button + ADX MTF (A1)) cleared the A1 drawings but never set `alertA1BackfillPending`, so `FlushAlertBackfill` no-opped and after 1-2 toggle presses all A1 lines/bands stayed gone. Now sets the pending flag before the flush — toggles redraw lines AND environment bands on every ON/OFF press.
 - **Ranging-start gray line**: width 1 → 2 (dash kept).

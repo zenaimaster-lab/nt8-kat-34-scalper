@@ -333,6 +333,26 @@ namespace Kat34Scalper
 		}
 
 		/// <summary>
+		/// A1 line gate: environment episodes run on the fan alone; the market-gate (filters) only
+		/// delays the episode's line to the first bar the gate passes (pending until then, dropped
+		/// when the episode dies). Stricter filters can therefore only remove or delay lines —
+		/// never create extra ones. Returns true when the line draws this bar.
+		/// </summary>
+		public static bool A1LineGateStep(bool fired, bool episodeAlive, bool gatePass, bool pending,
+			out bool newPending)
+		{
+			pending = pending || fired;
+			if (pending && episodeAlive && gatePass)
+			{
+				newPending = false;
+				return true;
+			}
+			if (!episodeAlive) pending = false;
+			newPending = pending;
+			return false;
+		}
+
+		/// <summary>
 		/// A2 (34+8+Bounce) — advances one pending-entry state machine by one bar.
 		/// Buy: trend stack valid (caller evaluates the enabled ema conditions), price pulls back
 		/// and TOUCHES ema34 (wick low &lt;= ema34) while CLOSING above it → pending stop LONG at the
