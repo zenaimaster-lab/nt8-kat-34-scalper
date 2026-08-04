@@ -693,6 +693,17 @@ public class Kat34ScalperLogicTests
 		Assert.Equal(1, Kat34ScalperLogic.A1Direction(C, C, C, false, 104, 103, 102, 101, -10, 30));
 		Assert.Equal(-1, Kat34ScalperLogic.A1Direction(C, C, false, C, 101, 102, 103, 102, -35, 30)); // 144>200 broken but disabled
 	}
+
+	[Fact]
+	public void A1Direction_TinySlopeVsNorm_AngleGateBlocks_StackAloneFiresWhenAngleOff()
+	{
+		// 30s reality: slope ~0.2 of the normalization unit -> ~11 degrees, below 30
+		double angle = Kat34ScalperLogic.SlopeAngleDeg(100.2, 100.0, 1.0);
+		Assert.True(angle < 30);
+		Assert.Equal(0, Kat34ScalperLogic.A1Direction(C, C, C, C, 104, 103, 102, 101, angle, 30));  // angle gate ON blocks
+		Assert.Equal(1, Kat34ScalperLogic.A1Direction(C, C, C, false, 104, 103, 102, 101, angle, 30)); // angle gate OFF -> stack fires
+		Assert.Equal(-1, Kat34ScalperLogic.A1Direction(C, C, C, false, 101, 102, 103, 104, -angle, 30));
+	}
 	#endregion
 
 	#region Alert Signal A1 (fan) — A1EdgeStep (break debounce)

@@ -19,6 +19,10 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.66] — 2026-08-04
+- **A1 angle gate default OFF**: on 30s bars the EMA34 slope-per-bar is tiny vs ATR, so the 30° gate almost never passed and A1 drew nothing. `AlertA1CondAngle` now defaults false — A1 fires on the EMA stack alone until the angle gate is enabled manually. New xunit case proves tiny-slope blocks with the gate ON and fires with it OFF (75 tests green).
+  - Graphify entity mapping: `Kat34Scalper.SetDefaults` (AlertA1CondAngle default), `Kat34ScalperLogicTests.A1Direction_TinySlopeVsNorm...`.
+
 ### [v0.65] — 2026-08-04
 - **A1 fan 30s tuning: break debounce + auto ATR angle normalization**:
   - `AlertA1BreakBars` (default 3): after a fired environment, the condition must stay invalid this many consecutive A1 bars before it counts as broken ("điều kiện phá vỡ") — 1-2 bar stack/angle wobbles no longer re-fire a line. Direction flip LONG↔SHORT still fires immediately. Pure `Kat34ScalperLogic.A1EdgeStep` (xunit-tested, 74 tests green).
