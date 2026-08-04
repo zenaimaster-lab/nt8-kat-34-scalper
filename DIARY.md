@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.72] — 2026-08-04
+- **Filter-toggle re-backfill fixed (signals vanished)**: `ReBackfillAlertA1` (used by every ALERT FILTER button + ADX MTF (A1)) cleared the A1 drawings but never set `alertA1BackfillPending`, so `FlushAlertBackfill` no-opped and after 1-2 toggle presses all A1 lines/bands stayed gone. Now sets the pending flag before the flush — toggles redraw lines AND environment bands on every ON/OFF press.
+- **Ranging-start gray line**: width 1 → 2 (dash kept).
+- 83 tests green; compile gate green; NT8 live recompile accepted.
+  - Graphify entity mapping: `Kat34Scalper.ReBackfillAlertA1` (pending flag), `DrawAlertA1RangeLine` (width 2).
+
 ### [v0.71] — 2026-08-04
 - **Environment background fixed & segmented**: the whole-chart tint rectangle (v0.70) painted the current color over the entire chart (a SHORT episode still showed green history) and leaked onto lower indicator panels. Replaced with per-episode pale `Draw.Rectangle` bands (alpha 10): LONG episode = pale green, SHORT = pale red, ranging = no band; barsAgo-anchored fill overload (the only NT8 Rectangle overload with a fill brush) so bands sit only in the candle panel. Bands replayed in backfill and extended live each bar.
 - **Gray vertical line** marks the start of every ranging episode (live + backfill), tag `K34S_ALERTA1_VR_*`.

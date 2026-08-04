@@ -161,6 +161,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private void ReBackfillAlertA1()
 		{
+			alertA1BackfillPending = true; // FlushAlertBackfill no-ops without this — signals would vanish
 			TriggerCustomEvent(o => { ClearAlertA1Drawings(); FlushAlertBackfill(); }, null);
 		}
 
@@ -261,7 +262,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private void DrawAlertA1RangeLine(int ago)
 		{
 			string tag = string.Format("K34S_ALERTA1_VR_{0}", CurrentBars[1] - ago);
-			Draw.VerticalLine(this, tag, Times[1][ago], Brushes.Gray, DashStyleHelper.Dash, 1);
+			Draw.VerticalLine(this, tag, Times[1][ago], Brushes.Gray, DashStyleHelper.Dash, 2);
 		}
 	}
 }
