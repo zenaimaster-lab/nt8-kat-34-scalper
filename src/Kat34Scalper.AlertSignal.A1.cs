@@ -107,14 +107,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		// ALERT-side market gates evaluated on the primary series at the A1 bar time (backfill-aware).
-		// The A1-only legs (ADX rising, ADX MTF) live here; the shared alert toggles (ADX/ER/CI) too.
+		// The A1-only legs (ADX rising, ADX MTF) live here; the shared alert toggles (ER/CI) too.
 		private bool AlertA1MarketPassAt(int ago)
 		{
 			if (cachedA1AdxMtf && !A1AdxMtfPassAt(ago)) return false;
-			if (!cachedAdxA && !cachedAdxRise && !cachedErA && !cachedCiA) return true;
+			if (!cachedAdxRise && !cachedErA && !cachedCiA) return true;
 			int ago0 = Series0BarsAgoAt(A1ClosedCutoff(ago, 0));
 			if (ago0 < 0) return true;
-			if (cachedAdxA && (adxInd == null || adxInd[ago0] < AdxMin)) return false;
 			int riseBars = Math.Max(1, AdxRisingBars); // 0 would compare adx against itself — gate permanently closed
 			if (cachedAdxRise && (adxInd == null || CurrentBars[0] < ago0 + riseBars || adxInd[ago0] <= adxInd[ago0 + riseBars])) return false;
 			if (cachedErA && !ErPassAt(ago0)) return false;

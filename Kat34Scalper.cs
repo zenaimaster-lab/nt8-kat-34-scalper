@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.76 (2026-08-04)
+ * Version: 0.77 (2026-08-04)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -84,7 +84,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.76";
+		public const string VERSION = "0.77";
 		public const string RELEASE_DATE = "2026-08-04";
 
 
@@ -130,7 +130,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 				// 1. Filters defaults — every gate OFF; toggles boot OFF on every load (session-only)
 				AdxPeriod					= 60; // 60x30s = 30-min regime window; 14 (7 min) whipsaws on 30s
-				AdxMin						= 20;
 				AdxRisingEnabled			= false;
 				AdxRisingBars				= 5;
 				ErPeriod					= 40;
@@ -339,11 +338,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[NinjaScriptProperty]
 		[Display(Name = "ADX Period", Order = 7, GroupName = "1. Filters")]
 		public int AdxPeriod { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "ADX Min", Order = 8, GroupName = "1. Filters",
-			Description = "Minimum ADX — blocks sideways/no-trend markets.")]
-		public double AdxMin { get; set; }
 
 		[NinjaScriptProperty]
 		[Display(Name = "Volume SMA Period", Order = 9, GroupName = "1. Filters")]

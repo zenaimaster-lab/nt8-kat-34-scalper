@@ -3,9 +3,9 @@
  * Gates that decide whether a signal may fire on a bar. Every gate has a *At(barsAgo)
  * variant so the signal backfill replays evaluate the same gates on historical bars.
  * New filters (MACD, RSI, ...) plug in as a new method here + one clause in PassFiltersAt.
- *   ADX, ER (trend), CI (chop), Volume, Time window.
- *   Two independent sides: BOT gates (ADX/Volume/Time/ER/CI) feed B1+B2; ALERT gates
- *   (ADX/ER/CI + the A1-only ADX rising & ADX MTF legs in the A1 module) feed A1+A2.
+ *   ER (trend), CI (chop), Volume, Time window.
+ *   Two independent sides: BOT gates (Volume/Time/ER/CI) feed B1+B2; ALERT gates
+ *   (ER/CI + the A1-only ADX rising & ADX MTF legs in the A1 module) feed A1+A2.
  * Every gate is OFF by default (session-only toggles boot OFF on every load).
  */
 
@@ -21,14 +21,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper
 	{
 		// --- Filter module state (HUD toggles — default OFF: every gate open until user enables) ---
-		// BOT side (the old A0-era MTF fan toggle died with A0 in v0.56 — field/button removed v0.76)
-		private volatile bool cachedAdx;
+		// BOT side (old A0-era MTF fan toggle removed v0.76; plain ADX toggle removed v0.77)
 		private volatile bool cachedEr;
 		private volatile bool cachedCi;
 		private volatile bool cachedVol;
 		private volatile bool cachedTime;
 		// ALERT side (independent state; ADX rising + ADX MTF A1-only legs live in the A1 module)
-		private volatile bool cachedAdxA;
 		private volatile bool cachedAdxRise;
 		private volatile bool cachedErA;
 		private volatile bool cachedCiA;
@@ -43,8 +41,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				diagnosticGateInitialized = true;
 				diagnosticSellAllowed = sellAllowed;
 				diagnosticBuyAllowed = buyAllowed;
-				Print(string.Format("[Kat34Scalper][GATE] bar {0} sellAllowed={1}, buyAllowed={2}, adx={3}, vol={4}, time={5}",
-					CurrentBar, sellAllowed, buyAllowed, cachedAdx, cachedVol, cachedTime));
+				Print(string.Format("[Kat34Scalper][GATE] bar {0} sellAllowed={1}, buyAllowed={2}, vol={3}, time={4}",
+					CurrentBar, sellAllowed, buyAllowed, cachedVol, cachedTime));
 			}
 		}
 
@@ -72,14 +70,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private bool MarketPassAt(int barsAgo, bool alert)
 		{
-			if ((alert ? cachedAdxA : cachedAdx) && (adxInd == null || adxInd[barsAgo] < AdxMin)) return false;
 			if ((alert ? cachedErA : cachedEr) && !ErPassAt(barsAgo)) return false;
 			if ((alert ? cachedCiA : cachedCi) && !CiPassAt(barsAgo)) return false;
 			if (!alert)
 			{
 				double volSma = cachedVol && volSmaInd != null ? volSmaInd[barsAgo] : 0;
-				double adx = adxInd != null ? adxInd[barsAgo] : 0;
-				if (!Kat34ScalperLogic.PassMarketFilter(adx, cachedAdx ? AdxMin : 0, Volumes[0][barsAgo], volSma, VolumeMinMult)) return false;
+				if (!Kat34ScalperLogic.PassMarketFilter(0, 0, Volumes[0][barsAgo], volSma, VolumeMinMult)) return false;
 			}
 			return true;
 		}

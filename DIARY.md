@@ -19,6 +19,13 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.77] — 2026-08-04
+- **Plain ADX toggles removed (both sides)** per user request: the ALERT FILTER "ADX" button (`cachedAdxA`) and the BOT FILTER "ADX" button (`cachedAdx`) are gone, together with both gate clauses (`AlertA1MarketPassAt` alert leg + `MarketPassAt` shared leg). The alert side keeps its ADX family via the A1-only `ADX rising` + `ADX MTF (A1)` legs; the bot side keeps Volume/Time/ER/CI. `PassMarketFilter` pure logic untouched (bot caller now passes the ADX leg open: `0, 0`).
+- **Orphaned `AdxMin` setting deleted** with the gates (it had no consumer left — same dead-control trap as the v0.76 MTF button). `AdxPeriod` stays: `adxInd` still feeds the ADX-rising leg.
+- HUD repacked: ALERT FILTER rows = [ADX rising (A1) | ER (trend)] + [CI (chop) | ADX MTF (A1)]; BOT FILTER rows = [Volume | Time window] + [ER (trend) | CI (chop)]. GATE diagnostic print dropped the adx slot.
+- No test changes: pure `PassMarketFilter` semantics unchanged; 98 tests green.
+  - Graphify entity mapping: `cachedAdx/cachedAdxA/AdxMin` (removed), HUD ALERT/BOT FILTER rows, `MarketPassAt`/`AlertA1MarketPassAt` (ADX clauses removed).
+
 ### [v0.76] — 2026-08-04
 - **Filter/alert re-audit round 2 — dead MTF toggle removed**: the BOT FILTER "MTF" HUD button flipped `cachedMtf`, but no gate read it — orphan of the A0-era MTF fan (3m/5m/15m) that died when A0 was removed in v0.56. Toggling it did nothing while looking armed. Button + field + stale header mentions deleted; a real MTF fan gate would be a feature (new series/EMAs/settings), not a fix.
 - **AdxRisingBars=0 footgun clamped**: with Lookback 0 the alert-side ADX-rising leg compared `adxInd[ago0] <= adxInd[ago0]` — always true, so the gate stayed permanently closed and silently killed every A1 alert while the toggle was ON. Now `Math.Max(1, AdxRisingBars)`.
