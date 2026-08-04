@@ -946,5 +946,48 @@ public class Kat34ScalperLogicTests
 		Assert.Equal(0, streak);
 	}
 	#endregion
+
+	#region Alert Signal A1 (fan) — A1DebouncedDir (episode invalid decision)
+	[Fact]
+	public void A1DebouncedDir_WobbleKeepsArmedEnvironment()
+	{
+		// armed LONG, 2 invalid bars (< break 3) -> episode still LONG
+		Assert.Equal(1, Kat34ScalperLogic.A1DebouncedDir(0, 1, 0, 3));
+		Assert.Equal(1, Kat34ScalperLogic.A1DebouncedDir(0, 1, 1, 3));
+	}
+
+	[Fact]
+	public void A1DebouncedDir_FullBreakGoesRanging()
+	{
+		Assert.Equal(0, Kat34ScalperLogic.A1DebouncedDir(0, 1, 2, 3)); // 3rd consecutive invalid bar
+	}
+
+	[Fact]
+	public void A1DebouncedDir_FlipPassesThroughImmediately()
+	{
+		Assert.Equal(-1, Kat34ScalperLogic.A1DebouncedDir(-1, 1, 0, 3));
+	}
+
+	[Fact]
+	public void A1DebouncedDir_RangingStaysRanging()
+	{
+		Assert.Equal(0, Kat34ScalperLogic.A1DebouncedDir(0, 0, 5, 3));
+	}
+
+	[Fact]
+	public void A1DebouncedDir_MatchesEdgeStepDisarmBar()
+	{
+		// episode end (debounced dir -> 0) lands on the same bar the edge step disarms
+		int lastDir = 1, streak = 0;
+		int effDir = 1;
+		for (int i = 0; i < 3; i++)
+		{
+			effDir = Kat34ScalperLogic.A1DebouncedDir(0, lastDir, streak, 3);
+			Kat34ScalperLogic.A1EdgeStep(0, lastDir, streak, 3, out lastDir, out streak);
+		}
+		Assert.Equal(0, effDir);
+		Assert.Equal(0, lastDir);
+	}
+	#endregion
 }
 

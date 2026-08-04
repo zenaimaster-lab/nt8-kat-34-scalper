@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.80] — 2026-08-04
+- **A1 Break Bars unified with the invalid decision (episodes/bands)**: the edge-trigger debounce (`A1EdgeStep`) already absorbed 1-2 bar wobbles for alert lines, but episode bands + gray ranging lines judged the environment invalid on the FIRST raw invalid bar — episodes visibly fractured on every wobble while no new alert line fired, so "Break Bars (invalid before re-arm)" looked dead. New pure `Kat34ScalperLogic.A1DebouncedDir(dir, lastDir, invalidStreak, breakBars)`: an armed environment keeps counting until invalid for `breakBars` consecutive bars (flip passes through immediately, same rule as the edge step). `EvaluateAlertA1Bar` + `BackfillAlertA1` now feed debounced dir to the band/episode/ranging-line logic and the raw dir to `A1EdgeStep` (pre-step state), so episode end, ranging line and re-arm land on the same bar (pinned by `A1DebouncedDir_MatchesEdgeStepDisarmBar`).
+- Tests 98 → 103 (5 A1DebouncedDir cases); compile gate green.
+  - Graphify entity mapping: `Kat34ScalperLogic.A1DebouncedDir`, `EvaluateAlertA1Bar/BackfillAlertA1` (rawDir vs debounced dir split).
+
 ### [v0.79] — 2026-08-04
 - **Alert-side filters abolished — A1 is now a pure EMA fan**: every gate moved to the single Bot filter side; the ALERT FILTER HUD section is gone. A1 episodes/bands/edge lines run on the fan + angle alone (`EvaluateAlertA1Bar`/`BackfillAlertA1` no longer call any market gate).
 - **Moved gates**: `ADX rising` and `ADX MTF` (both were A1-only alert legs) now gate B1/B2/A2 on series 0 via `MarketPassAt` — ADX MTF keeps the no-lookahead `ClosedBarCutoff` mapping (`Filter.AdxMtfPassAt` + generalized `SeriesPeriodSeconds`; non-time chart series stay conservative). Alert-side ER/CI duplicates (`cachedErA`/`cachedCiA`) dropped — the existing Bot ER/CI remain.

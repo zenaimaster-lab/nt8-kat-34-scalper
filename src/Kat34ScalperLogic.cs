@@ -333,6 +333,19 @@ namespace Kat34Scalper
 		}
 
 		/// <summary>
+		/// A1 (fan) debounced environment direction for episode/band rendering: an armed environment
+		/// (lastDir != 0) keeps counting as that environment until it has been invalid for breakBars
+		/// consecutive bars — same "điều kiện phá vỡ" rule as <see cref="A1EdgeStep"/>. Use the state
+		/// BEFORE feeding the bar through A1EdgeStep; feed the raw direction to the edge step itself.
+		/// </summary>
+		public static int A1DebouncedDir(int dir, int lastDir, int invalidStreak, int breakBars)
+		{
+			if (dir != 0) return dir;
+			if (breakBars < 1) breakBars = 1;
+			return invalidStreak + 1 >= breakBars ? 0 : lastDir;
+		}
+
+		/// <summary>
 		/// No-lookahead cutoff for cross-series gate reads: the latest bar-open timestamp a
 		/// target-series bar may have and still be CLOSED by the time the source bar (opened at
 		/// sourceBarOpen, period sourcePeriodSeconds) closes: sourceClose - targetPeriod.

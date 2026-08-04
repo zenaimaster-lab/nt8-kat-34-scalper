@@ -5,7 +5,8 @@
  * series, EMAs, states, signalRecords or drawing records. Alert-only: draws a vertical line and
  * plays the global Alert Sound on environment transitions. Does NOT interact with Bot or orders.
  * Since v0.79 A1 is a PURE EMA fan — no market gates (they moved to the Bot side; the ALERT FILTER
- * HUD section is gone). Episodes, bands and edge lines run on the fan + angle alone.
+ * HUD section is gone). Episodes, bands and edge lines run on the fan + angle; the invalid decision
+ * (episode end + re-arm) waits for Break Bars consecutive invalid bars (v0.80 debounce unification).
  *
  * LONG environment:  ema8 > ema34 > ema89 > ema144 > ema200 AND ema34 slope angle >= +Min Angle (rising).
  * SHORT environment: ema8 < ema34 < ema89 < ema144 < ema200 AND ema34 slope angle <= -Min Angle (falling).
@@ -61,7 +62,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (CurrentBars == null || CurrentBars.Length < 2 || CurrentBars[1] < 201) return; // ema200 warmup
 			if (a1Ema8 == null || a1Ema34 == null || a1Ema89 == null || a1Ema144 == null || a1Ema200 == null || a1Atr == null) return;
 
-			int dir = AlertA1DirectionAt(0, out double angle);
+			int rawDir = AlertA1DirectionAt(0, out double angle);
+			int dir = Kat34ScalperLogic.A1DebouncedDir(rawDir, a1LastDir, a1InvalidStreak, AlertA1BreakBars);
 			if (Highs[1][0] > a1BandHi) a1BandHi = Highs[1][0];
 			if (Lows[1][0] < a1BandLo) a1BandLo = Lows[1][0];
 			if (dir != a1PrevDir)
@@ -79,7 +81,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				DrawEnvBand(a1BandDir, a1BandStartIdx, CurrentBars[1], a1BandHi, a1BandLo); // extend the open episode
 			}
-			bool fired = Kat34ScalperLogic.A1EdgeStep(dir, a1LastDir, a1InvalidStreak, AlertA1BreakBars, out a1LastDir, out a1InvalidStreak);
+			bool fired = Kat34ScalperLogic.A1EdgeStep(rawDir, a1LastDir, a1InvalidStreak, AlertA1BreakBars, out a1LastDir, out a1InvalidStreak);
 			if (fired)
 			{
 				DrawAlertA1Line(a1LastDir, 0);
@@ -139,7 +141,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			int bandStartIdx = CurrentBars[1] - start;
 			for (int ago = start; ago >= 1; ago--)
 			{
-				int dir = AlertA1DirectionAt(ago, out _);
+				int rawDir = AlertA1DirectionAt(ago, out _);
+				int dir = Kat34ScalperLogic.A1DebouncedDir(rawDir, lastDir, invalidStreak, AlertA1BreakBars);
 				if (dir != bandDir)
 				{
 					DrawEnvBand(bandDir, bandStartIdx, CurrentBars[1] - ago, hi, lo);
@@ -147,7 +150,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					bandDir = dir;
 					bandStartIdx = CurrentBars[1] - ago;
 				}
-				bool fired = Kat34ScalperLogic.A1EdgeStep(dir, lastDir, invalidStreak, AlertA1BreakBars, out lastDir, out invalidStreak);
+				bool fired = Kat34ScalperLogic.A1EdgeStep(rawDir, lastDir, invalidStreak, AlertA1BreakBars, out lastDir, out invalidStreak);
 				if (fired)
 				{
 					DrawAlertA1Line(lastDir, ago);
