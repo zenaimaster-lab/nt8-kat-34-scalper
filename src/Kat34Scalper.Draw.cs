@@ -1018,6 +1018,24 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			fRow2.Children.Add(tTime);
 			secFilter.Children.Add(fRow1);
 			secFilter.Children.Add(fRow2);
+			Grid fRow3 = CreateTwoColGrid();
+			fRow3.Margin = new Thickness(0);
+			Button tAdxRise = CreateFilterToggle("ADX rising", () => cachedAdxRise, v => cachedAdxRise = v);
+			Grid.SetColumn(tAdxRise, 0);
+			fRow3.Children.Add(tAdxRise);
+			Button tEr = CreateFilterToggle("ER (trend)", () => cachedEr, v => cachedEr = v);
+			Grid.SetColumn(tEr, 2);
+			fRow3.Children.Add(tEr);
+			Grid fRow4 = CreateTwoColGrid();
+			fRow4.Margin = new Thickness(0);
+			Button tCi = CreateFilterToggle("CI (chop)", () => cachedCi, v => cachedCi = v);
+			Grid.SetColumn(tCi, 0);
+			fRow4.Children.Add(tCi);
+			Button tAdxMtf = CreateFilterToggle("ADX MTF (A1)", () => cachedA1AdxMtf, v => SetAlertA1AdxMtf(v));
+			Grid.SetColumn(tAdxMtf, 2);
+			fRow4.Children.Add(tAdxMtf);
+			secFilter.Children.Add(fRow3);
+			secFilter.Children.Add(fRow4);
 			mainPanel.Children.Add(CreateSectionCard(secFilter, 6));
 
 			// --- DRAW module: Clear removes all drawings from this HUD (signals + A0 + A1 stages) ---

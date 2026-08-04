@@ -169,6 +169,51 @@ public class Kat34ScalperLogicTests
 		Assert.True(Kat34ScalperLogic.PassMarketFilter(25, 20, 0, 0, 1.0));
 	}
 
+	// --- Range filters: EfficiencyRatio / ChoppinessIndex ---
+	[Fact]
+	public void Er_FlatCloses_IsZero()
+	{
+		Assert.Equal(0, Kat34ScalperLogic.EfficiencyRatio(new double[] { 100, 100, 100, 100 }), 10);
+	}
+
+	[Fact]
+	public void Er_PerfectTrend_IsOne()
+	{
+		Assert.Equal(1, Kat34ScalperLogic.EfficiencyRatio(new double[] { 100, 101, 102, 103, 104 }), 10);
+	}
+
+	[Fact]
+	public void Er_Sawtooth_IsChoppy()
+	{
+		Assert.True(Kat34ScalperLogic.EfficiencyRatio(new double[] { 0, 1, 0, 1, 0, 1, 0, 1 }) < 0.25);
+	}
+
+	[Fact]
+	public void Ci_StrongTrend_ReadsBelow38()
+	{
+		int n = 40;
+		var h = new double[n]; var l = new double[n]; var c = new double[n + 1];
+		c[0] = -1;
+		for (int i = 0; i < n; i++) { h[i] = i + 0.5; l[i] = i - 0.5; c[i + 1] = i; }
+		Assert.True(Kat34ScalperLogic.ChoppinessIndex(h, l, c) < 38.2);
+	}
+
+	[Fact]
+	public void Ci_Sawtooth_ReadsAbove61()
+	{
+		int n = 40;
+		var h = new double[n]; var l = new double[n]; var c = new double[n + 1];
+		c[0] = 1;
+		for (int i = 0; i < n; i++) { double close = i % 2; h[i] = close + 0.5; l[i] = close - 0.5; c[i + 1] = close; }
+		Assert.True(Kat34ScalperLogic.ChoppinessIndex(h, l, c) > 61.8);
+	}
+
+	[Fact]
+	public void Ci_FlatWindow_Is100()
+	{
+		Assert.Equal(100, Kat34ScalperLogic.ChoppinessIndex(new double[] { 5, 5, 5 }, new double[] { 5, 5, 5 }, new double[] { 5, 5, 5, 5 }), 10);
+	}
+
 	// --- Time window ---
 	[Fact]
 	public void Time_InsideWindow_True()

@@ -19,6 +19,15 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.69] — 2026-08-04
+- **Range-regime filters for 30s scalping** — four new gates, each with a friendly HUD toggle button in the GLOBAL FILTER section (session-only, boot OFF like the existing gates):
+  - **ADX tuned**: default `AdxPeriod` 14→60 (30-min regime window on 30s; 14 = 7 min whipsaws). New `ADX rising` leg (`AdxRisingEnabled` default OFF / `AdxRisingBars` 5): only entries while ADX above its value N bars ago — blocks dying-trend chops.
+  - **`ER (trend)` gate**: Kaufman Efficiency Ratio, pure `Kat34ScalperLogic.EfficiencyRatio` (xunit-tested: flat=0, perfect trend=1, sawtooth<0.25). Defaults 40 bars / min 0.25 (random-walk noise floor at N=40 ≈ 0.13).
+  - **`CI (chop)` gate**: Choppiness Index, pure `Kat34ScalperLogic.ChoppinessIndex` (xunit-tested: trend<38.2, sawtooth>61.8, flat=100). Defaults 40 bars / max 50.
+  - **`ADX MTF (A1)` gate**: independent regime gate living in the A1 sub-module (NOT Global Filter): ADX(14) on a dedicated 3-minute series (BarsArray[2], always added for index stability), default min 22, default OFF. Backfill replays via binary search over `Times[2]` picking the last MTF bar closed at/before each A1 bar time (no lookahead); the HUD button re-backfills A1 instantly so history lines match the toggle.
+  - 83 tests green; compile gate (net48 + NT8 assemblies) green; NT8 live recompile accepted.
+  - Graphify entity mapping: `Kat34ScalperLogic.EfficiencyRatio/ChoppinessIndex`, `Kat34Scalper.adxMtfInd`, `cachedAdxRise/cachedEr/cachedCi/cachedA1AdxMtf`, `Kat34Scalper.ErPassAt/CiPassAt`, `Kat34Scalper.A1AdxMtfPassAt/SetAlertA1AdxMtf`, HUD buttons `ADX rising / ER (trend) / CI (chop) / ADX MTF (A1)`.
+
 ### [v0.68] — 2026-08-04
 - **A1 fan completed to 5 EMAs (8>34>89>144>200), both LONG and SHORT**: user audit caught a LONG line firing while EMA34 still below EMA89 — the v0.64 spec omitted the 89 link. Added `AlertA1CondEma34Above89` + renamed `AlertA1CondEma34Above144` → `AlertA1CondEma89Above144` (stale saved values orphan; defaults true). Dedicated `a1Ema89` on the A1 30s series. Transitional fans (fast EMAs turned, 34 vs 89 unconfirmed) now block both sides — xunit `A1Direction_TransitionalFan_34Below89_BlocksBothSides`. 77 tests green.
   - Graphify entity mapping: `Kat34Scalper.a1Ema89`, `AlertA1CondEma34Above89/AlertA1CondEma89Above144`, `Kat34ScalperLogic.A1Direction` (5-EMA fan).

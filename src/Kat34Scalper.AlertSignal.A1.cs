@@ -24,6 +24,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper
 	{
 		private volatile bool cachedAlertA1 = false;
+		private volatile bool cachedA1AdxMtf = false;
 		private volatile bool alertA1BackfillPending;
 		private int a1LastDir;          // edge-trigger state: last armed environment direction
 		private int a1InvalidStreak;    // consecutive invalid bars; >= BreakBars counts as broken
@@ -76,10 +77,37 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private int AlertA1DirectionAt(int ago, out double angle)
 		{
 			angle = Kat34ScalperLogic.SlopeAngleDeg(a1Ema34[ago], a1Ema34[ago + 1], a1Atr[ago]);
-			return Kat34ScalperLogic.A1Direction(
+			int dir = Kat34ScalperLogic.A1Direction(
 				AlertA1CondEma8Above34, AlertA1CondEma34Above89, AlertA1CondEma89Above144, AlertA1CondEma144Above200, AlertA1AngleEnabled,
 				a1Ema8[ago], a1Ema34[ago], a1Ema89[ago], a1Ema144[ago], a1Ema200[ago],
 				angle, Math.Abs(AlertA1AngleMin));
+			if (dir != 0 && cachedA1AdxMtf && !A1AdxMtfPassAt(ago)) dir = 0;
+			return dir;
+		}
+
+		// Independent MTF ADX regime gate (NOT part of the Global Filter): the most recent MTF bar
+		// closed at or before the A1 bar time must have ADX >= AlertA1AdxMtfMin (no lookahead).
+		private bool A1AdxMtfPassAt(int ago)
+		{
+			if (adxMtfInd == null || CurrentBars == null || CurrentBars.Length < 3 || CurrentBars[2] < 1) return true;
+			DateTime t = Times[1][ago];
+			int lo = 0, hi = CurrentBars[2];
+			while (lo < hi)
+			{
+				int mid = (lo + hi) / 2;
+				if (Times[2][mid] <= t) hi = mid; else lo = mid + 1;
+			}
+			if (Times[2][lo] > t) return true; // MTF series starts after t — warmup, gate open
+			return adxMtfInd[lo] >= AlertA1AdxMtfMin;
+		}
+
+		// HUD toggle: flip the gate and replay the A1 history so the drawings match immediately.
+		private void SetAlertA1AdxMtf(bool on)
+		{
+			cachedA1AdxMtf = on;
+			Print(string.Format("[Kat34Scalper][AlertA1] ADX MTF gate toggled {0} (min {1} on {2}m) — re-backfilling.",
+				on ? "ON" : "OFF", AlertA1AdxMtfMin, AlertA1AdxMtfMinutes));
+			TriggerCustomEvent(o => { ClearAlertA1Drawings(); FlushAlertBackfill(); }, null);
 		}
 
 		// Vertical line anchored at the A1 bar time (time-based draw — safe from any series context).

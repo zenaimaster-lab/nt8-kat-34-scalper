@@ -3,7 +3,7 @@
  * Gates that decide whether a signal may fire on a bar. Every gate has a *At(barsAgo)
  * variant so the signal backfill replays evaluate the same gates on historical bars.
  * New filters (MACD, RSI, ...) plug in as a new method here + one clause in PassFiltersAt.
- *   Fan gate (uses A0 direction), MTF fan (3m/5m/15m), ADX, Volume, Time window.
+ *   Fan gate (uses A0 direction), MTF fan (3m/5m/15m), ADX, ADX rising, ER (trend), CI (chop), Volume, Time window.
  * Every gate is OFF by default (session-only toggles boot OFF on every load).
  */
 
@@ -21,6 +21,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		// --- Filter module state (HUD toggles — default OFF: every gate open until user enables) ---
 		private volatile bool cachedMtf;
 		private volatile bool cachedAdx;
+		private volatile bool cachedAdxRise;
+		private volatile bool cachedEr;
+		private volatile bool cachedCi;
 		private volatile bool cachedVol;
 		private volatile bool cachedTime;
 
@@ -52,7 +55,42 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double adxMin = cachedAdx ? AdxMin : 0;
 			double volSma = cachedVol && volSmaInd != null ? volSmaInd[barsAgo] : 0;
 			double adx = adxInd != null ? adxInd[barsAgo] : 0;
-			return Kat34ScalperLogic.PassMarketFilter(adx, adxMin, Volumes[0][barsAgo], volSma, VolumeMinMult);
+			if (!Kat34ScalperLogic.PassMarketFilter(adx, adxMin, Volumes[0][barsAgo], volSma, VolumeMinMult)) return false;
+			if (cachedAdxRise && adxInd != null)
+			{
+				if (CurrentBars[0] < barsAgo + AdxRisingBars || adx <= adxInd[barsAgo + AdxRisingBars]) return false;
+			}
+			if (cachedEr && !ErPassAt(barsAgo)) return false;
+			if (cachedCi && !CiPassAt(barsAgo)) return false;
+			return true;
+		}
+
+		// Kaufman Efficiency Ratio over the last ErPeriod bars ending at barsAgo (oldest -> newest).
+		private bool ErPassAt(int barsAgo)
+		{
+			int n = Math.Max(2, ErPeriod);
+			if (CurrentBars[0] < barsAgo + n) return false;
+			double[] closes = new double[n];
+			for (int i = 0; i < n; i++) closes[i] = Closes[0][barsAgo + n - 1 - i];
+			return Kat34ScalperLogic.EfficiencyRatio(closes) >= ErMin;
+		}
+
+		// Choppiness Index over the last CiPeriod bars ending at barsAgo (closes carry one extra prior bar).
+		private bool CiPassAt(int barsAgo)
+		{
+			int n = Math.Max(2, CiPeriod);
+			if (CurrentBars[0] < barsAgo + n) return false;
+			double[] highs = new double[n];
+			double[] lows = new double[n];
+			double[] closes = new double[n + 1];
+			closes[0] = Closes[0][barsAgo + n];
+			for (int i = 0; i < n; i++)
+			{
+				highs[i] = Highs[0][barsAgo + n - 1 - i];
+				lows[i] = Lows[0][barsAgo + n - 1 - i];
+				closes[i + 1] = Closes[0][barsAgo + n - 1 - i];
+			}
+			return Kat34ScalperLogic.ChoppinessIndex(highs, lows, closes) <= CiMax;
 		}
 
 		private bool TimePassAt(int barsAgo)

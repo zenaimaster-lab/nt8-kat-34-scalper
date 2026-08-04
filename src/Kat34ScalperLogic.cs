@@ -129,6 +129,44 @@ namespace Kat34Scalper
 			return true;
 		}
 
+		/// <summary>
+		/// Kaufman Efficiency Ratio over the window (oldest -&gt; newest): |net change| / sum of
+		/// per-bar |changes|. 1 = perfectly trending, near 0 = choppy. Degenerate window
+		/// (&lt;2 bars or zero movement) reads 0.
+		/// </summary>
+		public static double EfficiencyRatio(double[] closes)
+		{
+			if (closes == null || closes.Length < 2) return 0;
+			double sum = 0;
+			for (int i = 1; i < closes.Length; i++) sum += Math.Abs(closes[i] - closes[i - 1]);
+			if (sum <= 0) return 0;
+			return Math.Abs(closes[closes.Length - 1] - closes[0]) / sum;
+		}
+
+		/// <summary>
+		/// Choppiness Index over an n-bar window: 100*log10(sumTR/(HH-LL))/log10(n), TR using the
+		/// prior close. Arrays oldest -&gt; newest: highs/lows hold the n window bars; closes holds
+		/// n+1 with closes[0] = the close BEFORE the window and closes[i+1] = close of window bar i.
+		/// &gt;61.8 = ranging, &lt;38.2 = trending. Flat window (HH == LL) reads 100.
+		/// </summary>
+		public static double ChoppinessIndex(double[] highs, double[] lows, double[] closes)
+		{
+			int n = highs == null ? 0 : highs.Length;
+			if (n < 2 || lows == null || lows.Length < n || closes == null || closes.Length < n + 1) return 0;
+			double sumTr = 0, hh = double.MinValue, ll = double.MaxValue;
+			for (int i = 0; i < n; i++)
+			{
+				double prevClose = closes[i];
+				double tr = Math.Max(highs[i] - lows[i], Math.Max(Math.Abs(highs[i] - prevClose), Math.Abs(lows[i] - prevClose)));
+				sumTr += tr;
+				if (highs[i] > hh) hh = highs[i];
+				if (lows[i] < ll) ll = lows[i];
+			}
+			double range = hh - ll;
+			if (range <= 0) return 100;
+			return 100 * Math.Log10(sumTr / range) / Math.Log10(n);
+		}
+
 		/// <summary>Time window in machine-local time. start == end disables the window (always true). Overnight (start &gt; end) wraps midnight.</summary>
 		public static bool IsInTimeWindow(TimeSpan time, TimeSpan start, TimeSpan end)
 		{
