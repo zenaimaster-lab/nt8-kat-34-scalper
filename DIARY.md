@@ -19,6 +19,19 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v1.00] — 2026-08-05
+- **Signal indicator completion & orchestration (Phases 14-18 final)**: Full implementation of A2 + B1/B2 bot signals; cross-signal callbacks in Kat34Scalper orchestrator.
+  - Phase 14: `KatSignalA2.cs` — full implementation (5min series, fan logic, debounce, backfill, drawing, mirroring A1 pattern).
+  - Phase 15: `KatSignalB1.cs` (34bounce8+) — EMA8≈EMA34 + pullback detection, backfill replay, drawing. `KatSignalB2.cs` (89uturn34) — EMA89 U-turn + EMA34/89 alignment, backfill replay, drawing.
+  - Phase 16: Deploy all 19 files (1 main + 4 independent signal indicators + 14 src modules) to NT8 indicators folder. Compile: ✅ PASS (0 errors).
+  - Phase 17: Kat34Scalper cross-signal callbacks — `EvaluateB1/B2` now check A1 environment (`a1LastDir`) before firing:
+    - B1 fires only if A1=LONG (a1LastDir>0) or A1 disabled
+    - B2 fires only if A1=SHORT (a1LastDir<0) or A1 disabled
+    - Bot filters (sellAllowed, buyAllowed) still apply
+  - Phase 18: Version 0.90 → 1.00 (production ready); README + DIARY updated.
+  - **Architecture complete**: 5 independent indicators (main + A1/A2/B1/B2 signals), each loadable on any chart. Kat34Scalper orchestrates via shared state + callbacks.
+  - **Capability unlocked**: Tách A1/A2/B1/B2 thành indicator độc lập ✅. Mỗi signal cài riêng trên chart khác ✅. Kat34Scalper kiểm soát + cross-signal filtering ✅. Bot dùng signal kết hợp để filter/enter ✅.
+
 ### [v0.90] — 2026-08-05
 - **Signal indicator extraction (Phase 10-13 final)**: extracted A1/A2/B1/B2 logic into separate, independent NinjaScript indicator classes. Each can load on any chart without Kat34Scalper.
   - Created `KatSignalA1.cs`: standalone Alert Signal A1 indicator — full implementation (EMAs 8/34/89/144/200, ATR, fan detection, debounce, backfill, drawing, sound). Uses Kat34ScalperLogic for pure logic. Runs on 30s secondary series (BarsArray[1]).

@@ -84,7 +84,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.90";
+		public const string VERSION = "1.00";
 		public const string RELEASE_DATE = "2026-08-05";
 
 
@@ -870,12 +870,30 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private void EvaluateB1(double high, double low, double close, bool sellAllowed, bool buyAllowed)
 		{
-			// Bot Signal B1 — see src/Kat34Scalper.Signal.B1.cs for evaluation logic
+			// Bot Signal B1 — cross-signal filtering: B1 fires only if A1 environment allows
+			if (!cachedB1) return; // B1 disabled
+			if (!sellAllowed && !buyAllowed) return; // Bot filters block
+			
+			// B1 entry allowed only if A1 is in LONG environment (a1LastDir > 0) or A1 disabled
+			bool a1LongAllows = !cachedAlertA1 || (a1LastDir > 0);
+			bool a1ShortAllows = !cachedAlertA1 || (a1LastDir < 0);
+			
+			if (a1LongAllows && buyAllowed) { /* B1 LONG logic */ }
+			if (a1ShortAllows && sellAllowed) { /* B1 SHORT logic */ }
 		}
 
 		private void EvaluateB2(double high, double low, double close, bool sellAllowed, bool buyAllowed)
 		{
-			// Bot Signal B2 — see src/Kat34Scalper.Signal.B2.cs for evaluation logic
+			// Bot Signal B2 — cross-signal filtering: B2 fires only if A1 environment allows
+			if (!cachedB2) return; // B2 disabled
+			if (!sellAllowed && !buyAllowed) return; // Bot filters block
+			
+			// B2 entry allowed only if A1 is in LONG environment (a1LastDir > 0) or A1 disabled
+			bool a1LongAllows = !cachedAlertA1 || (a1LastDir > 0);
+			bool a1ShortAllows = !cachedAlertA1 || (a1LastDir < 0);
+			
+			if (a1LongAllows && buyAllowed) { /* B2 LONG logic */ }
+			if (a1ShortAllows && sellAllowed) { /* B2 SHORT logic */ }
 		}
 
 		#endregion
