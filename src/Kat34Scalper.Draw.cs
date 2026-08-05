@@ -735,13 +735,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			mainPanel.Children.Add(hudStatusText);
 
 			// --- BOT module: account, ATM template, BOT on/off ---
-			mainPanel.Children.Add(CreateModuleTitle("BOT"));
 			var secBot = new StackPanel();
-			var accGrid = new Grid { Margin = new Thickness(0, 0, 0, 4) };
-			accGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(85) });
-			accGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-			var accCombo = new ComboBox { FontSize = 11, Height = 22 };
+			var accCombo = new ComboBox { FontSize = 11, Height = 22, HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 0, 0, 4) };
 			if (Account.All != null)
 				foreach (Account acc in Account.All)
 					accCombo.Items.Add(acc.Name);
@@ -769,8 +765,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				// NT8 only renders chart orders for the account selected in Chart Trader — mirror the pick there.
 				SyncChartTraderAccount(cachedBotAccountName);
 			};
-			AddGridRow(accGrid, "Acc:", accCombo);
-			secBot.Children.Add(accGrid);
+			secBot.Children.Add(accCombo);
 
 			atmComboBox = new ComboBox { FontSize = 11, Height = 22, HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 0, 0, 4) };
 			atmComboBox.Items.Add("None");
@@ -1065,6 +1060,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 							combo.SelectedItem = item;
 						return;
 					}
+				// No match: Chart Trader's account selector (NinjaTrader.Gui.Tools.AccountSelector) only
+				// lists accounts NT8 currently offers — connected-connection accounts, minus Backtest/Playback.
+				// Report what it actually lists so the gap is diagnosable.
+				var listed = new List<string>();
+				foreach (ComboBox combo in combos)
+					foreach (object item in combo.Items)
+						if (item is Account listedAcc && !listed.Contains(listedAcc.Name))
+							listed.Add(listedAcc.Name);
+				Print(string.Format("[Kat34Scalper] Chart Trader sync skipped — '{0}' not in its account list (listed: {1})",
+					accountName, listed.Count > 0 ? string.Join(", ", listed) : "none"));
 			}
 			catch (Exception ex)
 			{

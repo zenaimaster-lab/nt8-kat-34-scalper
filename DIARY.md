@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.82] — 2026-08-04
+- **HUD tidy**: dropped the "BOT" module title above the top section and the "Acc:" label — the account ComboBox is now full-width at the very top of the HUD.
+- **Chart Trader sync diagnosis**: BAML + metadata inspection of NinjaTrader.Gui proved Chart Trader's account picker is `NinjaTrader.Gui.Tools.AccountSelector : ComboBox`, and its item list is filtered by NT8 itself (`OnAccountStatusUpdate` connection-status predicates, `OnGlobalSimulationModeChanged`, `IsSimulationAccount`) — it only offers accounts of currently connected connections and never lists the internal Backtest/Playback accounts. So HUD picks of Backtest/Playback/disconnected-connection accounts (e.g. Bulenox/BX-* while that Rithmic connection is not connected) physically cannot be mirrored — the target combo has no such item. `SyncChartTraderAccount` now Prints the selector's actual listed accounts when a pick cannot be synced (one line, only on no-match).
+  - Graphify entity mapping: `Kat34Scalper.SyncChartTraderAccount` (no-match diagnostic), HUD BOT section layout.
+
 ### [v0.81] — 2026-08-04
 - **HUD account pick now drives Chart Trader's account selector**: NT8 only renders chart orders for the account selected in Chart Trader itself, so picking the account on the HUD alone still required a second manual pick in Chart Trader to see the bot's orders on the chart. `SyncChartTraderAccount` mirrors the HUD pick into Chart Trader's account ComboBox — located by item content (account names) in the ChartTrader visual tree, which survives NT8 template/layout changes better than hardcoded element names; silent no-op when Chart Trader is hidden. Pattern ported verbatim from `nt8-kat-TradeManager` (battle-tested there). Fires on HUD build (initial/default selection) and on every `SelectionChanged`.
 - Helpers added to Draw module: `SyncChartTraderAccount`, `GetChartTraderControl`, `FindVisualChildByTypeName`, `FindAllVisualChildren<T>`. No pure-logic change; tests stay 103; compile gate green.
