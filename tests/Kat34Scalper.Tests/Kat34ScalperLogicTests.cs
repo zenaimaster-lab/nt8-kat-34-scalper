@@ -999,5 +999,48 @@ public class Kat34ScalperLogicTests
 		Assert.True(Kat34ScalperLogic.EmaZonePass(0, 99, 100));     // neutral passes
 	}
 	#endregion
+
+	#region Alert sound resolution
+	private static string NewTempDir()
+	{
+		string dir = Path.Combine(Path.GetTempPath(), "kat34snd_" + Guid.NewGuid().ToString("N"));
+		Directory.CreateDirectory(dir);
+		return dir;
+	}
+
+	[Fact]
+	public void ResolvePath_UserFolderWinsOverInstallFolder()
+	{
+		string user = NewTempDir(), install = NewTempDir();
+		try
+		{
+			File.WriteAllBytes(Path.Combine(user, "My.wav"), new byte[1]);
+			File.WriteAllBytes(Path.Combine(install, "My.wav"), new byte[1]);
+			File.WriteAllBytes(Path.Combine(install, "Alert1.wav"), new byte[1]);
+			Assert.Equal(Path.Combine(user, "My.wav"), Kat34ScalperSound.ResolvePath(user, install, "My.wav"));
+			Assert.Equal(Path.Combine(install, "Alert1.wav"), Kat34ScalperSound.ResolvePath(user, install, "Alert1.wav"));
+			Assert.Null(Kat34ScalperSound.ResolvePath(user, install, "Nope.wav"));
+			Assert.Null(Kat34ScalperSound.ResolvePath(user, install, ""));
+		}
+		finally { Directory.Delete(user, true); Directory.Delete(install, true); }
+	}
+
+	[Fact]
+	public void ListSounds_MergesBothFoldersDedupesAndSorts()
+	{
+		string user = NewTempDir(), install = NewTempDir();
+		try
+		{
+			File.WriteAllBytes(Path.Combine(user, "zeta.wav"), new byte[1]);
+			File.WriteAllBytes(Path.Combine(user, "My.wav"), new byte[1]);
+			File.WriteAllBytes(Path.Combine(install, "My.wav"), new byte[1]);
+			File.WriteAllBytes(Path.Combine(install, "Alert1.wav"), new byte[1]);
+			File.WriteAllBytes(Path.Combine(install, "readme.txt"), new byte[1]);
+			var list = Kat34ScalperSound.ListSounds(user, install);
+			Assert.Equal(new[] { "Alert1.wav", "My.wav", "zeta.wav" }, list);
+		}
+		finally { Directory.Delete(user, true); Directory.Delete(install, true); }
+	}
+	#endregion
 }
 

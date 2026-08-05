@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.84 (2026-08-04)
+ * Version: 0.85 (2026-08-05)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -58,7 +58,8 @@ public class Kat34ScalperAtmTemplateConverter : TypeConverter
 	}
 }
 
-// Dropdown of the .wav files in NT8's sounds folder (for the Alert Sound setting).
+// Dropdown of the .wav files in NT8's user sounds folder (Documents\NinjaTrader 8\sounds)
+// plus the install sounds folder (for the Alert Sound setting). User files win on equal names.
 public class Kat34ScalperSoundConverter : TypeConverter
 {
 	public override bool GetStandardValuesSupported(ITypeDescriptorContext context) { return true; }
@@ -68,13 +69,12 @@ public class Kat34ScalperSoundConverter : TypeConverter
 		var list = new List<string>();
 		try
 		{
-			string dir = Path.Combine(NinjaTrader.Core.Globals.InstallDir, "sounds");
-			if (Directory.Exists(dir))
-				foreach (string f in Directory.GetFiles(dir, "*.wav"))
-					list.Add(Path.GetFileName(f));
+			string userDir = Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "sounds");
+			Directory.CreateDirectory(userDir); // so users can find the folder to drop custom .wav files into
+			string installDir = Path.Combine(NinjaTrader.Core.Globals.InstallDir, "sounds");
+			list.AddRange(Kat34ScalperSound.ListSounds(userDir, installDir));
 		}
 		catch { }
-		list.Sort(StringComparer.OrdinalIgnoreCase);
 		return new StandardValuesCollection(list);
 	}
 }
@@ -84,8 +84,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.84";
-		public const string RELEASE_DATE = "2026-08-04";
+		public const string VERSION = "0.85";
+		public const string RELEASE_DATE = "2026-08-05";
 
 
 		// Indicator series (primary chart TF)

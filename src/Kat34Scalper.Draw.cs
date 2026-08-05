@@ -51,7 +51,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private void PlayAlertSound()
 		{
-			try { PlaySound(Path.Combine(NinjaTrader.Core.Globals.InstallDir, "sounds", AlertSound)); }
+			try
+			{
+				string userDir = Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "sounds");
+				string installDir = Path.Combine(NinjaTrader.Core.Globals.InstallDir, "sounds");
+				string path = Kat34ScalperSound.ResolvePath(userDir, installDir, AlertSound);
+				if (path != null) PlaySound(path);
+			}
 			catch { }
 		}
 		private int SafeLineLengthBars()

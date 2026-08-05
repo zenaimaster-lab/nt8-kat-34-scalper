@@ -698,4 +698,37 @@ namespace Kat34Scalper
 			return node != null && int.TryParse(node.InnerText, out value) ? value : 0;
 		}
 	}
+
+	// Alert sound file resolution — user sounds folder (Documents\NinjaTrader 8\sounds)
+	// overlays NT8's install sounds folder; on equal names the user file wins.
+	public static class Kat34ScalperSound
+	{
+		public static string ResolvePath(string userDir, string installDir, string fileName)
+		{
+			if (string.IsNullOrEmpty(fileName)) return null;
+			string user = string.IsNullOrEmpty(userDir) ? null : Path.Combine(userDir, fileName);
+			if (user != null && File.Exists(user)) return user;
+			string install = string.IsNullOrEmpty(installDir) ? null : Path.Combine(installDir, fileName);
+			if (install != null && File.Exists(install)) return install;
+			return null;
+		}
+
+		public static System.Collections.Generic.List<string> ListSounds(string userDir, string installDir)
+		{
+			var seen = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var list = new System.Collections.Generic.List<string>();
+			string[] dirs = { userDir, installDir };
+			foreach (string dir in dirs)
+			{
+				if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) continue;
+				foreach (string f in Directory.GetFiles(dir, "*.wav"))
+				{
+					string name = Path.GetFileName(f);
+					if (seen.Add(name)) list.Add(name);
+				}
+			}
+			list.Sort(StringComparer.OrdinalIgnoreCase);
+			return list;
+		}
+	}
 }

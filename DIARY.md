@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.85] — 2026-08-05
+- **Custom alert sounds from local disk**: Alert Sound dropdown + playback now support NT8's user sounds folder `Documents\NinjaTrader 8\sounds` (no admin needed — drop any `.wav` there, it shows up in the dropdown and plays). Resolution order: user folder wins over install folder on equal names, install folder fallback. Converter auto-creates the user sounds folder for discoverability.
+  - New pure logic `Kat34ScalperSound.ResolvePath/ListSounds` in `src\Kat34ScalperLogic.cs` + 2 tests (106 total). `Kat34ScalperSoundConverter` (Kat34Scalper.cs) and `PlayAlertSound` (Kat34Scalper.Draw.cs) both route through it.
+  - Graphify entity mapping: `Kat34ScalperSound`, `Kat34ScalperSoundConverter`, `Kat34Scalper.PlayAlertSound`.
+
 ### [v0.84] — 2026-08-04
 - **Chart-top version label removed** (the `Kat34Scalper v0.83 (...) [30 Second]` TextFixed line): `ShowVersion` setting, `DrawVersionLabel`, `ChartTimeframe`, `versionDrawn` all deleted.
 - **A1 renamed `fan 30s` → `EmaZone30s`** everywhere visible: HUD toggle `A1 (EmaZone30s)`, settings group `2. Alert Signal A1 — EmaZone30s`, docs.
