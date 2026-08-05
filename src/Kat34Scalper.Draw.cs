@@ -712,7 +712,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			mainPanel.Children.Add(new TextBlock
 			{
-				Text = string.Format("⚡ KAT 34 SCALPER v{0}", VERSION),
+				Text = string.Format("⚡ KAT 34-ScalperBot v{0}", VERSION),
 				Foreground = new SolidColorBrush(Color.FromRgb(70, 130, 160)),
 				FontWeight = FontWeights.Bold,
 				FontSize = 12,
@@ -894,7 +894,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			secBot.Children.Add(beRevertGrid);
 
 			SolidColorBrush closeBg = new SolidColorBrush(Color.FromRgb(20, 20, 20)); // Very dark gray (almost black)
-			Button btnClose = CreateHudButton("Close/flatten", closeBg, null, 33, 15);
+			Button btnClose = CreateHudButton("Close/flatten", closeBg, null, 66, 15);
 			btnClose.Margin = new Thickness(0, 0, 0, 0);
 			btnClose.Click += (s, ev) =>
 			{
@@ -1055,7 +1055,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				foreach (ComboBox combo in combos)
 					foreach (object item in combo.Items)
 					{
-						if (item == null || !accountName.Equals(item.ToString(), StringComparison.OrdinalIgnoreCase)) continue;
+						if (item == null) continue;
+						// Rithmic accounts render as "name!connection!connection" in Chart Trader's
+						// selector while Account.Name stays short — match on Name first, then on
+						// exact/prefixed ToString.
+						string itemText = item.ToString();
+						bool match = (item as Account)?.Name.Equals(accountName, StringComparison.OrdinalIgnoreCase) == true
+							|| itemText.Equals(accountName, StringComparison.OrdinalIgnoreCase)
+							|| itemText.StartsWith(accountName + "!", StringComparison.OrdinalIgnoreCase);
+						if (!match) continue;
 						if (!ReferenceEquals(combo.SelectedItem, item))
 							combo.SelectedItem = item;
 						return;

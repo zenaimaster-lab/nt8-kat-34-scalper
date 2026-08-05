@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.83] — 2026-08-04
+- **HUD title renamed to "KAT 34-ScalperBot"** (HUD only; chart version label untouched).
+- **Close/flatten button height doubled** (33 → 66) for fat-finger safety.
+- **Bulenox sync root cause found + fixed**: user screenshots showed Chart Trader's account selector renders Rithmic accounts as `Name!Connection!Connection` (e.g. `BX45272-51!Bulenox!Bulenox`) while `Account.Name` stays short (`BX45272-51`) — the exact string match never hit. `SyncChartTraderAccount` now matches by `Account.Name` first, then exact ToString, then `name!` prefix. Sim/FN/TPT accounts (no suffix) keep matching as before.
+  - Graphify entity mapping: `Kat34Scalper.SyncChartTraderAccount` (3-way match), HUD title/Close-flatten layout.
+
 ### [v0.82] — 2026-08-04
 - **HUD tidy**: dropped the "BOT" module title above the top section and the "Acc:" label — the account ComboBox is now full-width at the very top of the HUD.
 - **Chart Trader sync diagnosis**: BAML + metadata inspection of NinjaTrader.Gui proved Chart Trader's account picker is `NinjaTrader.Gui.Tools.AccountSelector : ComboBox`, and its item list is filtered by NT8 itself (`OnAccountStatusUpdate` connection-status predicates, `OnGlobalSimulationModeChanged`, `IsSimulationAccount`) — it only offers accounts of currently connected connections and never lists the internal Backtest/Playback accounts. So HUD picks of Backtest/Playback/disconnected-connection accounts (e.g. Bulenox/BX-* while that Rithmic connection is not connected) physically cannot be mirrored — the target combo has no such item. `SyncChartTraderAccount` now Prints the selector's actual listed accounts when a pick cannot be synced (one line, only on no-match).
