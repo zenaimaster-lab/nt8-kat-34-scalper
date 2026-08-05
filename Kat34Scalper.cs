@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.85 (2026-08-05)
+ * Version: 0.86 (2026-08-05)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -84,7 +84,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.85";
+		public const string VERSION = "0.86";
 		public const string RELEASE_DATE = "2026-08-05";
 
 
@@ -159,6 +159,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AlertA1LineWidth			= 2;
 				AlertA1LongLineColor		= Colors.DarkGreen;
 				AlertA1ShortLineColor		= Colors.DarkRed;
+				AlertA1LongSound			= "Alert1.wav";
+				AlertA1ShortSound			= "Alert2.wav";
+				AlertA1RangeSound			= "Alert3.wav";
 				AlertA1EmaZoneTf1			= KatEmaZoneTf.M3;
 				AlertA1EmaZoneTf2			= KatEmaZoneTf.M5;
 				AlertA1EmaZoneTf3			= KatEmaZoneTf.M15;
@@ -501,6 +504,24 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "Cond: EMA34 zone TF3", Order = 16, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "Higher-TF zone condition 3 (default 15m): LONG needs price above EMA34 on this TF, SHORT below (last closed zone bar, no lookahead).")]
 		public KatEmaZoneTf AlertA1EmaZoneTf3 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "LONG Alert Sound", Order = 17, GroupName = "2. Alert Signal A1 — EmaZone30s",
+			Description = "Sound played when A1 enters a LONG environment (realtime only). Pick any .wav from NT8 sounds folders.")]
+		[TypeConverter(typeof(Kat34ScalperSoundConverter))]
+		public string AlertA1LongSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "SHORT Alert Sound", Order = 18, GroupName = "2. Alert Signal A1 — EmaZone30s",
+			Description = "Sound played when A1 enters a SHORT environment (realtime only). Pick any .wav from NT8 sounds folders.")]
+		[TypeConverter(typeof(Kat34ScalperSoundConverter))]
+		public string AlertA1ShortSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "RANGING Alert Sound", Order = 19, GroupName = "2. Alert Signal A1 — EmaZone30s",
+			Description = "Sound played when A1 enters a RANGING environment (realtime only). Pick any .wav from NT8 sounds folders.")]
+		[TypeConverter(typeof(Kat34ScalperSoundConverter))]
+		public string AlertA1RangeSound { get; set; }
 
 		// --- 2.5 Alert Signal A2 (Placeholder sub-module) ---
 		[NinjaScriptProperty]

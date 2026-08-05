@@ -3,7 +3,7 @@
  * Independent Alert Signal A1 (fan) — runs on its OWN secondary series (BarsArray[1], default 30s)
  * with its OWN EMA 8/34/89/144/200 instances. Shares NOTHING with the Bot Signals (B1/B2): no common
  * series, EMAs, states, signalRecords or drawing records. Alert-only: draws a vertical line and
- * plays the global Alert Sound on environment transitions. Does NOT interact with Bot or orders.
+ * plays per-direction Alert A1 sounds (LONG/SHORT/RANGING) on environment transitions. Does NOT interact with Bot or orders.
  * Since v0.79 A1 is a PURE EMA fan — no market gates (they moved to the Bot side; the ALERT FILTER
  * HUD section is gone). Episodes, bands and edge lines run on the fan + angle; the invalid decision
  * (episode end + re-arm) waits for Break Bars consecutive invalid bars (v0.80 debounce unification).
@@ -70,7 +70,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (dir != a1PrevDir)
 			{
 				DrawEnvBand(a1BandDir, a1BandStartIdx, CurrentBars[1], a1BandHi, a1BandLo);
-				if (dir == 0) DrawAlertA1RangeLine(0);
+				if (dir == 0)
+				{
+					DrawAlertA1RangeLine(0);
+					if (State == State.Realtime) // historical replay would machine-gun the sound on every load
+					{
+						PlayAlertSound(AlertA1RangeSound);
+						Print(string.Format("[Kat34Scalper][AlertA1] RANGING environment @ bar {0} — gray line + sound.", CurrentBars[1]));
+					}
+				}
 				a1BandDir = dir;
 				a1BandStartIdx = CurrentBars[1];
 				a1PrevDir = dir;
@@ -88,7 +96,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				DrawAlertA1Line(a1LastDir, 0);
 				if (State == State.Realtime) // historical replay would machine-gun the sound on every load
 				{
-					PlayAlertSound();
+					PlayAlertSound(a1LastDir > 0 ? AlertA1LongSound : AlertA1ShortSound);
 					Print(string.Format("[Kat34Scalper][AlertA1] {0} environment @ bar {1} — vertical line + sound.",
 						a1LastDir > 0 ? "LONG" : "SHORT", CurrentBars[1]));
 				}

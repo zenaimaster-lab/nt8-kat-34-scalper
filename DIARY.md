@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.86] — 2026-08-05
+- **A1 per-direction alert sounds**: Alert Signal A1 no longer shares the single Filters `Alert Sound`. Settings group `2. Alert Signal A1 — EmaZone30s` now has three dropdowns — `LONG Alert Sound` (default Alert1.wav), `SHORT Alert Sound` (Alert2.wav), `RANGING Alert Sound` (Alert3.wav) — same NT8 user/install sounds list. Realtime only: LONG/SHORT fire on environment edge; RANGING plays when debounced dir flips to 0 (gray line). Bot/other modules still use Filters `Alert Sound`.
+  - `PlayAlertSound(string)` overload in Draw; A1 routes `AlertA1LongSound` / `AlertA1ShortSound` / `AlertA1RangeSound`.
+  - Graphify entity mapping: `AlertA1LongSound`, `AlertA1ShortSound`, `AlertA1RangeSound`, `Kat34Scalper.PlayAlertSound(string)`, A1 `EvaluateAlertA1Bar` range/long/short sound branches.
+
 ### [v0.85] — 2026-08-05
 - **Custom alert sounds from local disk**: Alert Sound dropdown + playback now support NT8's user sounds folder `Documents\NinjaTrader 8\sounds` (no admin needed — drop any `.wav` there, it shows up in the dropdown and plays). Resolution order: user folder wins over install folder on equal names, install folder fallback. Converter auto-creates the user sounds folder for discoverability.
   - New pure logic `Kat34ScalperSound.ResolvePath/ListSounds` in `src\Kat34ScalperLogic.cs` + 2 tests (106 total). `Kat34ScalperSoundConverter` (Kat34Scalper.cs) and `PlayAlertSound` (Kat34Scalper.Draw.cs) both route through it.
