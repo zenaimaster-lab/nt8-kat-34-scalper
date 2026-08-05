@@ -19,6 +19,15 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.86] — 2026-08-05
+- **Signal indicator shell refactor (phase 1 - entry points)**: tách các signal A1/A2/B1/B2 thành các file partial classes độc lập để chuẩn bị cho việc compile chúng riêng lẻ thành indicator riêng.
+  - Tạo `src\Kat34Scalper.State.cs`: tách KatSignalKind, KatEmaZoneTf, KatA1State, KatA2State, KatA2Action enums/classes ra file riêng để tránh CS0436 conflicts với NinjaTrader.Custom DLL khi compile gate.
+  - Tạo `src\Kat34Scalper.Signal.A1.cs`, `src\Kat34Scalper.Signal.A2.cs`: host shell files cho Alert Signal A1/A2 (đã có EvaluateAlertA1Bar, BackfillAlertA1, v.v.).
+  - Cập nhật `src\Kat34Scalper.Signal.B1.cs`, `src\Kat34Scalper.Signal.B2.cs`: thêm BackfillB1/B2 stubs và cachedB1/B2 state variables.
+  - Main orchestrator (Kat34Scalper.cs): gọi SetAlertA1Signal, SetAlertA2Signal, SetB1Signal, SetB2Signal từ HUD; gọi EvaluateAlertA1Bar, EvaluateA2, EvaluateB1, EvaluateB2 từ OnBarUpdate.
+  - Compile gate (.NET build check): pass (warnings only, no errors).
+  - **Architecture**: mỗi signal sẽ là indicator riêng (compile + load độc lập), Kat34Scalper chỉ orchestrator (gọi entry points, bật/tắt signals, bot, account, ATM).
+
 ### [v0.85] — 2026-08-05
 - **Custom alert sounds from local disk**: Alert Sound dropdown + playback now support NT8's user sounds folder `Documents\NinjaTrader 8\sounds` (no admin needed — drop any `.wav` there, it shows up in the dropdown and plays). Resolution order: user folder wins over install folder on equal names, install folder fallback. Converter auto-creates the user sounds folder for discoverability.
   - New pure logic `Kat34ScalperSound.ResolvePath/ListSounds` in `src\Kat34ScalperLogic.cs` + 2 tests (106 total). `Kat34ScalperSoundConverter` (Kat34Scalper.cs) and `PlayAlertSound` (Kat34Scalper.Draw.cs) both route through it.

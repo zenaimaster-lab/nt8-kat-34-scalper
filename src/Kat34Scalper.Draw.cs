@@ -296,12 +296,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				signalRecords.Clear();
 
 				// Reset sub-module pending drawing states so orphaned tags/records aren't retained
-				b1SellRecord = null;
-				b1BuyRecord = null;
-				b1SellTextTag = null;
-				b1BuyTextTag = null;
-				b1SellState.Reset();
-				b1BuyState.Reset();
+				// TODO: move b1/b2 drawing state resets to Signal.B1.cs/B2.cs modules
+				// b1SellRecord = null;
+				// b1BuyRecord = null;
+				// b1SellTextTag = null;
+				// b1BuyTextTag = null;
+				// b1SellState.Reset();
+				// b1BuyState.Reset();
 
 				var doomed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 				foreach (IDrawingTool tool in DrawObjects)
