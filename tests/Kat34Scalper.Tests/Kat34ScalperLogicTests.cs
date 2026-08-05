@@ -382,6 +382,50 @@ public class Kat34ScalperLogicTests
 		Assert.False(Kat34ScalperLogic.UseStopOrder(true, 100.0, 100.0));  // buy stop must be above market
 	}
 
+	// --- B1/B2 signal helpers ---
+	[Fact]
+	public void B1_UpStackTouch_ReturnsBuy()
+	{
+		int dir = Kat34ScalperLogic.B1Direction(true, true, true, true,
+			101.0, 100.9, 100.0, 99.0, 98.0, 0.10);
+		Assert.Equal(1, dir);
+	}
+
+	[Fact]
+	public void B1_DownStackTouch_ReturnsSell()
+	{
+		int dir = Kat34ScalperLogic.B1Direction(true, true, true, true,
+			99.0, 99.1, 100.0, 101.0, 102.0, 0.10);
+		Assert.Equal(-1, dir);
+	}
+
+	[Fact]
+	public void B1_MixedStack_ReturnsNeutral()
+	{
+		int dir = Kat34ScalperLogic.B1Direction(true, true, true, true,
+			101.0, 100.9, 100.0, 101.5, 98.0, 0.10);
+		Assert.Equal(0, dir);
+	}
+
+	[Fact]
+	public void B2_Ema89TurnsUpWith34Above_ReturnsBuy()
+	{
+		Assert.Equal(1, Kat34ScalperLogic.B2Direction(101.0, 100.0, 99.5));
+	}
+
+	[Fact]
+	public void B2_Ema89TurnsDownWith34Below_ReturnsSell()
+	{
+		Assert.Equal(-1, Kat34ScalperLogic.B2Direction(99.0, 100.0, 100.5));
+	}
+
+	[Fact]
+	public void B2_NoTurnOrWrongAlignment_ReturnsNeutral()
+	{
+		Assert.Equal(0, Kat34ScalperLogic.B2Direction(99.0, 100.0, 99.5));
+		Assert.Equal(0, Kat34ScalperLogic.B2Direction(101.0, 100.0, 100.0));
+	}
+
 	// --- EffectiveEntry ---
 	[Fact]
 	public void EffectiveEntry_Sell_TakesHigherStop()
@@ -1043,4 +1087,3 @@ public class Kat34ScalperLogicTests
 	}
 	#endregion
 }
-

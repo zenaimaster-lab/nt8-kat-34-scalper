@@ -88,16 +88,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (CurrentBars == null || CurrentBars[0] < 100) return;
 			if (b2Ema34 == null || b2Ema89 == null) return;
 
-			// B2 setup: EMA89 direction change + EMA34 crosses EMA89
-			bool ema89Rising = b2Ema89[0] > b2Ema89[1];
-			bool ema89Falling = b2Ema89[0] < b2Ema89[1];
-			bool ema34AboveEma89 = b2Ema34[0] > b2Ema89[0];
-			bool ema34BelowEma89 = b2Ema34[0] < b2Ema89[0];
+			int dir = Kat34ScalperLogic.B2Direction(b2Ema34[0], b2Ema89[0], b2Ema89[1]);
 
-			if ((ema89Rising && ema34AboveEma89) || (ema89Falling && ema34BelowEma89))
+			if (dir != 0)
 			{
-				Draw.VerticalLine(this, string.Format("K34S_B2_{0}", CurrentBars[0]), Times[0][0], Brushes.Magenta, DashStyleHelper.Dash, 1);
-				Print(string.Format("[KatSignalB2] Setup detected @ bar {0}: EMA89 U-turn + EMA34/EMA89 alignment", CurrentBars[0]));
+				Draw.VerticalLine(this, string.Format("K34S_B2_{0}", CurrentBars[0]), Times[0][0], dir > 0 ? Brushes.DodgerBlue : Brushes.Magenta, DashStyleHelper.Dash, 1);
+				Print(string.Format("[KatSignalB2] {0} setup detected @ bar {1}: EMA89 U-turn + EMA34/EMA89 alignment", dir > 0 ? "BUY" : "SELL", CurrentBars[0]));
 			}
 		}
 
@@ -108,14 +104,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (start < 0) return;
 			for (int ago = start; ago >= 1; ago--)
 			{
-				bool ema89Rising = b2Ema89[ago] > b2Ema89[ago + 1];
-				bool ema89Falling = b2Ema89[ago] < b2Ema89[ago + 1];
-				bool ema34AboveEma89 = b2Ema34[ago] > b2Ema89[ago];
-				bool ema34BelowEma89 = b2Ema34[ago] < b2Ema89[ago];
-
-				if ((ema89Rising && ema34AboveEma89) || (ema89Falling && ema34BelowEma89))
+				int dir = Kat34ScalperLogic.B2Direction(b2Ema34[ago], b2Ema89[ago], b2Ema89[ago + 1]);
+				if (dir != 0)
 				{
-					Draw.VerticalLine(this, string.Format("K34S_B2_BF_{0}", CurrentBars[0] - ago), Times[0][ago], Brushes.Magenta, DashStyleHelper.Dash, 1);
+					Draw.VerticalLine(this, string.Format("K34S_B2_BF_{0}", CurrentBars[0] - ago), Times[0][ago], dir > 0 ? Brushes.DodgerBlue : Brushes.Magenta, DashStyleHelper.Dash, 1);
 				}
 			}
 			Print("[KatSignalB2] backfill done");

@@ -39,19 +39,73 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				b1BackfillPending = true;
 				TriggerCustomEvent(o => FlushBackfill(), null);
 			}
+			else
+			{
+				b1BackfillPending = false;
+				TriggerCustomEvent(o =>
+				{
+					CancelSignalBotEntry("B1", "B1 off");
+					ClearSignalDrawings("B1");
+				}, null);
+			}
 		}
 
 		private void BackfillB1()
 		{
 			if (!cachedB1) return;
-			// Bot Signal B1 backfill logic — see docs/SIGNALS.md for B1 spec (89-34 pullback)
-			Print("[Kat34Scalper][SignalB1] backfill done");
+			if (ema8 == null || fastEma == null || slowEma == null || ema144 == null || ema200 == null) return;
+			if (CurrentBars == null || CurrentBars[0] < 200) return;
+
+			int start = FindHistoryStartBarsAgo(B1HistoryDays);
+			int replay = 0;
+			for (int ago = start; ago >= 0; ago--)
+			{
+				bool sellAllowed, buyAllowed;
+				PassFiltersAt(ago, out sellAllowed, out buyAllowed);
+				int dir = Kat34ScalperLogic.B1Direction(
+					B1CondEma8Above34, B1CondEma34Above89, B1CondEma89Above144, B1CondEma144Above200,
+					ema8[ago], fastEma[ago], slowEma[ago], ema144[ago], ema200[ago], 0.10);
+
+				if (dir > 0 && buyAllowed)
+				{
+					DrawSignal(true, CurrentBars[0] - ago, Highs[0][ago], Lows[0][ago],
+						Highs[0][ago], Highs[0][ago], B1EntryOffsetTicks, B1StopDistanceTicks, B1TargetDistanceTicks, true, "B1");
+					replay++;
+				}
+				else if (dir < 0 && sellAllowed)
+				{
+					DrawSignal(false, CurrentBars[0] - ago, Highs[0][ago], Lows[0][ago],
+						Lows[0][ago], Lows[0][ago], B1EntryOffsetTicks, B1StopDistanceTicks, B1TargetDistanceTicks, true, "B1");
+					replay++;
+				}
+			}
+			Print(string.Format("[Kat34Scalper][SignalB1] backfill done ({0} replay lines)", replay));
 		}
 
-		private void EvaluateB1Bar()
+		private void EvaluateB1Bar(bool sellAllowed, bool buyAllowed)
 		{
 			if (!cachedB1) return;
-			// Bot Signal B1 live bar evaluation — see docs/SIGNALS.md for B1 spec
+			if (ema8 == null || fastEma == null || slowEma == null || ema144 == null || ema200 == null) return;
+			if (CurrentBars == null || CurrentBars[0] < 200) return;
+
+			bool a1LongAllows = !cachedAlertA1 || a1LastDir > 0;
+			bool a1ShortAllows = !cachedAlertA1 || a1LastDir < 0;
+			int dir = Kat34ScalperLogic.B1Direction(
+				B1CondEma8Above34, B1CondEma34Above89, B1CondEma89Above144, B1CondEma144Above200,
+				ema8[0], fastEma[0], slowEma[0], ema144[0], ema200[0], 0.10);
+
+			if (dir > 0 && buyAllowed && a1LongAllows)
+			{
+				DrawSignal(true, CurrentBars[0], Highs[0][0], Lows[0][0],
+					Highs[0][0], Highs[0][0], B1EntryOffsetTicks, B1StopDistanceTicks, B1TargetDistanceTicks, false, "B1");
+				TrySubmitBotEntry(true, Highs[0][0], B1EntryOffsetTicks, "B1");
+			}
+			else if (dir < 0 && sellAllowed && a1ShortAllows)
+			{
+				DrawSignal(false, CurrentBars[0], Highs[0][0], Lows[0][0],
+					Lows[0][0], Lows[0][0], B1EntryOffsetTicks, B1StopDistanceTicks, B1TargetDistanceTicks, false, "B1");
+				TrySubmitBotEntry(false, Lows[0][0], B1EntryOffsetTicks, "B1");
+			}
 		}
 	}
 }

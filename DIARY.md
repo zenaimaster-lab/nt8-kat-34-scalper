@@ -19,6 +19,18 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v1.01] — 2026-08-05
+- **Post-refactor audit fix**: Re-audited v1.00 after signal extraction and fixed the blocking B1/B2 orchestrator gap.
+  - `src\Kat34Scalper.Signal.A2.cs` + `Kat34Scalper.cs`: fixed A2 orchestrator no-op by adding its own 5-minute series (`BarsArray[6]`) and live/backfill fan detection, drawings, sound, and cleanup.
+  - `Kat34Scalper.cs` no longer keeps empty B1/B2 no-op bodies; it delegates to the B1/B2 signal modules.
+  - `src\Kat34Scalper.Signal.B1.cs`: implemented live + backfill 34bounce8+ detection, chart drawing, bot submission, and OFF cleanup/cancel.
+  - `src\Kat34Scalper.Signal.B2.cs`: implemented live + backfill 89uturn34 detection, chart drawing, bot submission, and OFF cleanup/cancel.
+  - `src\Kat34ScalperLogic.cs`: added shared pure helpers `B1Direction` and `B2Direction` so standalone indicators and Kat34Scalper use one source of truth.
+  - `KatSignalB1.cs` / `KatSignalB2.cs`: switched standalone indicators to the shared helpers to prevent future logic drift.
+  - `scripts\Deploy-NT8.ps1`: fixed deploy coverage to include the standalone `KatSignal*.cs` indicators, not only `Kat34Scalper.cs` + `src\*.cs`.
+  - `tests\Kat34Scalper.Tests\Kat34ScalperLogicTests.cs`: added B1/B2 direction tests so no-op/divergence regressions are caught earlier.
+  - Graphify entity mapping: `Kat34ScalperLogic.B1Direction`, `Kat34ScalperLogic.B2Direction`, `Kat34Scalper.EvaluateB1Bar`, `Kat34Scalper.EvaluateB2Bar`.
+
 ### [v1.00] — 2026-08-05
 - **Signal indicator completion & orchestration (Phases 14-18 final)**: Full implementation of A2 + B1/B2 bot signals; cross-signal callbacks in Kat34Scalper orchestrator.
   - Phase 14: `KatSignalA2.cs` — full implementation (5min series, fan logic, debounce, backfill, drawing, mirroring A1 pattern).

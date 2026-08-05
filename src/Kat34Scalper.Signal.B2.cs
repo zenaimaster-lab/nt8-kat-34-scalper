@@ -39,19 +39,69 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				b2BackfillPending = true;
 				TriggerCustomEvent(o => FlushBackfill(), null);
 			}
+			else
+			{
+				b2BackfillPending = false;
+				TriggerCustomEvent(o =>
+				{
+					CancelSignalBotEntry("B2", "B2 off");
+					ClearSignalDrawings("B2");
+				}, null);
+			}
 		}
 
 		private void BackfillB2()
 		{
 			if (!cachedB2) return;
-			// Bot Signal B2 backfill logic — see docs/SIGNALS.md for B2 spec (34+8+Bounce)
-			Print("[Kat34Scalper][SignalB2] backfill done");
+			if (fastEma == null || slowEma == null) return;
+			if (CurrentBars == null || CurrentBars[0] < 100) return;
+
+			int start = FindHistoryStartBarsAgo(B2HistoryDays);
+			int replay = 0;
+			for (int ago = start; ago >= 1; ago--)
+			{
+				bool sellAllowed, buyAllowed;
+				PassFiltersAt(ago, out sellAllowed, out buyAllowed);
+				int dir = Kat34ScalperLogic.B2Direction(fastEma[ago], slowEma[ago], slowEma[ago + 1]);
+
+				if (dir > 0 && buyAllowed)
+				{
+					DrawSignal(true, CurrentBars[0] - ago, Highs[0][ago], Lows[0][ago],
+						Highs[0][ago], Highs[0][ago], B2EntryOffsetTicks, B2StopDistanceTicks, B2TargetDistanceTicks, true, "B2");
+					replay++;
+				}
+				else if (dir < 0 && sellAllowed)
+				{
+					DrawSignal(false, CurrentBars[0] - ago, Highs[0][ago], Lows[0][ago],
+						Lows[0][ago], Lows[0][ago], B2EntryOffsetTicks, B2StopDistanceTicks, B2TargetDistanceTicks, true, "B2");
+					replay++;
+				}
+			}
+			Print(string.Format("[Kat34Scalper][SignalB2] backfill done ({0} replay lines)", replay));
 		}
 
-		private void EvaluateB2Bar()
+		private void EvaluateB2Bar(bool sellAllowed, bool buyAllowed)
 		{
 			if (!cachedB2) return;
-			// Bot Signal B2 live bar evaluation — see docs/SIGNALS.md for B2 spec
+			if (fastEma == null || slowEma == null) return;
+			if (CurrentBars == null || CurrentBars[0] < 100) return;
+
+			bool a1LongAllows = !cachedAlertA1 || a1LastDir > 0;
+			bool a1ShortAllows = !cachedAlertA1 || a1LastDir < 0;
+			int dir = Kat34ScalperLogic.B2Direction(fastEma[0], slowEma[0], slowEma[1]);
+
+			if (dir > 0 && buyAllowed && a1LongAllows)
+			{
+				DrawSignal(true, CurrentBars[0], Highs[0][0], Lows[0][0],
+					Highs[0][0], Highs[0][0], B2EntryOffsetTicks, B2StopDistanceTicks, B2TargetDistanceTicks, false, "B2");
+				TrySubmitBotEntry(true, Highs[0][0], B2EntryOffsetTicks, "B2");
+			}
+			else if (dir < 0 && sellAllowed && a1ShortAllows)
+			{
+				DrawSignal(false, CurrentBars[0], Highs[0][0], Lows[0][0],
+					Lows[0][0], Lows[0][0], B2EntryOffsetTicks, B2StopDistanceTicks, B2TargetDistanceTicks, false, "B2");
+				TrySubmitBotEntry(false, Lows[0][0], B2EntryOffsetTicks, "B2");
+			}
 		}
 	}
 }

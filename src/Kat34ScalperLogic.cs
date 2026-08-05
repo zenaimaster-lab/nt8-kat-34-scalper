@@ -380,6 +380,45 @@ namespace Kat34Scalper
 		}
 
 		/// <summary>
+		/// B1 (34bounce8+) setup direction. Returns +1 for BUY, -1 for SELL, 0 for no setup.
+		/// The EMA8/EMA34 leg accepts either the strict side relationship or a configured proximity touch.
+		/// </summary>
+		public static int B1Direction(
+			bool cond8Above34, bool cond34Above89, bool cond89Above144, bool cond144Above200,
+			double ema8, double ema34, double ema89, double ema144, double ema200,
+			double proximityFraction)
+		{
+			double tolerance = Math.Abs(ema34) * Math.Max(0, proximityFraction);
+			bool touch34 = Math.Abs(ema8 - ema34) <= tolerance;
+
+			bool buy = (!cond8Above34 || ema8 >= ema34 || touch34)
+				&& (!cond34Above89 || ema34 > ema89)
+				&& (!cond89Above144 || ema89 > ema144)
+				&& (!cond144Above200 || ema144 > ema200);
+
+			bool sell = (!cond8Above34 || ema8 <= ema34 || touch34)
+				&& (!cond34Above89 || ema34 < ema89)
+				&& (!cond89Above144 || ema89 < ema144)
+				&& (!cond144Above200 || ema144 < ema200);
+
+			if (buy && !sell) return 1;
+			if (sell && !buy) return -1;
+			if (buy && sell) return ema34 >= ema89 ? 1 : -1;
+			return 0;
+		}
+
+		/// <summary>
+		/// B2 (89uturn34) setup direction. Returns +1 when EMA89 turns up and EMA34 is above it,
+		/// -1 when EMA89 turns down and EMA34 is below it, else 0.
+		/// </summary>
+		public static int B2Direction(double ema34, double ema89, double ema89Prev)
+		{
+			if (ema89 > ema89Prev && ema34 > ema89) return 1;
+			if (ema89 < ema89Prev && ema34 < ema89) return -1;
+			return 0;
+		}
+
+		/// <summary>
 		/// A4 (OCO) price prioritization rules.
 		/// Buy: always select the lowest buy level (closer/better entry).
 		/// Sell: always select the highest sell level (closer/better entry).

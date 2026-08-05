@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <Compile Include="..\..\Kat34Scalper.cs" />
+    <Compile Include="..\..\src\Kat34ScalperLogic.cs" />
     <Compile Include="..\..\src\*.cs" Exclude="..\..\src\Kat34ScalperLogic.cs;..\..\src\Kat34Scalper.State.cs" />
   </ItemGroup>
 

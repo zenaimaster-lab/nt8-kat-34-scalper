@@ -92,14 +92,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (CurrentBars == null || CurrentBars[0] < 100) return;
 			if (b1Ema8 == null || b1Ema34 == null || b1Ema89 == null) return;
 
-			// B1 setup: EMA8 touches/bounces off EMA34 while EMA34 < EMA89 (pullback setup)
-			bool b1Setup = Math.Abs(b1Ema8[0] - b1Ema34[0]) < 0.1 * b1Ema34[0]; // 10% proximity
-			bool pullback = (b1Ema34[0] < b1Ema89[0]);
-			
-			if (b1Setup && pullback)
+			int dir = Kat34ScalperLogic.B1Direction(true, true, false, false,
+				b1Ema8[0], b1Ema34[0], b1Ema89[0], 0, 0, 0.10);
+
+			if (dir != 0)
 			{
-				Draw.VerticalLine(this, string.Format("K34S_B1_{0}", CurrentBars[0]), Times[0][0], Brushes.Purple, DashStyleHelper.Dash, 1);
-				Print(string.Format("[KatSignalB1] Setup detected @ bar {0}: EMA8≈EMA34, pullback mode", CurrentBars[0]));
+				Draw.VerticalLine(this, string.Format("K34S_B1_{0}", CurrentBars[0]), Times[0][0], dir > 0 ? Brushes.LimeGreen : Brushes.Purple, DashStyleHelper.Dash, 1);
+				Print(string.Format("[KatSignalB1] {0} setup detected @ bar {1}: EMA8≈EMA34 + EMA34/EMA89 alignment", dir > 0 ? "BUY" : "SELL", CurrentBars[0]));
 			}
 		}
 
@@ -110,11 +109,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (start < 0) return;
 			for (int ago = start; ago >= 0; ago--)
 			{
-				bool b1Setup = Math.Abs(b1Ema8[ago] - b1Ema34[ago]) < 0.1 * b1Ema34[ago];
-				bool pullback = (b1Ema34[ago] < b1Ema89[ago]);
-				if (b1Setup && pullback)
+				int dir = Kat34ScalperLogic.B1Direction(true, true, false, false,
+					b1Ema8[ago], b1Ema34[ago], b1Ema89[ago], 0, 0, 0.10);
+				if (dir != 0)
 				{
-					Draw.VerticalLine(this, string.Format("K34S_B1_BF_{0}", CurrentBars[0] - ago), Times[0][ago], Brushes.Purple, DashStyleHelper.Dash, 1);
+					Draw.VerticalLine(this, string.Format("K34S_B1_BF_{0}", CurrentBars[0] - ago), Times[0][ago], dir > 0 ? Brushes.LimeGreen : Brushes.Purple, DashStyleHelper.Dash, 1);
 				}
 			}
 			Print("[KatSignalB1] backfill done");

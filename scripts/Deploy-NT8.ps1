@@ -11,8 +11,10 @@ $repoRoot   = Split-Path -Parent $PSScriptRoot
 $indicators = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\Indicators'
 $customDll  = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\NinjaTrader.Custom.dll'
 
-# Main file + every module under src\ (Logic, Signal, Filter, Bot, Draw, ...).
-$files = @('Kat34Scalper.cs') + (Get-ChildItem (Join-Path $repoRoot 'src') -Filter '*.cs' |
+# Main orchestrator + standalone KatSignal indicators + every module under src\.
+$files = @('Kat34Scalper.cs') +
+    (Get-ChildItem $repoRoot -Filter 'KatSignal*.cs' -File | ForEach-Object { $_.Name }) +
+    (Get-ChildItem (Join-Path $repoRoot 'src') -Filter '*.cs' |
     ForEach-Object { 'src\' + $_.Name })
 
 # Legacy cleanup after the Kat8934 -> Kat34Scalper rename (v0.20): stale files would keep
@@ -25,6 +27,12 @@ Get-ChildItem $indicators -Filter 'Kat8934*.cs' -ErrorAction SilentlyContinue | 
 # Clean up orphaned Kat34Scalper files in NT8 Indicators folder that no longer exist in src\
 $targetLeaves = $files | ForEach-Object { Split-Path $_ -Leaf }
 Get-ChildItem $indicators -Filter 'Kat34Scalper*.cs' -ErrorAction SilentlyContinue | ForEach-Object {
+    if ($targetLeaves -notcontains $_.Name) {
+        Remove-Item $_.FullName -Force
+        Write-Host "removed orphan: $($_.Name)"
+    }
+}
+Get-ChildItem $indicators -Filter 'KatSignal*.cs' -ErrorAction SilentlyContinue | ForEach-Object {
     if ($targetLeaves -notcontains $_.Name) {
         Remove-Item $_.FullName -Force
         Write-Host "removed orphan: $($_.Name)"

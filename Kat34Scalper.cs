@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.85 (2026-08-05)
+ * Version: 1.01 (2026-08-05)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -84,8 +84,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "1.00";
+		public const string VERSION = "1.01";
 		public const string RELEASE_DATE = "2026-08-05";
+		private const int AlertA2SeriesIndex = 6; // Configure order: 0 primary, 1 A1, 2 ADX MTF, 3-5 A1 zones, 6 A2 5m.
 
 
 		// Indicator series (primary chart TF)
@@ -107,6 +108,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private EMA a1Ema200;
 		private ATR a1Atr; // angle normalization unit (45 deg = 1 ATR/bar on the A1 series)
 		private EMA[] zoneEma34; // A1 EmaZone gate: EMA34 on the zone series (BarsArray[3..5])
+
+		private EMA a2Ema8;
+		private EMA a2Ema34;
+		private EMA a2Ema89;
+		private EMA a2Ema144;
+		private EMA a2Ema200;
+		private ATR a2Atr;
 
 		// Time-window filter parsed values
 		private TimeSpan timeStart;
@@ -237,6 +245,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AddDataSeries(Data.BarsPeriodType.Second, (int)AlertA1EmaZoneTf1);
 				AddDataSeries(Data.BarsPeriodType.Second, (int)AlertA1EmaZoneTf2);
 				AddDataSeries(Data.BarsPeriodType.Second, (int)AlertA1EmaZoneTf3);
+				// Alert Signal A2 fixed 5-minute series. Appended after existing series to preserve legacy indexes.
+				AddDataSeries(Data.BarsPeriodType.Minute, 5);
 			}
 			else if (State == State.DataLoaded)
 			{
@@ -257,6 +267,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				a1Atr = ATR(BarsArray[1], Math.Max(1, AlertA1AtrPeriod));
 				adxMtfInd = ADX(BarsArray[2], Math.Max(1, AdxMtfPeriod));
 				zoneEma34 = new[] { EMA(BarsArray[3], 34), EMA(BarsArray[4], 34), EMA(BarsArray[5], 34) };
+				a2Ema8 = EMA(BarsArray[AlertA2SeriesIndex], 8);
+				a2Ema34 = EMA(BarsArray[AlertA2SeriesIndex], 34);
+				a2Ema89 = EMA(BarsArray[AlertA2SeriesIndex], 89);
+				a2Ema144 = EMA(BarsArray[AlertA2SeriesIndex], 144);
+				a2Ema200 = EMA(BarsArray[AlertA2SeriesIndex], 200);
+				a2Atr = ATR(BarsArray[AlertA2SeriesIndex], 14);
 
 				timeWindowDisabled = string.Equals(TimeFilterStart, TimeFilterEnd, StringComparison.OrdinalIgnoreCase);
 				if (!timeWindowDisabled)
@@ -298,6 +314,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (BarsInProgress == 1)
 			{
 				EvaluateAlertA1Bar();                                // Signal A1
+				return;
+			}
+			if (BarsInProgress == AlertA2SeriesIndex)
+			{
+				EvaluateAlertA2Bar();                                // Signal A2
 				return;
 			}
 			if (BarsInProgress != 0 || CurrentBars[0] < 1) return;
@@ -862,7 +883,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			return fallback;
 		}
 		
-		// Placeholder stubs for A2/B1/B2 signal evaluation (to be filled when implementing independent signal logic)
+		// Orchestrator wrappers: signal modules own live/backfill implementation.
 		private void EvaluateA2(double high, double low, double close, bool sellAllowed, bool buyAllowed)
 		{
 			// Alert Signal A2 — see src/Kat34Scalper.AlertSignal.A2.cs for evaluation logic
@@ -870,33 +891,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private void EvaluateB1(double high, double low, double close, bool sellAllowed, bool buyAllowed)
 		{
-			// Bot Signal B1 — cross-signal filtering: B1 fires only if A1 environment allows
-			if (!cachedB1) return; // B1 disabled
-			if (!sellAllowed && !buyAllowed) return; // Bot filters block
-			
-			// B1 entry allowed only if A1 is in LONG environment (a1LastDir > 0) or A1 disabled
-			bool a1LongAllows = !cachedAlertA1 || (a1LastDir > 0);
-			bool a1ShortAllows = !cachedAlertA1 || (a1LastDir < 0);
-			
-			if (a1LongAllows && buyAllowed) { /* B1 LONG logic */ }
-			if (a1ShortAllows && sellAllowed) { /* B1 SHORT logic */ }
+			EvaluateB1Bar(sellAllowed, buyAllowed);
 		}
 
 		private void EvaluateB2(double high, double low, double close, bool sellAllowed, bool buyAllowed)
 		{
-			// Bot Signal B2 — cross-signal filtering: B2 fires only if A1 environment allows
-			if (!cachedB2) return; // B2 disabled
-			if (!sellAllowed && !buyAllowed) return; // Bot filters block
-			
-			// B2 entry allowed only if A1 is in LONG environment (a1LastDir > 0) or A1 disabled
-			bool a1LongAllows = !cachedAlertA1 || (a1LastDir > 0);
-			bool a1ShortAllows = !cachedAlertA1 || (a1LastDir < 0);
-			
-			if (a1LongAllows && buyAllowed) { /* B2 LONG logic */ }
-			if (a1ShortAllows && sellAllowed) { /* B2 SHORT logic */ }
+			EvaluateB2Bar(sellAllowed, buyAllowed);
 		}
 
 		#endregion
 	}
 }
-
