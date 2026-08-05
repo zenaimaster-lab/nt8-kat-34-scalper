@@ -47,5 +47,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			// Bot Signal B2 backfill logic — see docs/SIGNALS.md for B2 spec (34+8+Bounce)
 			Print("[Kat34Scalper][SignalB2] backfill done");
 		}
+
+		private void EvaluateB2Bar()
+		{
+			if (!cachedB2) return;
+			// Bot Signal B2 live bar evaluation — see docs/SIGNALS.md for B2 spec
+		}
 	}
 }

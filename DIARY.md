@@ -19,6 +19,16 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.87] — 2026-08-05
+- **Signal indicator shell refactor (phase 2 - logic consolidation)**: merged A1/A2 AlertSignal logic into Signal.A1/A2 host files; added B1/B2 evaluation stubs.
+  - Merged `src\Kat34Scalper.AlertSignal.A1.cs` → `src\Kat34Scalper.Signal.A1.cs`: EvaluateAlertA1Bar + BackfillAlertA1 + all A1 state variables (a1LastDir, a1InvalidStreak, a1BandHi/Lo, etc.) now in dedicated Signal.A1 module file.
+  - Updated `src\Kat34Scalper.Signal.A2.cs`: added A2 stubs (SetAlertA2Signal, EvaluateAlertA2Bar, BackfillAlertA2) — logic TBD.
+  - Updated `src\Kat34Scalper.Signal.B1.cs`, `src\Kat34Scalper.Signal.B2.cs`: added EvaluateB1Bar() and EvaluateB2Bar() stubs (logic TBD).
+  - Removed orphaned old AlertSignal files (A1/A2) to prevent duplicate definitions (CS0102).
+  - Compile gate: ✅ PASS (10 warnings, 0 errors, exit 0).
+  - Deployed to NT8 indicators folder (14 .cs files); F5 Reload NinjaScript needed for manual recompile (auto-detection timed out).
+  - **Architecture ready**: each signal (A1/A2/B1/B2) now self-contained in one .cs file, ready to extract as separate indicator class in future phases.
+
 ### [v0.86] — 2026-08-05
 - **Signal indicator shell refactor (phase 1 - entry points)**: tách các signal A1/A2/B1/B2 thành các file partial classes độc lập để chuẩn bị cho việc compile chúng riêng lẻ thành indicator riêng.
   - Tạo `src\Kat34Scalper.State.cs`: tách KatSignalKind, KatEmaZoneTf, KatA1State, KatA2State, KatA2Action enums/classes ra file riêng để tránh CS0436 conflicts với NinjaTrader.Custom DLL khi compile gate.
