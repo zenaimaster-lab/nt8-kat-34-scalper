@@ -73,7 +73,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (dir != a1PrevDir)
 			{
 				DrawEnvBand(a1BandDir, a1BandStartIdx, CurrentBars[1], a1BandHi, a1BandLo);
-				if (dir == 0) DrawAlertA1RangeLine(0);
+				if (dir == 0)
+				{
+					DrawAlertA1RangeLine(0);
+					if (State == State.Realtime) PlaySignalSound("A1", 0);
+				}
 				a1BandDir = dir;
 				a1BandStartIdx = CurrentBars[1];
 				a1PrevDir = dir;
@@ -91,7 +95,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				DrawAlertA1Line(a1LastDir, 0);
 				if (State == State.Realtime) // historical replay would machine-gun the sound on every load
 				{
-					PlayAlertSound();
+					PlaySignalSound("A1", a1LastDir);
 					Print(string.Format("[Kat34Scalper][AlertA1] {0} environment @ bar {1} — vertical line + sound.",
 						a1LastDir > 0 ? "LONG" : "SHORT", CurrentBars[1]));
 				}

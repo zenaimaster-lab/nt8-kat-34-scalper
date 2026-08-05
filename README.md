@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v1.02` (Released: `2026-08-05`)
+**Current Version**: `v1.03` (Released: `2026-08-05`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -12,6 +12,7 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | `KatSignalA1.cs` / `KatSignalA2.cs` / `KatSignalB1.cs` / `KatSignalB2.cs` | **Standalone indicators** | chart-loadable signal indicators; no dependency on the Kat34Scalper indicator class |
 | `src/KatSignalCore.cs` | **Pure logic** | signal state machines + filter math + ATM parser — zero NT8 deps, xunit-tested |
 | `src/KatSignalState.cs` | **Pure signal state** | shared enums/state DTOs for signal logic; zero NT8 deps |
+| `src/KatSignalSound.cs` | **Signal sound config** | neutral sound dropdown converter for standalone signals; custom folder, NT8 user sounds, install sounds |
 | `src/Kat34Scalper.AlertSignal.cs` | **Alert Signal (shared)** | shared alert backfill helpers |
 | `src/Kat34Scalper.Signal.A1.cs` | **Alert Signal A1** | independent alert sub-module: EmaZone30s fan environment, backfill, bands, alert sounds |
 | `src/Kat34Scalper.Signal.A2.cs` | **Alert Signal A2** | independent alert sub-module: 5-minute fan environment, backfill, bands, alert sounds |
@@ -23,6 +24,8 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | `src/Kat34Scalper.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, labels, version label, alert sound, HUD (sections titled ALERT SIGNAL / BOT SIGNAL / ALERT FILTER / BOT FILTER / BOT / DRAW) |
 
 Standalone signal contract: each `KatSignal*.cs` indicator can be loaded on any NT8 chart without adding `Kat34Scalper` to that chart. They share only neutral pure files (`KatSignalCore.cs`, `KatSignalState.cs`) so signal math has one source of truth and does not duplicate inside Scalper. `Kat34Scalper` is only the orchestrator/bot host that reuses the same core.
+
+Each standalone signal exposes its own `Alert Sound Custom Path` and per-event audio settings. A1/A2 support separate LONG, SHORT and RANGING sounds; B1/B2 support LONG and SHORT setup sounds (RANGING can be left `None`). Sound lookup order is: custom Windows folder/absolute path, NT8 user sounds folder, NT8 install sounds folder.
 
 ## Signals
 

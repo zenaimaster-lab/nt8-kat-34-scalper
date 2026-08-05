@@ -651,13 +651,22 @@ namespace KAT.Signals
 		}
 	}
 
-	// Alert sound file resolution — user sounds folder (Documents\NinjaTrader 8\sounds)
-	// overlays NT8's install sounds folder; on equal names the user file wins.
+	// Alert sound file resolution — custom folder/absolute file wins, then user sounds
+	// folder (Documents\NinjaTrader 8\sounds), then NT8's install sounds folder.
 	public static class Kat34ScalperSound
 	{
 		public static string ResolvePath(string userDir, string installDir, string fileName)
 		{
+			return ResolvePath(null, userDir, installDir, fileName);
+		}
+
+		public static string ResolvePath(string customDir, string userDir, string installDir, string fileName)
+		{
 			if (string.IsNullOrEmpty(fileName)) return null;
+			if (fileName.Equals("None", StringComparison.OrdinalIgnoreCase)) return null;
+			if (Path.IsPathRooted(fileName) && File.Exists(fileName)) return fileName;
+			string custom = string.IsNullOrEmpty(customDir) ? null : Path.Combine(customDir, fileName);
+			if (custom != null && File.Exists(custom)) return custom;
 			string user = string.IsNullOrEmpty(userDir) ? null : Path.Combine(userDir, fileName);
 			if (user != null && File.Exists(user)) return user;
 			string install = string.IsNullOrEmpty(installDir) ? null : Path.Combine(installDir, fileName);
@@ -667,9 +676,14 @@ namespace KAT.Signals
 
 		public static System.Collections.Generic.List<string> ListSounds(string userDir, string installDir)
 		{
+			return ListSounds(null, userDir, installDir);
+		}
+
+		public static System.Collections.Generic.List<string> ListSounds(string customDir, string userDir, string installDir)
+		{
 			var seen = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
-			var list = new System.Collections.Generic.List<string>();
-			string[] dirs = { userDir, installDir };
+			var list = new System.Collections.Generic.List<string> { "None" };
+			string[] dirs = { customDir, userDir, installDir };
 			foreach (string dir in dirs)
 			{
 				if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) continue;
@@ -679,7 +693,7 @@ namespace KAT.Signals
 					if (seen.Add(name)) list.Add(name);
 				}
 			}
-			list.Sort(StringComparer.OrdinalIgnoreCase);
+			list.Sort(1, list.Count - 1, StringComparer.OrdinalIgnoreCase);
 			return list;
 		}
 	}

@@ -8,6 +8,7 @@
 using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.IO;
 using System.Windows.Media;
 using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
@@ -45,6 +46,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				Ema34Period = 34;
 				Ema89Period = 89;
 				HistoryDays = 3;
+				AlertSoundCustomPath = "";
+				LongAlertSound = "Alert1.wav";
+				ShortAlertSound = "Alert1.wav";
+				RangingAlertSound = "None";
 			}
 			else if (State == State.DataLoaded)
 			{
@@ -98,8 +103,22 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (dir != 0)
 			{
 				Draw.VerticalLine(this, string.Format("K34S_B1_{0}", CurrentBars[0]), Times[0][0], dir > 0 ? Brushes.LimeGreen : Brushes.Purple, DashStyleHelper.Dash, 1);
+				PlaySignalSound(dir);
 				Print(string.Format("[KatSignalB1] {0} setup detected @ bar {1}: EMA8≈EMA34 + EMA34/EMA89 alignment", dir > 0 ? "BUY" : "SELL", CurrentBars[0]));
 			}
+		}
+
+		private void PlaySignalSound(int direction)
+		{
+			try
+			{
+				string sound = direction > 0 ? LongAlertSound : direction < 0 ? ShortAlertSound : RangingAlertSound;
+				string userDir = Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "sounds");
+				string installDir = Path.Combine(NinjaTrader.Core.Globals.InstallDir, "sounds");
+				string path = Kat34ScalperSound.ResolvePath(AlertSoundCustomPath, userDir, installDir, sound);
+				if (path != null) PlaySound(path);
+			}
+			catch { }
 		}
 
 		private void BackfillB1()
@@ -139,6 +158,25 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Range(1, int.MaxValue)]
 		[Display(Name = "History Days", Order = 4, GroupName = "Parameters")]
 		public int HistoryDays { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Alert Sound Custom Path", Order = 1, GroupName = "Alert Sounds")]
+		public string AlertSoundCustomPath { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "LONG Sound", Order = 2, GroupName = "Alert Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string LongAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "SHORT Sound", Order = 3, GroupName = "Alert Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string ShortAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "RANGING Sound", Order = 4, GroupName = "Alert Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string RangingAlertSound { get; set; }
 		#endregion
 	}
 }

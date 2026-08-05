@@ -51,14 +51,34 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private void PlayAlertSound()
 		{
+			PlayConfiguredSound(AlertSound);
+		}
+
+		private void PlayConfiguredSound(string soundName)
+		{
 			try
 			{
 				string userDir = Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "sounds");
 				string installDir = Path.Combine(NinjaTrader.Core.Globals.InstallDir, "sounds");
-				string path = Kat34ScalperSound.ResolvePath(userDir, installDir, AlertSound);
+				string selected = string.IsNullOrEmpty(soundName) ? AlertSound : soundName;
+				string path = Kat34ScalperSound.ResolvePath(AlertSoundCustomPath, userDir, installDir, selected);
 				if (path != null) PlaySound(path);
 			}
 			catch { }
+		}
+
+		private void PlaySignalSound(string owner, int direction)
+		{
+			string sound = AlertSound;
+			if (owner == "A1")
+				sound = direction > 0 ? A1LongAlertSound : direction < 0 ? A1ShortAlertSound : A1RangingAlertSound;
+			else if (owner == "A2")
+				sound = direction > 0 ? A2LongAlertSound : direction < 0 ? A2ShortAlertSound : A2RangingAlertSound;
+			else if (owner == "B1")
+				sound = direction > 0 ? B1LongAlertSound : direction < 0 ? B1ShortAlertSound : B1RangingAlertSound;
+			else if (owner == "B2")
+				sound = direction > 0 ? B2LongAlertSound : direction < 0 ? B2ShortAlertSound : B2RangingAlertSound;
+			PlayConfiguredSound(sound);
 		}
 		private int SafeLineLengthBars()
 		{
@@ -178,7 +198,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			RenderSignal(record);
 
 			if (!replay)
-				PlayAlertSound();
+				PlaySignalSound(owner, isBuy ? 1 : -1);
 			Print(string.Format("[Kat34Scalper][{6}][DRAW]{3} {0} signal @ bar {1} — entry {2:F5}, SL {4:F5}, TP {5:F5}", isBuy ? "BUY" : "SELL", bar, record.EntryPrice, replay ? "[replay]" : "", record.SlPrice, record.TpPrice, owner ?? "A1"));
 			return record;
 		}

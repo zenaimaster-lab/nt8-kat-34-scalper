@@ -1065,8 +1065,27 @@ public class KatSignalCoreTests
 			Assert.Equal(Path.Combine(install, "Alert1.wav"), Kat34ScalperSound.ResolvePath(user, install, "Alert1.wav"));
 			Assert.Null(Kat34ScalperSound.ResolvePath(user, install, "Nope.wav"));
 			Assert.Null(Kat34ScalperSound.ResolvePath(user, install, ""));
+			Assert.Null(Kat34ScalperSound.ResolvePath(user, install, "None"));
 		}
 		finally { Directory.Delete(user, true); Directory.Delete(install, true); }
+	}
+
+	[Fact]
+	public void ResolvePath_CustomFolderAndAbsolutePathWin()
+	{
+		string custom = NewTempDir(), user = NewTempDir(), install = NewTempDir();
+		try
+		{
+			string customFile = Path.Combine(custom, "Long.wav");
+			string absoluteFile = Path.Combine(custom, "Absolute.wav");
+			File.WriteAllBytes(customFile, new byte[1]);
+			File.WriteAllBytes(absoluteFile, new byte[1]);
+			File.WriteAllBytes(Path.Combine(user, "Long.wav"), new byte[1]);
+			File.WriteAllBytes(Path.Combine(install, "Long.wav"), new byte[1]);
+			Assert.Equal(customFile, Kat34ScalperSound.ResolvePath(custom, user, install, "Long.wav"));
+			Assert.Equal(absoluteFile, Kat34ScalperSound.ResolvePath(custom, user, install, absoluteFile));
+		}
+		finally { Directory.Delete(custom, true); Directory.Delete(user, true); Directory.Delete(install, true); }
 	}
 
 	[Fact]
@@ -1081,7 +1100,7 @@ public class KatSignalCoreTests
 			File.WriteAllBytes(Path.Combine(install, "Alert1.wav"), new byte[1]);
 			File.WriteAllBytes(Path.Combine(install, "readme.txt"), new byte[1]);
 			var list = Kat34ScalperSound.ListSounds(user, install);
-			Assert.Equal(new[] { "Alert1.wav", "My.wav", "zeta.wav" }, list);
+			Assert.Equal(new[] { "None", "Alert1.wav", "My.wav", "zeta.wav" }, list);
 		}
 		finally { Directory.Delete(user, true); Directory.Delete(install, true); }
 	}

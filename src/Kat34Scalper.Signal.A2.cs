@@ -60,7 +60,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (dir != a2PrevDir)
 			{
 				DrawAlertA2Band(a2BandDir, a2BandStartIdx, CurrentBars[AlertA2SeriesIndex], a2BandHi, a2BandLo);
-				if (dir == 0) DrawAlertA2RangeLine(0);
+				if (dir == 0)
+				{
+					DrawAlertA2RangeLine(0);
+					if (State == State.Realtime) PlaySignalSound("A2", 0);
+				}
 				a2BandDir = dir;
 				a2BandStartIdx = CurrentBars[AlertA2SeriesIndex];
 				a2PrevDir = dir;
@@ -78,7 +82,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				DrawAlertA2Line(a2LastDir, 0);
 				if (State == State.Realtime)
 				{
-					PlayAlertSound();
+					PlaySignalSound("A2", a2LastDir);
 					Print(string.Format("[Kat34Scalper][AlertA2] {0} environment @ bar {1}.",
 						a2LastDir > 0 ? "LONG" : "SHORT", CurrentBars[AlertA2SeriesIndex]));
 				}

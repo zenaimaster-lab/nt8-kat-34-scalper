@@ -19,6 +19,16 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v1.03] — 2026-08-05
+- **Per-signal audio routing**: Added independent sound configuration for standalone signals and the Kat34Scalper orchestrator.
+  - A1/A2 alert signals now support separate LONG, SHORT, and RANGING sounds.
+  - B1/B2 bot signals now support separate LONG and SHORT setup sounds, with RANGING available and defaulted to `None`.
+  - Added `Alert Sound Custom Path` on each standalone signal and on Kat34Scalper. Sound lookup order: absolute file/custom Windows folder, NT8 user sounds, NT8 install sounds.
+  - Added neutral `src\KatSignalSound.cs` with `KatSignalSoundConverter`, so standalone signals do not depend on `Kat34Scalper.cs` for audio dropdowns.
+  - `Kat34Scalper.Draw.cs` now routes DrawSignal audio by owner (`A1/A2/B1/B2`) and direction instead of one global alert sound.
+  - Pure tests added for custom-path/absolute-path sound resolution and `None` handling.
+  - Graphify entity mapping: `Kat34ScalperSound.ResolvePath(customDir, userDir, installDir, fileName)`, `KatSignalSoundConverter`, `PlaySignalSound`, standalone `LongAlertSound`/`ShortAlertSound`/`RangingAlertSound`.
+
 ### [v1.02] — 2026-08-05
 - **Standalone signal independence cleanup**: Renamed the shared pure logic layer away from Scalper-specific naming so A/B standalone indicators no longer depend on `Kat34Scalper`-named core APIs.
   - `src\Kat34ScalperLogic.cs` → `src\KatSignalCore.cs`, class `KatSignalCore`, namespace `KAT.Signals`.

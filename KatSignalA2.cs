@@ -8,6 +8,7 @@
 using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.IO;
 using System.Windows.Media;
 using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
@@ -71,6 +72,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AlertLongLineColor = Colors.DodgerBlue;
 				AlertShortLineColor = Colors.OrangeRed;
 				AlertLineWidth = 2;
+				AlertSoundCustomPath = "";
+				LongAlertSound = "Alert1.wav";
+				ShortAlertSound = "Alert1.wav";
+				RangingAlertSound = "Alert1.wav";
 
 				CondEma8Above34 = true;
 				CondEma34Above89 = true;
@@ -158,7 +163,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (dir != a2PrevDir)
 			{
 				DrawEnvBand(a2BandDir, a2BandStartIdx, CurrentBars[1], a2BandHi, a2BandLo);
-				if (dir == 0) DrawAlertA2RangeLine(0);
+				if (dir == 0)
+				{
+					DrawAlertA2RangeLine(0);
+					if (State == State.Realtime) PlayAlertSound(0);
+				}
 				a2BandDir = dir;
 				a2BandStartIdx = CurrentBars[1];
 				a2PrevDir = dir;
@@ -174,7 +183,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				DrawAlertA2Line(a2LastDir, 0);
 				if (State == State.Realtime)
 				{
-					PlayAlertSound();
+					PlayAlertSound(a2LastDir);
 					Print(string.Format("[KatSignalA2] {0} environment @ bar {1}", a2LastDir > 0 ? "LONG" : "SHORT", CurrentBars[1]));
 				}
 			}
@@ -291,9 +300,17 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Draw.VerticalLine(this, tag, Times[1][ago], Brushes.Gray, DashStyleHelper.Dash, 2);
 		}
 
-		private void PlayAlertSound()
+		private void PlayAlertSound(int direction)
 		{
-			// TBD: sound playback
+			try
+			{
+				string sound = direction > 0 ? LongAlertSound : direction < 0 ? ShortAlertSound : RangingAlertSound;
+				string userDir = Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "sounds");
+				string installDir = Path.Combine(NinjaTrader.Core.Globals.InstallDir, "sounds");
+				string path = Kat34ScalperSound.ResolvePath(AlertSoundCustomPath, userDir, installDir, sound);
+				if (path != null) PlaySound(path);
+			}
+			catch { }
 		}
 
 		#region Properties
@@ -392,6 +409,25 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Range(1, 10)]
 		[Display(Name = "Alert Line Width", Order = 19, GroupName = "Drawing")]
 		public int AlertLineWidth { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Alert Sound Custom Path", Order = 1, GroupName = "Alert Sounds")]
+		public string AlertSoundCustomPath { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "LONG Sound", Order = 2, GroupName = "Alert Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string LongAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "SHORT Sound", Order = 3, GroupName = "Alert Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string ShortAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "RANGING Sound", Order = 4, GroupName = "Alert Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string RangingAlertSound { get; set; }
 		#endregion
 	}
 }

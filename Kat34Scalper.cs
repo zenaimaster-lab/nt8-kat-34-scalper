@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 1.02 (2026-08-05)
+ * Version: 1.03 (2026-08-05)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -58,33 +58,12 @@ public class Kat34ScalperAtmTemplateConverter : TypeConverter
 	}
 }
 
-// Dropdown of the .wav files in NT8's user sounds folder (Documents\NinjaTrader 8\sounds)
-// plus the install sounds folder (for the Alert Sound setting). User files win on equal names.
-public class Kat34ScalperSoundConverter : TypeConverter
-{
-	public override bool GetStandardValuesSupported(ITypeDescriptorContext context) { return true; }
-	public override bool GetStandardValuesExclusive(ITypeDescriptorContext context) { return true; }
-	public override StandardValuesCollection GetStandardValues(ITypeDescriptorContext context)
-	{
-		var list = new List<string>();
-		try
-		{
-			string userDir = Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "sounds");
-			Directory.CreateDirectory(userDir); // so users can find the folder to drop custom .wav files into
-			string installDir = Path.Combine(NinjaTrader.Core.Globals.InstallDir, "sounds");
-			list.AddRange(Kat34ScalperSound.ListSounds(userDir, installDir));
-		}
-		catch { }
-		return new StandardValuesCollection(list);
-	}
-}
-
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "1.02";
+		public const string VERSION = "1.03";
 		public const string RELEASE_DATE = "2026-08-05";
 		private const int AlertA2SeriesIndex = 6; // Configure order: 0 primary, 1 A1, 2 ADX MTF, 3-5 A1 zones, 6 A2 5m.
 
@@ -151,6 +130,19 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				TimeFilterStart				= "08:00";
 				TimeFilterEnd				= "17:00";
 				AlertSound					= "Alert1.wav";
+				AlertSoundCustomPath		= "";
+				A1LongAlertSound			= "Alert1.wav";
+				A1ShortAlertSound			= "Alert1.wav";
+				A1RangingAlertSound			= "Alert1.wav";
+				A2LongAlertSound			= "Alert1.wav";
+				A2ShortAlertSound			= "Alert1.wav";
+				A2RangingAlertSound			= "Alert1.wav";
+				B1LongAlertSound			= "Alert1.wav";
+				B1ShortAlertSound			= "Alert1.wav";
+				B1RangingAlertSound			= "None";
+				B2LongAlertSound			= "Alert1.wav";
+				B2ShortAlertSound			= "Alert1.wav";
+				B2RangingAlertSound			= "None";
 
 				// 2. Alert Signal A1 (fan) defaults — ON (independent 30s series)
 				AlertA1Enabled				= true;
@@ -373,10 +365,75 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		public string TimeFilterEnd { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Alert Sound", Order = 13, GroupName = "1. Filters",
-			Description = "Sound played on signals.")]
-		[TypeConverter(typeof(Kat34ScalperSoundConverter))]
+		[Display(Name = "Default Alert Sound", Order = 13, GroupName = "1. Filters",
+			Description = "Fallback sound when a per-signal LONG/SHORT/RANGING sound is empty.")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
 		public string AlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Alert Sound Custom Path", Order = 14, GroupName = "1. Filters",
+			Description = "Optional Windows folder for .wav files. Lookup order: custom path, NT8 user sounds, NT8 install sounds.")]
+		public string AlertSoundCustomPath { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "A1 LONG Sound", Order = 1, GroupName = "7. Signal Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string A1LongAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "A1 SHORT Sound", Order = 2, GroupName = "7. Signal Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string A1ShortAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "A1 RANGING Sound", Order = 3, GroupName = "7. Signal Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string A1RangingAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "A2 LONG Sound", Order = 4, GroupName = "7. Signal Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string A2LongAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "A2 SHORT Sound", Order = 5, GroupName = "7. Signal Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string A2ShortAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "A2 RANGING Sound", Order = 6, GroupName = "7. Signal Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string A2RangingAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "B1 LONG Sound", Order = 7, GroupName = "7. Signal Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string B1LongAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "B1 SHORT Sound", Order = 8, GroupName = "7. Signal Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string B1ShortAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "B1 RANGING Sound", Order = 9, GroupName = "7. Signal Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string B1RangingAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "B2 LONG Sound", Order = 10, GroupName = "7. Signal Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string B2LongAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "B2 SHORT Sound", Order = 11, GroupName = "7. Signal Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string B2ShortAlertSound { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "B2 RANGING Sound", Order = 12, GroupName = "7. Signal Sounds")]
+		[TypeConverter(typeof(KatSignalSoundConverter))]
+		public string B2RangingAlertSound { get; set; }
 
 		[NinjaScriptProperty]
 		[Display(Name = "ADX Rising Lookback (bars)", Order = 15, GroupName = "1. Filters")]
