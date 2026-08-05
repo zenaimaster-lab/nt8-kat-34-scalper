@@ -97,13 +97,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			return Kat34ScalperLogic.IsInTimeWindow(Times[0][barsAgo].TimeOfDay, timeStart, timeEnd);
 		}
 
-		// ADX regime gate on the dedicated MTF series (BarsArray[2]): the most recent MTF bar CLOSED
-		// at or before the series-0 bar's close must have ADX >= AdxMtfMin (no lookahead, backfill-aware).
+		// ADX regime gate on the dedicated MTF series (BarsArray[1] since shell v1.04).
 		private bool AdxMtfPassAt(int barsAgo)
 		{
-			if (adxMtfInd == null || CurrentBars == null || CurrentBars.Length < 3 || CurrentBars[2] < 1) return true;
-			DateTime cutoff = Kat34ScalperLogic.ClosedBarCutoff(Times[0][barsAgo], SeriesPeriodSeconds(0), SeriesPeriodSeconds(2));
-			int idx = Kat34ScalperLogic.BarsAgoAtOrBefore(i => Times[2][i], CurrentBars[2], cutoff);
+			if (adxMtfInd == null || CurrentBars == null || CurrentBars.Length < 2 || CurrentBars[1] < 1) return true;
+			DateTime cutoff = Kat34ScalperLogic.ClosedBarCutoff(Times[0][barsAgo], SeriesPeriodSeconds(0), SeriesPeriodSeconds(1));
+			int idx = Kat34ScalperLogic.BarsAgoAtOrBefore(i => Times[1][i], CurrentBars[1], cutoff);
 			if (idx < 0) return true; // MTF series starts after the bar — warmup, gate open
 			return adxMtfInd[idx] >= AdxMtfMin;
 		}

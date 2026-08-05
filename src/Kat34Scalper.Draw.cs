@@ -25,306 +25,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	// No ': Indicator' — see Kat34Scalper.Signal.cs (NT8 codegen duplication guard).
 	public partial class Kat34Scalper
 	{
-		#region Signal Drawings (lines, arrows, labels, version label, alert)
-		private const int MAX_SIGNAL_RECORDS = 200;
-		private sealed class KatSignalRecord
-		{
-			public int Bar;
-			public bool IsBuy;
-			public string Owner; // "A1" or future "A2" etc. — enables per-signal ON/OFF cleanup
-			public double ArrowY;
-			public double TextY;
-			public double Candidate1;
-			public double Candidate2;
-			public double EntryPrice;
-			public double SlPrice;
-			public double TpPrice;
-			public double BePrice;
-			public double Sl1Price;
-			public double Sl2Price;
-			public bool DrawLogged;
-			public bool KeepAlive; // A2 pending entry: lines render while the setup is alive, ignoring the Line Length fade
-		}
-		private readonly List<KatSignalRecord> signalRecords = new List<KatSignalRecord>();
-		private bool legacySignalDrawingsCleared;
-		// Arrow/Text feature removed per request. Only lines + ATM triggers remain.
+		#region Signal Drawings (shell stubs — drawings owned by independent signal indicators)
+		// ponytail: signal drawings moved to KatA1/KatA2/KatB1/KatB2; shell keeps minimal clear helper.
 
-		private void PlayAlertSound()
-		{
-			try
-			{
-				string userDir = Path.Combine(NinjaTrader.Core.Globals.UserDataDir, "sounds");
-				string installDir = Path.Combine(NinjaTrader.Core.Globals.InstallDir, "sounds");
-				string path = Kat34ScalperSound.ResolvePath(userDir, installDir, AlertSound);
-				if (path != null) PlaySound(path);
-			}
-			catch { }
-		}
-		private int SafeLineLengthBars()
-		{
-			return Math.Max(1, Math.Min(LineLengthBars, 500));
-		}
-
-		private int SafeLineWidth()
-		{
-			return Math.Max(1, Math.Min(LineWidth, 10));
-		}
-
-		private string SignalTag(KatSignalRecord record, string suffix)
-		{
-			string mod = string.IsNullOrEmpty(record.Owner) ? "B1" : record.Owner;
-			return "K34S_" + mod + "_" + (record.IsBuy ? "B" : "S") + "_" + suffix + "_" + record.Bar;
-		}
-
-		private void RenderSignal(KatSignalRecord record)
-		{
-			int age = CurrentBars[0] - record.Bar;
-			if (age < 0) return;
-			// Per-signal ownership: if owner disabled, skip (OFF already removed its drawings)
-			string owner = record.Owner ?? "B1";
-			if (owner == "B1" && !cachedB1) return;
-			if (owner == "B2" && !cachedB2) return;
-			if (owner == "A1" && !cachedAlertA1) return;
-			if (owner == "A2" && !cachedAlertA2) return;
-
-			Brush entryBrush = new SolidColorBrush(record.IsBuy ? BuyEntryLineColor : SellEntryLineColor);
-			Brush slBrush = new SolidColorBrush(SLLineColor);
-			Brush tpBrush = new SolidColorBrush(TPLineColor);
-			Brush textBrush = new SolidColorBrush(record.IsBuy ? BuyTextColor : SellTextColor);
-			int lineLength = SafeLineLengthBars();
-			int width = SafeLineWidth();
-
-			// Arrows + BUY/SELL text removed. Only lines + ATM triggers (BE/SL1/SL2) render.
-			// KeepAlive (A2 pending entry): no age cap — the lines live until Cancel/Filled.
-			if (age <= lineLength || record.KeepAlive)
-			{
-				if (record.Candidate1 != record.Candidate2)
-				{
-					Brush faded = new SolidColorBrush(record.IsBuy ? BuyEntryLineColor : SellEntryLineColor) { Opacity = 0.35 };
-					Draw.Line(this, SignalTag(record, "C1"), false, age, record.Candidate1, 0, record.Candidate1, faded, DashStyleHelper.Dot, 1);
-					Draw.Line(this, SignalTag(record, "C2"), false, age, record.Candidate2, 0, record.Candidate2, faded, DashStyleHelper.Dot, 1);
-				}
-				else
-				{
-					RemoveDrawObject(SignalTag(record, "C1"));
-					RemoveDrawObject(SignalTag(record, "C2"));
-				}
-
-				Draw.Line(this, SignalTag(record, "ENTRY"), false, age, record.EntryPrice, 0, record.EntryPrice, entryBrush, DashStyleHelper.Solid, width);
-				Draw.Line(this, SignalTag(record, "SL"), false, age, record.SlPrice, 0, record.SlPrice, slBrush, DashStyleHelper.Dash, width);
-				Draw.Line(this, SignalTag(record, "TP"), false, age, record.TpPrice, 0, record.TpPrice, tpBrush, DashStyleHelper.Dash, width);
-				if (record.BePrice != 0)
-					Draw.Line(this, SignalTag(record, "BE"), false, age, record.BePrice, 0, record.BePrice, Brushes.DeepSkyBlue, DashStyleHelper.DashDot, 1);
-				if (record.Sl1Price != 0)
-					Draw.Line(this, SignalTag(record, "SL1"), false, age, record.Sl1Price, 0, record.Sl1Price, Brushes.Orange, DashStyleHelper.Dot, 1);
-				if (record.Sl2Price != 0)
-					Draw.Line(this, SignalTag(record, "SL2"), false, age, record.Sl2Price, 0, record.Sl2Price, Brushes.Magenta, DashStyleHelper.Dot, 1);
-
-				string labelText = string.Format("{0} {1}", record.IsBuy ? "Buy" : "Sell", owner);
-				Draw.Text(this, SignalTag(record, "TEXT"), labelText, age, record.TextY, textBrush);
-			}
-			if (!record.DrawLogged)
-			{
-				record.DrawLogged = true;
-				Print(string.Format("[Kat34Scalper][DRAW] record bar={0}, side={1}, age={2}, entry={3:F5}, sl={4:F5}, tp={5:F5}, lineLength={6}, tags={7}_ENTRY/{7}_SL/{7}_TP",
-					record.Bar, record.IsBuy ? "BUY" : "SELL", age, record.EntryPrice, record.SlPrice, record.TpPrice,
-					lineLength, "K34S_" + (record.IsBuy ? "B" : "S") + "_"));
-			}
-		}
-
-		private void RefreshSignalDrawings()
-		{
-			foreach (KatSignalRecord record in signalRecords)
-				RenderSignal(record);
-		}
-
-		private void ClearLegacySignalDrawings()
-		{
-			if (legacySignalDrawingsCleared) return;
-			legacySignalDrawingsCleared = true;
-			try
-			{
-				var doomed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-				foreach (IDrawingTool tool in DrawObjects)
-				{
-					string name = tool.Name;
-					string tag = tool.Tag as string;
-					if (name != null && name.StartsWith("K8934_", StringComparison.OrdinalIgnoreCase))
-						doomed.Add(name);
-					if (tag != null && tag.StartsWith("K8934_", StringComparison.OrdinalIgnoreCase))
-						doomed.Add(tag);
-				}
-				foreach (string tag in doomed)
-					RemoveDrawObject(tag);
-				if (doomed.Count > 0)
-					Print(string.Format("[Kat34Scalper] Removed {0} stale Kat8934 drawing(s).", doomed.Count));
-			}
-			catch (Exception ex)
-			{
-				Print(string.Format("[Kat34Scalper] Legacy drawing cleanup error: {0}", ex.Message));
-			}
-		}
-
-		// replay = true during a History Days backfill pass: same drawing, no alert sound, no bot order.
-		// owner = signal module id ("A1", "A2"...) for per-signal ON/OFF cleanup ownership.
-		// Returns the created record so the owning signal can migrate/cancel it later (A2).
-		private KatSignalRecord DrawSignal(bool isBuy, int bar, double high, double low, double c1, double c2, int offsetTicks, int stopTicks, int targetTicks, bool replay = false, string owner = "A1")
-		{
-			if (signalRecords.Count >= MAX_SIGNAL_RECORDS)
-				signalRecords.RemoveAt(0);
-			KatSignalRecord record = new KatSignalRecord { Owner = owner };
-			FillSignalRecord(record, isBuy, bar, high, low, c1, c2, offsetTicks, stopTicks, targetTicks);
-			signalRecords.Add(record);
-			RenderSignal(record);
-
-			if (!replay)
-				PlayAlertSound();
-			Print(string.Format("[Kat34Scalper][{6}][DRAW]{3} {0} signal @ bar {1} — entry {2:F5}, SL {4:F5}, TP {5:F5}", isBuy ? "BUY" : "SELL", bar, record.EntryPrice, replay ? "[replay]" : "", record.SlPrice, record.TpPrice, owner ?? "A1"));
-			return record;
-		}
-
-		// Computes every price level (entry, candidates, SL/TP from ATM or settings, BE/SL1/SL2
-		// triggers) and stores them on the record. Shared by DrawSignal (new signal) and the A2
-		// migration (same record, new bar + better extreme — call RemoveSignalRecordDrawings first).
-		private void FillSignalRecord(KatSignalRecord record, bool isBuy, int bar, double high, double low, double c1, double c2, int offsetTicks, int stopTicks, int targetTicks)
-		{
-			double tick = TickSize;
-
-			// A1 dual entry: c1 = U-turn bar extreme, c2 = best later candidate (0 = none yet — fall back to the signal bar).
-			double ref1 = c1 != 0 ? c1 : (isBuy ? high : low);
-			double ref2 = c2 != 0 ? c2 : ref1;
-			double entryPrice = Kat34ScalperLogic.EffectiveEntry(isBuy, ref1, ref2, offsetTicks, tick);
-			double cand1 = isBuy ? ref1 + offsetTicks * tick : ref1 - offsetTicks * tick;
-			double cand2 = isBuy ? ref2 + offsetTicks * tick : ref2 - offsetTicks * tick;
-
-			// TradeManager-style levels: SL/TP come from the selected ATM template when it defines them,
-			// otherwise from the indicator settings; BE/SL1/SL2 trailing-SL triggers exist only with an ATM.
-			Kat34ScalperAtmData atm = GetAtmData();
-			int slTicks = atm.StopLoss > 0 ? atm.StopLoss : stopTicks;
-			int tpTicks = atm.Target > 0 ? atm.Target : targetTicks;
-
-			// Trailing-SL trigger lines from the ATM template — same style as KatTradeManager
-			// (BE DeepSkyBlue dash-dot, SL1 orange dot, SL2 magenta dot, 1 px, profit side of entry).
-			int dir = isBuy ? 1 : -1;
-			double bePrice = 0;
-			double sl1Price = 0;
-			double sl2Price = 0;
-			if (atm.BETrigger > 0)
-				bePrice = entryPrice + dir * atm.BETrigger * tick;
-			if (atm.SL1Trigger > 0)
-				sl1Price = entryPrice + dir * atm.SL1Trigger * tick;
-			if (atm.SL2Trigger > 0)
-				sl2Price = entryPrice + dir * atm.SL2Trigger * tick;
-
-			record.Bar = bar;
-			record.IsBuy = isBuy;
-			record.ArrowY = isBuy ? low - ArrowOffsetTicks * tick : high + ArrowOffsetTicks * tick;
-			record.TextY = isBuy ? entryPrice - tick : entryPrice + tick; // buy label below line, sell above
-			record.Candidate1 = cand1;
-			record.Candidate2 = cand2;
-			record.EntryPrice = entryPrice;
-			record.SlPrice = isBuy ? entryPrice - slTicks * tick : entryPrice + slTicks * tick;
-			record.TpPrice = isBuy ? entryPrice + tpTicks * tick : entryPrice - tpTicks * tick;
-			record.BePrice = bePrice;
-			record.Sl1Price = sl1Price;
-			record.Sl2Price = sl2Price;
-		}
-
-		// Removes every draw object a signal record owns (entry/SL/TP/candidates/ATM triggers).
-		// Tags derive from record.Bar — call BEFORE updating the bar on a migration.
-		private void RemoveSignalRecordDrawings(KatSignalRecord record)
-		{
-			RemoveDrawObject(SignalTag(record, "C1"));
-			RemoveDrawObject(SignalTag(record, "C2"));
-			RemoveDrawObject(SignalTag(record, "ENTRY"));
-			RemoveDrawObject(SignalTag(record, "SL"));
-			RemoveDrawObject(SignalTag(record, "TP"));
-			RemoveDrawObject(SignalTag(record, "BE"));
-			RemoveDrawObject(SignalTag(record, "SL1"));
-			RemoveDrawObject(SignalTag(record, "SL2"));
-			RemoveDrawObject(SignalTag(record, "TEXT"));
-		}
-
-		private void ClearSignalDrawings(string owner)
-		{
-			if (string.IsNullOrEmpty(owner)) return;
-			signalRecords.RemoveAll(r => (r.Owner ?? "A1").Equals(owner, StringComparison.OrdinalIgnoreCase));
-			RemoveModuleDrawings("K34S_" + owner.ToUpperInvariant() + "_");
-		}
-
-		// Removes a record's draw objects and drops it from the list (A2 cancel).
-		private void RemoveSignalRecord(KatSignalRecord record)
-		{
-			RemoveSignalRecordDrawings(record);
-			signalRecords.Remove(record);
-		}
-
-		// Removes every draw object whose tag starts with the given prefix (data thread only).
-		// Used by the signal sub-modules when they are switched OFF (independence: only their own tags).
-		private void RemoveModuleDrawings(string prefix)
-		{
-			try
-			{
-				var doomed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-				foreach (IDrawingTool tool in DrawObjects)
-				{
-					string name = tool.Name;
-					string tag = tool.Tag as string;
-					if (name != null && name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-						doomed.Add(name);
-					if (tag != null && tag.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-						doomed.Add(tag);
-				}
-				foreach (string tag in doomed)
-					RemoveDrawObject(tag);
-				if (doomed.Count > 0)
-					Print(string.Format("[Kat34Scalper] Removed {0} drawing(s) with prefix {1}.", doomed.Count, prefix));
-				ForceRefresh();
-			}
-			catch (Exception ex)
-			{
-				Print(string.Format("[Kat34Scalper] Remove module drawings error ({0}): {1}", prefix, ex.Message));
-			}
-		}
-
-
-		// Called from the data thread through TriggerCustomEvent from HUD clicks.
 		private void ClearOldSignalDrawings()
 		{
-			try
-			{
-				signalRecords.Clear();
-
-				// Reset sub-module pending drawing states so orphaned tags/records aren't retained
-				b1SellRecord = null;
-				b1BuyRecord = null;
-				b1SellTextTag = null;
-				b1BuyTextTag = null;
-				b1SellState.Reset();
-				b1BuyState.Reset();
-
-				var doomed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-				foreach (IDrawingTool tool in DrawObjects)
-				{
-					string name = tool.Name;
-					string tag = tool.Tag as string;
-					if (name != null && (name.StartsWith("K34S_", StringComparison.OrdinalIgnoreCase) || name.StartsWith("K8934_", StringComparison.OrdinalIgnoreCase)))
-						doomed.Add(name);
-					if (tag != null && (tag.StartsWith("K34S_", StringComparison.OrdinalIgnoreCase) || tag.StartsWith("K8934_", StringComparison.OrdinalIgnoreCase)))
-						doomed.Add(tag);
-				}
-				foreach (string tag in doomed)
-					RemoveDrawObject(tag);
-				ForceRefresh();
-				Print(string.Format("[Kat34Scalper] Cleared {0} old signal drawing(s).", doomed.Count));
-			}
-			catch (Exception ex)
-			{
-				Print(string.Format("[Kat34Scalper] Clear error: {0}", ex.Message));
-			}
+			Print("[Kat34Scalper] Clear: signal drawings owned by KatA*/KatB* — remove those indicators to clear.");
+			ShowHudStatus("Signals own drawings — remove KatA*/KatB* to clear", Brushes.Orange);
 		}
-
-		// Arrow/Text feature removed. No toggle apply needed. Lines always render.
 		#endregion
 
 		#region HUD Panel (sections titled by module: SIGNAL / FILTER / BOT / DRAW)
@@ -955,33 +663,26 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			secBot.Children.Add(dailyRiskGrid);
 			mainPanel.Children.Add(CreateSectionCard(secBot, 6));
 
-			// --- ALERT SIGNAL module: independent alert-only sub-modules ---
-			mainPanel.Children.Add(CreateModuleTitle("ALERT SIGNAL"));
-			var secAlert = new StackPanel();
-			Grid aRow = CreateTwoColGrid();
-			aRow.Margin = new Thickness(0);
-			Button btnAlertA1 = CreateFilterToggle("A1 (EmaZone30s)", () => cachedAlertA1, v => SetAlertA1Signal(v));
-			Grid.SetColumn(btnAlertA1, 0);
-			aRow.Children.Add(btnAlertA1);
-			Button btnAlertA2 = CreateFilterToggle("A2", () => cachedAlertA2, v => SetAlertA2Signal(v));
-			Grid.SetColumn(btnAlertA2, 2);
-			aRow.Children.Add(btnAlertA2);
-			secAlert.Children.Add(aRow);
-			mainPanel.Children.Add(CreateSectionCard(secAlert, 6));
-
-			// --- BOT SIGNAL module: independent sub-module toggles ---
-			// ON backfills the module's History Days window immediately; OFF removes only that module's drawings.
-			mainPanel.Children.Add(CreateModuleTitle("BOT SIGNAL"));
+			// --- SIGNAL TRADE GATES: which independent KatB* signals the bot may execute ---
+			mainPanel.Children.Add(CreateModuleTitle("SIGNAL TRADE (add KatB* on chart)"));
 			var secSignal = new StackPanel();
 			Grid sRow = CreateTwoColGrid();
 			sRow.Margin = new Thickness(0);
-			Button btnB1 = CreateFilterToggle("B1 (34bounce8+)", () => cachedB1, v => SetB1Signal(v), 24, 10, hudBotOnBrush);
+			Button btnB1 = CreateFilterToggle("Trade B1", () => tradeB1, v => { tradeB1 = v; TradeB1 = v; }, 24, 10, hudBotOnBrush);
 			Grid.SetColumn(btnB1, 0);
 			sRow.Children.Add(btnB1);
-			Button btnB2 = CreateFilterToggle("B2 (89uturn34)", () => cachedB2, v => SetB2Signal(v), 24, 10, hudBotOnBrush);
+			Button btnB2 = CreateFilterToggle("Trade B2", () => tradeB2, v => { tradeB2 = v; TradeB2 = v; }, 24, 10, hudBotOnBrush);
 			Grid.SetColumn(btnB2, 2);
 			sRow.Children.Add(btnB2);
 			secSignal.Children.Add(sRow);
+			secSignal.Children.Add(new TextBlock
+			{
+				Text = "Add KatA1/KatB1/KatB2 from Indicators → KAT",
+				Foreground = new SolidColorBrush(Color.FromRgb(110, 120, 145)),
+				FontSize = 9,
+				Margin = new Thickness(2, 4, 0, 0),
+				TextWrapping = TextWrapping.Wrap
+			});
 			mainPanel.Children.Add(CreateSectionCard(secSignal, 6));
 
 			// --- BOT FILTER module: the only filter side since v0.79 (ALERT FILTER removed; A1 is a

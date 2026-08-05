@@ -1,19 +1,19 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.86` (Released: `2026-08-05`)
+**Current Version**: `v1.04` (Released: `2026-08-05`)
 
-Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
+**Architecture (v1.04):** Scalper is a **bot shell + orchestrator only**. Every signal is a **fully independent NT8 indicator** under **Add Indicators → KAT**. Scalper discovers them on the same chart via `KatSignalBus` and trades enabled bot signals.
 
 ### Add Indicators → KAT folder
-| Indicator | Role |
-|---|---|
-| `Kat34Scalper` | All-in-one bot HUD (embeds A1/A2/B1/B2 modules + filters + bot) |
-| `KatA1` | Standalone Alert A1 EmaZone30s (chart + sound only) |
-| `KatA2` | Standalone Alert A2 placeholder |
-| `KatB1` | Standalone B1 34bounce8+ drawings (no bot) |
-| `KatB2` | Standalone B2 89uturn34 drawings (no bot) |
+| Indicator | Role | Edit signal logic here? |
+|---|---|---|
+| `KatA1` | Alert A1 EmaZone30s (chart + sound) | **YES** `indicators/KatA1.cs` |
+| `KatA2` | Alert A2 placeholder | **YES** `indicators/KatA2.cs` |
+| `KatB1` | Bot signal B1 34bounce8+ (draws + publishes pending) | **YES** `indicators/KatB1.cs` |
+| `KatB2` | Bot signal B2 89uturn34 (draws + publishes fire) | **YES** `indicators/KatB2.cs` |
+| `Kat34Scalper` | Bot HUD + filters + orchestrator (no embedded signal math) | shell only |
 
-**Note:** code modules inside Scalper ≠ separate NT8 indicators. Scalper still has A1/B1 settings for the bot chart. Standalone `KatA*`/`KatB*` are for other charts. A1 default inside Scalper is **OFF** (use HUD toggle or add `KatA1`).
+**Workflow:** put `KatB1`/`KatB2` (and optional `KatA1`) on the chart with `Kat34Scalper`. HUD **Trade B1/B2** gates which signals the bot may execute. Signal settings live on each signal indicator — not on Scalper.
 
 ## Module structure (partial classes)
 

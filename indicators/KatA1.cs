@@ -2,8 +2,7 @@
  * KatA1.cs — Standalone Alert Signal A1 (EmaZone30s).
  * Appears under Add Indicators → KAT → KatA1.
  * Chart-only: vertical env lines + pale bands + alert sound. No bot/orders.
- * Shares pure math with Kat34Scalper via Kat34ScalperLogic (same A1 rules).
- * Kat34Scalper still embeds A1 for the all-in-one bot HUD chart.
+ * Implements IKatSignalProvider and publishes EnvDir via KatSignalBus.
  */
 
 #region Using declarations
@@ -21,7 +20,7 @@ using Kat34Scalper;
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
-	public class KatA1 : Indicator
+	public class KatA1 : Indicator, IKatSignalProvider
 	{
 		private EMA a1Ema8, a1Ema34, a1Ema89, a1Ema144, a1Ema200;
 		private ATR a1Atr;
@@ -30,11 +29,29 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private int lastDir;
 		private int invalidStreak;
 		private int prevDir;
+		private int envDir;
 		private int bandDir;
 		private int bandStartIdx;
 		private double bandHi = double.MinValue;
 		private double bandLo = double.MaxValue;
 		private bool backfilled;
+		private int generation;
+		private string busKey;
+
+		public string SignalId { get { return "A1"; } }
+		public bool IsBotSignal { get { return false; } }
+
+		public KatSignalSnapshot GetSnapshot()
+		{
+			return new KatSignalSnapshot
+			{
+				SignalId = SignalId,
+				IsBotSignal = false,
+				EnvDir = envDir,
+				Status = envDir > 0 ? "LONG" : (envDir < 0 ? "SHORT" : "RANGE"),
+				Generation = generation
+			};
+		}
 
 		protected override void OnStateChange()
 		{
@@ -84,16 +101,21 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				a1Atr = ATR(BarsArray[1], Math.Max(1, AtrPeriod));
 				zoneEma34 = new[] { EMA(BarsArray[2], 34), EMA(BarsArray[3], 34), EMA(BarsArray[4], 34) };
 				backfilled = false;
+				EnsureBusRegistered();
+			}
+			else if (State == State.Terminated)
+			{
+				UnregisterBus();
 			}
 		}
 
 		protected override void OnBarUpdate()
 		{
+			EnsureBusRegistered();
 			if (BarsInProgress != 1) return;
 			if (CurrentBars == null || CurrentBars.Length < 2 || CurrentBars[1] < 201) return;
 			if (a1Ema8 == null || a1Ema34 == null || a1Ema89 == null || a1Ema144 == null || a1Ema200 == null || a1Atr == null) return;
 
-			// One-shot history replay at end of historical load / first realtime bar.
 			if (!backfilled && (State == State.Realtime || CurrentBars[1] >= BarsArray[1].Count - 1))
 			{
 				Backfill();
@@ -105,6 +127,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			int rawDir = DirectionAt(0, out double angle);
 			if (rawDir != 0 && !EmaZonePassAt(0, rawDir)) rawDir = 0;
 			int dir = Kat34ScalperLogic.A1DebouncedDir(rawDir, lastDir, invalidStreak, BreakBars);
+			envDir = dir;
 
 			if (Highs[1][0] > bandHi) bandHi = Highs[1][0];
 			if (Lows[1][0] < bandLo) bandLo = Lows[1][0];
@@ -125,6 +148,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			bool fired = Kat34ScalperLogic.A1EdgeStep(rawDir, lastDir, invalidStreak, BreakBars, out lastDir, out invalidStreak);
 			if (fired)
 			{
+				generation++;
 				DrawEnvLine(lastDir, 0);
 				if (State == State.Realtime) PlayAlert();
 			}
@@ -164,6 +188,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			lastDir = ld;
 			invalidStreak = inv;
 			prevDir = bDir;
+			envDir = bDir;
 			bandDir = bDir;
 			bandStartIdx = bStart;
 			bandHi = hi;
@@ -240,6 +265,35 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				if (path != null) PlaySound(path);
 			}
 			catch { }
+		}
+
+		private void EnsureBusRegistered()
+		{
+			string key = MakeBusKey();
+			if (string.IsNullOrEmpty(key)) return;
+			if (key == busKey) return;
+			if (!string.IsNullOrEmpty(busKey)) KatSignalBus.Unregister(busKey, this);
+			busKey = key;
+			KatSignalBus.Register(busKey, this);
+		}
+
+		private void UnregisterBus()
+		{
+			if (string.IsNullOrEmpty(busKey)) return;
+			KatSignalBus.Unregister(busKey, this);
+			busKey = null;
+		}
+
+		private string MakeBusKey()
+		{
+			string inst = Instrument != null ? Instrument.FullName : "?";
+			string bp = "?";
+			if (BarsArray != null && BarsArray.Length > 0 && BarsArray[0] != null && BarsArray[0].BarsPeriod != null)
+				bp = BarsArray[0].BarsPeriod.ToString();
+			else if (BarsPeriod != null)
+				bp = BarsPeriod.ToString();
+			int chartId = ChartControl != null ? ChartControl.GetHashCode() : 0;
+			return KatSignalBus.MakeKey(inst, bp, chartId);
 		}
 
 		private static Color ParseColor(string value, Color fallback)

@@ -2,6 +2,7 @@
  * KatB2.cs — Standalone Bot Signal B2 (89uturn34) chart-only.
  * Appears under Add Indicators → KAT → KatB2.
  * Draws phase markers + entry/SL/TP on fire. NO bot orders (use Kat34Scalper for bot).
+ * Publishes one-shot fire via IKatSignalProvider / KatSignalBus; Scalper acks via MarkFireConsumed.
  */
 
 #region Using declarations
@@ -19,12 +20,46 @@ using Kat34Scalper;
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
-	public class KatB2 : Indicator
+	public class KatB2 : Indicator, IKatSignalProvider
 	{
 		private EMA fastEma, slowEma;
 		private readonly KatA1State sellState = new KatA1State();
 		private readonly KatA1State buyState = new KatA1State();
 		private bool backfilled;
+		private int generation;
+		private bool hasFire;
+		private bool fireIsBuy;
+		private double fireRefExtreme;
+		private int fireBar;
+		private string busKey;
+
+		public string SignalId { get { return "B2"; } }
+		public bool IsBotSignal { get { return true; } }
+
+		public KatSignalSnapshot GetSnapshot()
+		{
+			return new KatSignalSnapshot
+			{
+				SignalId = SignalId,
+				IsBotSignal = true,
+				Generation = generation,
+				HasFire = hasFire,
+				FireIsBuy = fireIsBuy,
+				FireRefExtreme = fireRefExtreme,
+				FireOffsetTicks = EntryOffsetTicks,
+				FireStopTicks = StopDistanceTicks,
+				FireTargetTicks = TargetDistanceTicks,
+				FireBar = fireBar,
+				Status = hasFire ? (fireIsBuy ? "BUY_FIRE" : "SELL_FIRE") : StatusText()
+			};
+		}
+
+		/// <summary>Scalper acks a consumed fire so the one-shot latch clears.</summary>
+		public void MarkFireConsumed(int gen)
+		{
+			if (hasFire && generation == gen)
+				hasFire = false;
+		}
 
 		protected override void OnStateChange()
 		{
@@ -58,11 +93,17 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				fastEma = EMA(EmaFastPeriod);
 				slowEma = EMA(EmaSlowPeriod);
 				backfilled = false;
+				EnsureBusRegistered();
+			}
+			else if (State == State.Terminated)
+			{
+				UnregisterBus();
 			}
 		}
 
 		protected override void OnBarUpdate()
 		{
+			EnsureBusRegistered();
 			if (BarsInProgress != 0 || CurrentBar < Math.Max(EmaFastPeriod, EmaSlowPeriod)) return;
 			if (fastEma == null || slowEma == null) return;
 
@@ -84,7 +125,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			var tmpSell = new KatA1State();
 			var tmpBuy = new KatA1State();
 			for (int ago = start; ago >= 0; ago--)
-				RunBar(ago, true, tmpSell, tmpBuy);
+				RunBar(ago, true, tmpSell, tmpBuy); // replay: draw history, no fire publish
 			sellState.CopyFrom(tmpSell);
 			buyState.CopyFrom(tmpBuy);
 			Print(string.Format("[KatB2] backfill — {0} day(s), sellPhase={1}, buyPhase={2}", HistoryDays, sellState.Phase, buyState.Phase));
@@ -105,9 +146,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				fast > slow, high, low, close, fast, slow, sBuy);
 
 			if (sellSignal == KatSignalKind.Sell)
+			{
 				DrawLevels(false, CurrentBar - ago, high, low, sSell.C1, sSell.C2);
+				if (!replay) PublishFire(false, CurrentBar - ago, sSell.C2 != 0 ? sSell.C2 : sSell.C1);
+			}
 			if (buySignal == KatSignalKind.Buy)
+			{
 				DrawLevels(true, CurrentBar - ago, high, low, sBuy.C1, sBuy.C2);
+				if (!replay) PublishFire(true, CurrentBar - ago, sBuy.C2 != 0 ? sBuy.C2 : sBuy.C1);
+			}
 
 			if (sSell.Phase != sellPhaseBefore)
 				DrawPhase(false, ago, high, low, sSell.Phase, sSell.Touched89);
@@ -117,6 +164,22 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				DrawPhase(false, ago, high, low, 2, true);
 			if (!buyTouchedBefore && sBuy.Touched89 && sBuy.Phase == 2)
 				DrawPhase(true, ago, high, low, 2, true);
+		}
+
+		private void PublishFire(bool isBuy, int bar, double refExtreme)
+		{
+			generation++;
+			hasFire = true;
+			fireIsBuy = isBuy;
+			fireRefExtreme = refExtreme;
+			fireBar = bar;
+		}
+
+		private string StatusText()
+		{
+			if (buyState.Phase > 0) return "BUY_P" + buyState.Phase;
+			if (sellState.Phase > 0) return "SELL_P" + sellState.Phase;
+			return "IDLE";
 		}
 
 		private void DrawPhase(bool isBuy, int ago, double high, double low, int phase, bool touched)
@@ -162,6 +225,35 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			int ago = 0;
 			while (ago < CurrentBar && Time[ago] >= cutoff) ago++;
 			return ago > 0 ? ago - 1 : 0;
+		}
+
+		private void EnsureBusRegistered()
+		{
+			string key = MakeBusKey();
+			if (string.IsNullOrEmpty(key)) return;
+			if (key == busKey) return;
+			if (!string.IsNullOrEmpty(busKey)) KatSignalBus.Unregister(busKey, this);
+			busKey = key;
+			KatSignalBus.Register(busKey, this);
+		}
+
+		private void UnregisterBus()
+		{
+			if (string.IsNullOrEmpty(busKey)) return;
+			KatSignalBus.Unregister(busKey, this);
+			busKey = null;
+		}
+
+		private string MakeBusKey()
+		{
+			string inst = Instrument != null ? Instrument.FullName : "?";
+			string bp = "?";
+			if (BarsArray != null && BarsArray.Length > 0 && BarsArray[0] != null && BarsArray[0].BarsPeriod != null)
+				bp = BarsArray[0].BarsPeriod.ToString();
+			else if (BarsPeriod != null)
+				bp = BarsPeriod.ToString();
+			int chartId = ChartControl != null ? ChartControl.GetHashCode() : 0;
+			return KatSignalBus.MakeKey(inst, bp, chartId);
 		}
 
 		private static Color ParseColor(string value, Color fallback)

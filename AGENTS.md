@@ -43,15 +43,10 @@ On every code change, BEFORE closing session:
    - `DIARY.md`: new version history entry
 4. **Update Graphify**: run `graphify update .`
 5. **Update Diary**: add entry with timestamp, changes summary, Graphify entity mapping.
-6. **Deploy NT8 (MANDATORY FULL SYNC)**: copy ALL source `.cs` files (`Kat34Scalper.cs` AND `src/*.cs`) to `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\` with force overwrite (`scripts\Deploy-NT8.ps1` does this + verifies recompile):
-   - `Kat34Scalper.cs` (main: lifecycle, settings, orchestration)
-   - `src\Kat34ScalperLogic.cs` (pure logic, xunit-tested)
-   - `src\Kat34Scalper.Signal.cs` (Signal shared helpers: backfill window, FlushBackfill)
-   - `src\Kat34Scalper.Signal.A0.cs` / `.A1.cs` / `.A2.cs` / `.A3.cs` (independent signal sub-modules)
-   - `src\Kat34Scalper.Filter.cs` (Filter module: MTF, ADX, Volume, Time)
-   - `src\Kat34Scalper.Bot.cs` (Bot module: order ops, stop/limit, ATM)
-   - `src\Kat34Scalper.Draw.cs` (Draw module: lines + ATM triggers + HUD)
-   - `indicators\KatA1.cs` / `KatA2.cs` / `KatB1.cs` / `KatB2.cs` (standalone Add→KAT indicators)
+6. **Deploy NT8 (MANDATORY FULL SYNC)** via `scripts\Deploy-NT8.ps1`:
+   - Shell: `Kat34Scalper.cs` + `src\Kat34Scalper.{Orchestrator,Filter,Bot,Draw}.cs` + `src\Kat34ScalperLogic.cs` + `src\KatSignalBus.cs`
+   - Signals (edit these for signal work): `indicators\KatA1.cs` `KatA2.cs` `KatB1.cs` `KatB2.cs`
+   - **Rule:** signal logic changes go ONLY in `indicators\Kat*.cs` — never re-embed into Scalper shell.
 7. **Git sync**:
    - `git add .`
    - `git commit -m "vX.XX (YYYY-MM-DD): Description"`
@@ -65,4 +60,4 @@ On every code change, BEFORE closing session:
 ## Version Tracking
 - Code versions: Kat34Scalper.cs VERSION constant
 - Doc versions: README.md, DIARY.md
-- **Current: v0.86 (2026-08-05)**
+- **Current: v1.04 (2026-08-05)** — Scalper = bot shell; signals = independent KatA*/KatB*

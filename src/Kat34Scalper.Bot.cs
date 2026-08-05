@@ -173,15 +173,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			return (atm != null && atm.Quantity > 0) ? atm.Quantity : Math.Max(1, BotOrderQuantity);
 		}
 
-		// BOT trades exactly the signals that are ON: an owner switched OFF never submits
-		// (and its pending order was already cancelled by SetAXSignal(false)).
-		// BOT trades exactly the signals that are ON: an owner switched OFF never submits
-		// (and its pending order was already cancelled by SetAXSignal(false)).
+		// BOT trades signals enabled via shell trade gates (independent indicators still run/draw).
 		private bool SignalOwnerEnabled(string owner)
 		{
-			if (owner == "B1") return cachedB1;
-			if (owner == "B2") return cachedB2;
-			return true;
+			return TradeEnabled(owner);
 		}
 
 		private bool HasOpenPosition(Account acc)
@@ -328,7 +323,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				{
 					SetSignalInTrade(pendingOrderOwner, true);
 					ShowHudStatus(string.Format("BOT [{0}]: entry FILLED @ {1:F2} — ATM manages brackets", pendingOrderOwner, pendingEntryPrice), Brushes.LightGreen);
-					ClearSignalDrawings(pendingOrderOwner);
 				}
 				pendingOrder = null;
 				pendingOrderAccount = null;

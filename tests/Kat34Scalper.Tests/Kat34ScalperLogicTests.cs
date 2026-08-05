@@ -1042,5 +1042,39 @@ public class Kat34ScalperLogicTests
 		finally { Directory.Delete(user, true); Directory.Delete(install, true); }
 	}
 	#endregion
-}
 
+	#region KatSignalBus (independent signal registry)
+	private sealed class FakeProvider : IKatSignalProvider
+	{
+		public string SignalId { get; set; }
+		public bool IsBotSignal { get; set; }
+		public KatSignalSnapshot Snap { get; set; }
+		public KatSignalSnapshot GetSnapshot() { return Snap; }
+	}
+
+	[Fact]
+	public void Bus_RegisterGetUnregister_Works()
+	{
+		string key = KatSignalBus.MakeKey("MNQ 06-26", "30 Second", 123);
+		var p = new FakeProvider
+		{
+			SignalId = "B1",
+			IsBotSignal = true,
+			Snap = new KatSignalSnapshot { SignalId = "B1", IsBotSignal = true, HasPending = true, PendingIsBuy = true, PendingRefExtreme = 100 }
+		};
+		KatSignalBus.Register(key, p);
+		var snaps = KatSignalBus.GetSnapshots(key);
+		Assert.Contains(snaps, s => s.SignalId == "B1" && s.HasPending && s.PendingIsBuy);
+		KatSignalBus.Unregister(key, p);
+		Assert.Empty(KatSignalBus.GetSnapshots(key));
+	}
+
+	[Fact]
+	public void Bus_MakeKey_IgnoresChartId()
+	{
+		Assert.Equal(
+			KatSignalBus.MakeKey("ES", "1 Minute", 1),
+			KatSignalBus.MakeKey("ES", "1 Minute", 999));
+	}
+	#endregion
+}

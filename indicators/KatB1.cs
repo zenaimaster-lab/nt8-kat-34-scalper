@@ -2,6 +2,7 @@
  * KatB1.cs — Standalone Bot Signal B1 (34bounce8+) chart-only.
  * Appears under Add Indicators → KAT → KatB1.
  * Draws pending entry/SL/TP + Buy/Sell B1 labels. NO bot orders (use Kat34Scalper for bot).
+ * Publishes pending entry via IKatSignalProvider / KatSignalBus.
  */
 
 #region Using declarations
@@ -19,7 +20,7 @@ using Kat34Scalper;
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
-	public class KatB1 : Indicator
+	public class KatB1 : Indicator, IKatSignalProvider
 	{
 		private EMA ema8, ema34, ema89, ema144, ema200;
 		private readonly KatA2State sellState = new KatA2State();
@@ -27,6 +28,48 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private string sellTextTag, buyTextTag;
 		private int sellBar = -1, buyBar = -1;
 		private bool backfilled;
+		private int generation;
+		private string busKey;
+
+		public string SignalId { get { return "B1"; } }
+		public bool IsBotSignal { get { return true; } }
+
+		public KatSignalSnapshot GetSnapshot()
+		{
+			var snap = new KatSignalSnapshot
+			{
+				SignalId = SignalId,
+				IsBotSignal = true,
+				Generation = generation,
+				Status = "IDLE"
+			};
+
+			// Prefer buy pending if both active.
+			if (buyState.Active)
+			{
+				snap.HasPending = true;
+				snap.PendingIsBuy = true;
+				snap.PendingRefExtreme = buyState.RefExtreme;
+				snap.PendingOffsetTicks = EntryOffsetTicks;
+				snap.PendingStopTicks = StopDistanceTicks;
+				snap.PendingTargetTicks = TargetDistanceTicks;
+				snap.PendingBar = buyBar;
+				snap.Status = "BUY_PEND";
+			}
+			else if (sellState.Active)
+			{
+				snap.HasPending = true;
+				snap.PendingIsBuy = false;
+				snap.PendingRefExtreme = sellState.RefExtreme;
+				snap.PendingOffsetTicks = EntryOffsetTicks;
+				snap.PendingStopTicks = StopDistanceTicks;
+				snap.PendingTargetTicks = TargetDistanceTicks;
+				snap.PendingBar = sellBar;
+				snap.Status = "SELL_PEND";
+			}
+
+			return snap;
+		}
 
 		protected override void OnStateChange()
 		{
@@ -66,11 +109,17 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				ema144 = EMA(144);
 				ema200 = EMA(200);
 				backfilled = false;
+				EnsureBusRegistered();
+			}
+			else if (State == State.Terminated)
+			{
+				UnregisterBus();
 			}
 		}
 
 		protected override void OnBarUpdate()
 		{
+			EnsureBusRegistered();
 			if (BarsInProgress != 0 || CurrentBar < 200) return;
 			if (ema8 == null || ema34 == null || ema89 == null || ema144 == null || ema200 == null) return;
 
@@ -123,11 +172,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			KatA2Action sellAction = Kat34ScalperLogic.UpdateA2(KatSignalKind.Sell, sellTrend, high, low, close, e34, EntryOffsetTicks, TickSize, sSell);
 			KatA2Action buyAction = Kat34ScalperLogic.UpdateA2(KatSignalKind.Buy, buyTrend, high, low, close, e34, EntryOffsetTicks, TickSize, sBuy);
 
-			Handle(sellAction, false, ago, sSell, ref sBar, ref sTag);
-			Handle(buyAction, true, ago, sBuy, ref bBar, ref bTag);
+			Handle(sellAction, false, ago, sSell, ref sBar, ref sTag, replay);
+			Handle(buyAction, true, ago, sBuy, ref bBar, ref bTag, replay);
 		}
 
-		private void Handle(KatA2Action action, bool isBuy, int ago, KatA2State s, ref int bar, ref string textTag)
+		private void Handle(KatA2Action action, bool isBuy, int ago, KatA2State s, ref int bar, ref string textTag, bool replay)
 		{
 			if (action == KatA2Action.None) return;
 			int absBar = CurrentBar - ago;
@@ -135,17 +184,19 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			if (action == KatA2Action.NewEntry || action == KatA2Action.Migrate)
 			{
+				if (!replay) generation++;
 				bar = absBar;
 				if (textTag != null) RemoveDrawObject(textTag);
 				textTag = DrawLabel(isBuy, ago, high, low);
-				// Live pending lines redrawn in RefreshPendingLines from state.
 			}
 			else if (action == KatA2Action.Cancel)
 			{
+				if (!replay) generation++;
 				ClearSide(isBuy, ref bar, ref textTag);
 			}
 			else // Filled — keep history lines via snapshot, drop keep-alive pending
 			{
+				if (!replay) generation++;
 				DrawSnapshot(isBuy, absBar, high, low, s.RefExtreme);
 				bar = -1;
 				textTag = null;
@@ -154,7 +205,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private void RefreshPendingLines()
 		{
-			// Clear previous pending tags then redraw active sides.
 			RemoveByPrefix("KATB1_PEND_");
 			if (sellState.Active && sellBar >= 0)
 				DrawLevels(false, sellBar, sellState.RefExtreme, "PEND");
@@ -230,6 +280,35 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				foreach (string t in doomed) RemoveDrawObject(t);
 			}
 			catch { }
+		}
+
+		private void EnsureBusRegistered()
+		{
+			string key = MakeBusKey();
+			if (string.IsNullOrEmpty(key)) return;
+			if (key == busKey) return;
+			if (!string.IsNullOrEmpty(busKey)) KatSignalBus.Unregister(busKey, this);
+			busKey = key;
+			KatSignalBus.Register(busKey, this);
+		}
+
+		private void UnregisterBus()
+		{
+			if (string.IsNullOrEmpty(busKey)) return;
+			KatSignalBus.Unregister(busKey, this);
+			busKey = null;
+		}
+
+		private string MakeBusKey()
+		{
+			string inst = Instrument != null ? Instrument.FullName : "?";
+			string bp = "?";
+			if (BarsArray != null && BarsArray.Length > 0 && BarsArray[0] != null && BarsArray[0].BarsPeriod != null)
+				bp = BarsArray[0].BarsPeriod.ToString();
+			else if (BarsPeriod != null)
+				bp = BarsPeriod.ToString();
+			int chartId = ChartControl != null ? ChartControl.GetHashCode() : 0;
+			return KatSignalBus.MakeKey(inst, bp, chartId);
 		}
 
 		private static Color ParseColor(string value, Color fallback)

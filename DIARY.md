@@ -19,6 +19,14 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v1.04] — 2026-08-05
+- **Architecture break: Scalper = bot shell only.** Removed all embedded signal partials (`AlertSignal*`, `Signal*`). Signal math/drawings live exclusively in independent indicators `indicators/KatA1|A2|B1|B2.cs`.
+- **KatSignalBus + IKatSignalProvider**: chart-scoped registry (`instrument|barsPeriod`). Signal indicators register/publish snapshots; `Kat34Scalper.Orchestrator` polls bus → filters → `TrySubmitBotEntry`.
+- **HUD**: ALERT/BOT signal enable toggles replaced by **Trade B1 / Trade B2** gates (which independent signals bot may execute). Hint text: add KatA*/KatB* from Indicators → KAT.
+- **Version line jumps to 1.04** (user baseline was 1.03 ScalperBot branding). Shell keeps only filter/bot/ATM settings + trend-EMA guard for pending cancel.
+- Tests: +2 bus cases (108 total). Compile gate green.
+  - Graphify: `KatSignalBus`, `IKatSignalProvider`, `Kat34Scalper.Orchestrator`, standalone `KatA1/A2/B1/B2`.
+
 ### [v0.86] — 2026-08-05
 - **Standalone signal indicators under Add → KAT**: new `indicators/KatA1.cs`, `KatA2.cs`, `KatB1.cs`, `KatB2.cs` — each is its own `Indicator` class in namespace `NinjaTrader.NinjaScript.Indicators.KAT` so NT8 lists them in the KAT folder. Chart-only (no bot). Share pure math via `Kat34ScalperLogic`.
 - **Why Scalper still has A1 settings**: "module split" was partial-class organization inside one indicator, not separate NT8 indicators. Scalper keeps embedded A1/A2/B1/B2 for the all-in-one bot HUD chart. Standalone copies are for multi-chart use.

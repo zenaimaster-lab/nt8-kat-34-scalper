@@ -1,18 +1,35 @@
 /*
  * KatA2.cs — Standalone Alert Signal A2 (placeholder).
  * Appears under Add Indicators → KAT → KatA2.
- * Chart/alert only. Logic placeholder — same role as Kat34Scalper.AlertSignal.A2.
+ * Chart/alert only. Logic placeholder — implements IKatSignalProvider for bus wiring.
  */
 
 #region Using declarations
 using System.ComponentModel.DataAnnotations;
 using NinjaTrader.NinjaScript;
+using Kat34Scalper;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
-	public class KatA2 : Indicator
+	public class KatA2 : Indicator, IKatSignalProvider
 	{
+		private string busKey;
+
+		public string SignalId { get { return "A2"; } }
+		public bool IsBotSignal { get { return false; } }
+
+		public KatSignalSnapshot GetSnapshot()
+		{
+			return new KatSignalSnapshot
+			{
+				SignalId = SignalId,
+				IsBotSignal = false,
+				Status = "PLACEHOLDER",
+				Generation = 0
+			};
+		}
+
 		protected override void OnStateChange()
 		{
 			if (State == State.SetDefaults)
@@ -26,11 +43,49 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				IsSuspendedWhileInactive = true;
 				HistoryDays = 3;
 			}
+			else if (State == State.DataLoaded)
+			{
+				EnsureBusRegistered();
+			}
+			else if (State == State.Terminated)
+			{
+				UnregisterBus();
+			}
 		}
 
 		protected override void OnBarUpdate()
 		{
-			// Placeholder — no evaluation yet (mirrors Scalper Alert A2 stub).
+			EnsureBusRegistered();
+			// Placeholder — no evaluation yet.
+		}
+
+		private void EnsureBusRegistered()
+		{
+			string key = MakeBusKey();
+			if (string.IsNullOrEmpty(key)) return;
+			if (key == busKey) return;
+			if (!string.IsNullOrEmpty(busKey)) KatSignalBus.Unregister(busKey, this);
+			busKey = key;
+			KatSignalBus.Register(busKey, this);
+		}
+
+		private void UnregisterBus()
+		{
+			if (string.IsNullOrEmpty(busKey)) return;
+			KatSignalBus.Unregister(busKey, this);
+			busKey = null;
+		}
+
+		private string MakeBusKey()
+		{
+			string inst = Instrument != null ? Instrument.FullName : "?";
+			string bp = "?";
+			if (BarsArray != null && BarsArray.Length > 0 && BarsArray[0] != null && BarsArray[0].BarsPeriod != null)
+				bp = BarsArray[0].BarsPeriod.ToString();
+			else if (BarsPeriod != null)
+				bp = BarsPeriod.ToString();
+			int chartId = ChartControl != null ? ChartControl.GetHashCode() : 0;
+			return KatSignalBus.MakeKey(inst, bp, chartId);
 		}
 
 		[NinjaScriptProperty]
