@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.81] — 2026-08-04
+- **HUD account pick now drives Chart Trader's account selector**: NT8 only renders chart orders for the account selected in Chart Trader itself, so picking the account on the HUD alone still required a second manual pick in Chart Trader to see the bot's orders on the chart. `SyncChartTraderAccount` mirrors the HUD pick into Chart Trader's account ComboBox — located by item content (account names) in the ChartTrader visual tree, which survives NT8 template/layout changes better than hardcoded element names; silent no-op when Chart Trader is hidden. Pattern ported verbatim from `nt8-kat-TradeManager` (battle-tested there). Fires on HUD build (initial/default selection) and on every `SelectionChanged`.
+- Helpers added to Draw module: `SyncChartTraderAccount`, `GetChartTraderControl`, `FindVisualChildByTypeName`, `FindAllVisualChildren<T>`. No pure-logic change; tests stay 103; compile gate green.
+  - Graphify entity mapping: `Kat34Scalper.SyncChartTraderAccount/GetChartTraderControl` (Draw module, HUD acc combo wiring).
+
 ### [v0.80] — 2026-08-04
 - **A1 Break Bars unified with the invalid decision (episodes/bands)**: the edge-trigger debounce (`A1EdgeStep`) already absorbed 1-2 bar wobbles for alert lines, but episode bands + gray ranging lines judged the environment invalid on the FIRST raw invalid bar — episodes visibly fractured on every wobble while no new alert line fired, so "Break Bars (invalid before re-arm)" looked dead. New pure `Kat34ScalperLogic.A1DebouncedDir(dir, lastDir, invalidStreak, breakBars)`: an armed environment keeps counting until invalid for `breakBars` consecutive bars (flip passes through immediately, same rule as the edge step). `EvaluateAlertA1Bar` + `BackfillAlertA1` now feed debounced dir to the band/episode/ranging-line logic and the raw dir to `A1EdgeStep` (pre-step state), so episode end, ranging line and re-arm land on the same bar (pinned by `A1DebouncedDir_MatchesEdgeStepDisarmBar`).
 - Tests 98 → 103 (5 A1DebouncedDir cases); compile gate green.

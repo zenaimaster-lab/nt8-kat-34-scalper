@@ -759,12 +759,15 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				cachedBotAccountName = accCombo.SelectedItem.ToString();
 				BotAccountName = cachedBotAccountName;
+				SyncChartTraderAccount(cachedBotAccountName);
 			}
 			accCombo.SelectionChanged += (s, e) =>
 			{
 				if (accCombo.SelectedItem == null) return;
 				cachedBotAccountName = accCombo.SelectedItem.ToString();
 				BotAccountName = cachedBotAccountName;
+				// NT8 only renders chart orders for the account selected in Chart Trader — mirror the pick there.
+				SyncChartTraderAccount(cachedBotAccountName);
 			};
 			AddGridRow(accGrid, "Acc:", accCombo);
 			secBot.Children.Add(accGrid);
@@ -1038,6 +1041,80 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			hudBorder.Child = mainPanel;
 			StartPanelWatchdog();
+		}
+
+		// Mirrors the HUD account pick into Chart Trader's own account selector so chart order
+		// rendering follows the HUD account. Locates the selector by item content (account names),
+		// which survives NT8 template/layout changes better than hardcoded names.
+		// Pattern proven in nt8-kat-TradeManager SyncChartTraderAccount.
+		private void SyncChartTraderAccount(string accountName)
+		{
+			try
+			{
+				if (string.IsNullOrEmpty(accountName)) return;
+				DependencyObject ctControl = GetChartTraderControl();
+				if (ctControl == null) return;
+
+				var combos = new List<ComboBox>();
+				FindAllVisualChildren<ComboBox>(ctControl, combos);
+				foreach (ComboBox combo in combos)
+					foreach (object item in combo.Items)
+					{
+						if (item == null || !accountName.Equals(item.ToString(), StringComparison.OrdinalIgnoreCase)) continue;
+						if (!ReferenceEquals(combo.SelectedItem, item))
+							combo.SelectedItem = item;
+						return;
+					}
+			}
+			catch (Exception ex)
+			{
+				Print(string.Format("[Kat34Scalper] Chart Trader account sync failed: {0}", ex.Message));
+			}
+		}
+
+		private DependencyObject GetChartTraderControl()
+		{
+			if (ChartControl == null) return null;
+			if (ChartControl.OwnerChart != null && ChartControl.OwnerChart.ChartTrader != null)
+			{
+				var ct = ChartControl.OwnerChart.ChartTrader;
+				if (ct.Visibility == Visibility.Visible) return ct;
+			}
+			Window window = Window.GetWindow(ChartControl);
+			if (window != null)
+			{
+				var ct = FindVisualChildByTypeName(window, "ChartTraderControl") ?? FindVisualChildByTypeName(window, "ChartTrader");
+				if (ct is FrameworkElement fe && fe.Visibility == Visibility.Visible) return ct;
+			}
+			return null;
+		}
+
+		private DependencyObject FindVisualChildByTypeName(DependencyObject parent, string typeName)
+		{
+			if (parent == null) return null;
+			int count = VisualTreeHelper.GetChildrenCount(parent);
+			for (int i = 0; i < count; i++)
+			{
+				DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+				if (child != null && child.GetType().Name.Equals(typeName, StringComparison.OrdinalIgnoreCase))
+					return child;
+				DependencyObject result = FindVisualChildByTypeName(child, typeName);
+				if (result != null) return result;
+			}
+			return null;
+		}
+
+		private void FindAllVisualChildren<T>(DependencyObject parent, List<T> results) where T : DependencyObject
+		{
+			if (parent == null) return;
+			int count = VisualTreeHelper.GetChildrenCount(parent);
+			for (int i = 0; i < count; i++)
+			{
+				DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+				if (child is T typedChild)
+					results.Add(typedChild);
+				FindAllVisualChildren<T>(child, results);
+			}
 		}
 
 		private System.Windows.Threading.DispatcherTimer panelWatchdog;
