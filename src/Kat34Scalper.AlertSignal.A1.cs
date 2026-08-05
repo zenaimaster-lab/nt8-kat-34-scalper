@@ -1,5 +1,5 @@
 /*
- * Kat34Scalper.AlertSignal.A1.cs — Alert Signal sub-module A1: fan 30s (partial class Kat34Scalper).
+ * Kat34Scalper.AlertSignal.A1.cs — Alert Signal sub-module A1: EmaZone30s (partial class Kat34Scalper).
  * Independent Alert Signal A1 (fan) — runs on its OWN secondary series (BarsArray[1], default 30s)
  * with its OWN EMA 8/34/89/144/200 instances. Shares NOTHING with the Bot Signals (B1/B2): no common
  * series, EMAs, states, signalRecords or drawing records. Alert-only: draws a vertical line and
@@ -63,6 +63,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (a1Ema8 == null || a1Ema34 == null || a1Ema89 == null || a1Ema144 == null || a1Ema200 == null || a1Atr == null) return;
 
 			int rawDir = AlertA1DirectionAt(0, out double angle);
+			if (rawDir != 0 && !EmaZonePassAt(0, rawDir)) rawDir = 0;
 			int dir = Kat34ScalperLogic.A1DebouncedDir(rawDir, a1LastDir, a1InvalidStreak, AlertA1BreakBars);
 			if (Highs[1][0] > a1BandHi) a1BandHi = Highs[1][0];
 			if (Lows[1][0] < a1BandLo) a1BandLo = Lows[1][0];
@@ -105,6 +106,24 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				angle, Math.Abs(AlertA1AngleMin));
 		}
 
+		// EMA34 zone gate (v0.84): on each configured higher TF (series 3/4/5), the last CLOSED zone
+		// bar's close must sit on the episode side of that TF's EMA34 (LONG above, SHORT below) —
+		// mirrored per direction. Same no-lookahead cutoff math as the ADX MTF gate; warmup = open.
+		private bool EmaZonePassAt(int ago, int dir)
+		{
+			if (dir == 0 || zoneEma34 == null) return true;
+			for (int z = 0; z < zoneEma34.Length; z++)
+			{
+				int s = 3 + z;
+				if (zoneEma34[z] == null || CurrentBars == null || CurrentBars.Length <= s || CurrentBars[s] < 1) continue;
+				DateTime cutoff = Kat34ScalperLogic.ClosedBarCutoff(Times[1][ago], SeriesPeriodSeconds(1), SeriesPeriodSeconds(s));
+				int idx = Kat34ScalperLogic.BarsAgoAtOrBefore(i => Times[s][i], CurrentBars[s], cutoff);
+				if (idx < 0) continue;
+				if (!Kat34ScalperLogic.EmaZonePass(dir, Closes[s][idx], zoneEma34[z][idx])) return false;
+			}
+			return true;
+		}
+
 		// Vertical line anchored at the A1 bar time (time-based draw — safe from any series context).
 		private void DrawAlertA1Line(int dir, int ago)
 		{
@@ -142,6 +161,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			for (int ago = start; ago >= 1; ago--)
 			{
 				int rawDir = AlertA1DirectionAt(ago, out _);
+				if (rawDir != 0 && !EmaZonePassAt(ago, rawDir)) rawDir = 0;
 				int dir = Kat34ScalperLogic.A1DebouncedDir(rawDir, lastDir, invalidStreak, AlertA1BreakBars);
 				if (dir != bandDir)
 				{

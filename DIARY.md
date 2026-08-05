@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.84] — 2026-08-04
+- **Chart-top version label removed** (the `Kat34Scalper v0.83 (...) [30 Second]` TextFixed line): `ShowVersion` setting, `DrawVersionLabel`, `ChartTimeframe`, `versionDrawn` all deleted.
+- **A1 renamed `fan 30s` → `EmaZone30s`** everywhere visible: HUD toggle `A1 (EmaZone30s)`, settings group `2. Alert Signal A1 — EmaZone30s`, docs.
+- **A1 EmaZone gate (3 higher-TF conditions)**: new settings `Cond: EMA34 zone TF1/2/3` (enum dropdown S90/M1/M2/M3/M5/M15/M30, defaults 3m/5m/15m). For an environment to be valid, the last CLOSED zone bar's close must sit on the episode side of that TF's EMA34 — LONG above, SHORT below (mirrored per direction, user-confirmed). Three extra Second series (BarsArray[3..5], always added for stable indexes) + `zoneEma34` EMAs; gate math reuses the ADX-MTF no-lookahead cutoff (`ClosedBarCutoff` + `BarsAgoAtOrBefore`) on the A1 series, backfill-replay aware; warmup = gate open. Pure `Kat34ScalperLogic.EmaZonePass(dir, close, ema)` + 1 test (104 total). Applied in `EvaluateAlertA1Bar` and `BackfillAlertA1` right after the fan direction, before debounce/edge step.
+  - Graphify entity mapping: `KatEmaZoneTf`, `Kat34ScalperLogic.EmaZonePass`, `Kat34Scalper.zoneEma34/EmaZonePassAt`, `AlertA1EmaZoneTf1/2/3`, A1 `EvaluateAlertA1Bar/BackfillAlertA1` (zone-zeroed rawDir).
+
 ### [v0.83] — 2026-08-04
 - **HUD title renamed to "KAT 34-ScalperBot"** (HUD only; chart version label untouched).
 - **Close/flatten button height doubled** (33 → 66) for fat-finger safety.

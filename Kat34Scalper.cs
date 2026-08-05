@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.83 (2026-08-04)
+ * Version: 0.84 (2026-08-04)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -9,7 +9,7 @@
  *   Kat34Scalper.cs                    — main: state, OnStateChange, OnBarUpdate orchestration, settings
  *   src/Kat34ScalperLogic.cs           — pure signal/filter math + ATM parser (zero NT8 deps, xunit-tested)
  *   src/Kat34Scalper.AlertSignal.cs    — Alert Signal module shared helpers (alert backfill)
- *   src/Kat34Scalper.AlertSignal.A1.cs — Alert Signal sub-module A1: fan 30s (independent, alert-only)
+ *   src/Kat34Scalper.AlertSignal.A1.cs — Alert Signal sub-module A1: EmaZone30s (independent, alert-only)
  *   src/Kat34Scalper.AlertSignal.A2.cs — Alert Signal sub-module A2: placeholder (independent, alert-only)
  *   src/Kat34Scalper.Signal.cs         — Bot Signal module shared helpers (backfill window)
  *   src/Kat34Scalper.Signal.B1.cs      — Bot Signal sub-module B1: 34bounce8+ (34+8+Bounce ema34-touch pending entry)
@@ -84,7 +84,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.83";
+		public const string VERSION = "0.84";
 		public const string RELEASE_DATE = "2026-08-04";
 
 
@@ -106,6 +106,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private EMA a1Ema144;
 		private EMA a1Ema200;
 		private ATR a1Atr; // angle normalization unit (45 deg = 1 ATR/bar on the A1 series)
+		private EMA[] zoneEma34; // A1 EmaZone gate: EMA34 on the zone series (BarsArray[3..5])
 
 		// Time-window filter parsed values
 		private TimeSpan timeStart;
@@ -126,7 +127,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				DrawOnPricePanel			= true;
 				PaintPriceMarkers			= true;
 				IsSuspendedWhileInactive	= true;
-				ShowVersion					= true;
 
 				// 1. Filters defaults — every gate OFF; toggles boot OFF on every load (session-only)
 				AdxPeriod					= 60; // 60x30s = 30-min regime window; 14 (7 min) whipsaws on 30s
@@ -159,6 +159,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AlertA1LineWidth			= 2;
 				AlertA1LongLineColor		= Colors.DarkGreen;
 				AlertA1ShortLineColor		= Colors.DarkRed;
+				AlertA1EmaZoneTf1			= KatEmaZoneTf.M3;
+				AlertA1EmaZoneTf2			= KatEmaZoneTf.M5;
+				AlertA1EmaZoneTf3			= KatEmaZoneTf.M15;
 
 				// 2.5 Alert Signal A2 defaults — OFF
 				AlertA2Enabled				= false;
@@ -229,6 +232,11 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AddDataSeries(Data.BarsPeriodType.Second, Math.Max(1, AlertA1PeriodSeconds));
 				// ADX MTF regime timeframe (Bot ADX MTF gate) — always added so BarsArray indexes stay stable. Series 2 = BarsArray[2].
 				AddDataSeries(Data.BarsPeriodType.Minute, Math.Max(1, AdxMtfMinutes));
+				// A1 EmaZone timeframes (price vs EMA34 gate) — always added so BarsArray indexes stay
+				// stable; series 3/4/5 = BarsArray[3..5].
+				AddDataSeries(Data.BarsPeriodType.Second, (int)AlertA1EmaZoneTf1);
+				AddDataSeries(Data.BarsPeriodType.Second, (int)AlertA1EmaZoneTf2);
+				AddDataSeries(Data.BarsPeriodType.Second, (int)AlertA1EmaZoneTf3);
 			}
 			else if (State == State.DataLoaded)
 			{
@@ -248,6 +256,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				a1Ema200 = EMA(BarsArray[1], 200);
 				a1Atr = ATR(BarsArray[1], Math.Max(1, AlertA1AtrPeriod));
 				adxMtfInd = ADX(BarsArray[2], Math.Max(1, AdxMtfPeriod));
+				zoneEma34 = new[] { EMA(BarsArray[3], 34), EMA(BarsArray[4], 34), EMA(BarsArray[5], 34) };
 
 				timeWindowDisabled = string.Equals(TimeFilterStart, TimeFilterEnd, StringComparison.OrdinalIgnoreCase);
 				if (!timeWindowDisabled)
@@ -298,8 +307,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 			if (BarsInProgress != 0 || CurrentBars[0] < 1) return;
 
-			if (ShowVersion && !versionDrawn)
-				DrawVersionLabel();
 			ClearLegacySignalDrawings();
 			RefreshSignalDrawings();
 
@@ -325,10 +332,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		#endregion
 
 		#region NinjaScript Properties
-		[NinjaScriptProperty]
-		[Display(Name = "Show Version Label", Order = 0, GroupName = "Parameters")]
-		public bool ShowVersion { get; set; }
-
 		// --- 1. Filters (market, time) ---
 		[NinjaScriptProperty]
 		[Display(Name = "ADX Period", Order = 7, GroupName = "1. Filters")]
@@ -397,69 +400,69 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Description = "Minimum ADX on the MTF timeframe — blocks weak-regime bars.")]
 		public double AdxMtfMin { get; set; }
 
-		// --- 2. Alert Signal A1 (fan 30s — independent 30s series, alert-only, no Bot/order interaction) ---
+		// --- 2. Alert Signal A1 (EmaZone30s — independent 30s series, alert-only, no Bot/order interaction) ---
 		[NinjaScriptProperty]
-		[Display(Name = "Enabled", Order = 1, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Enabled", Order = 1, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "Default ON. Alert Signal A1 (fan) generates sound alerts and vertical-line drawings only — fully independent from the Bot Signals.")]
 		public bool AlertA1Enabled { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "History Days", Order = 2, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "History Days", Order = 2, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "How many days back Alert A1 signals are replayed and drawn.")]
 		public int AlertA1HistoryDays { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Timeframe (seconds)", Order = 3, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Timeframe (seconds)", Order = 3, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "A1 runs on its own secondary series of this period (default 30s), regardless of the chart timeframe.")]
 		public int AlertA1PeriodSeconds { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Cond: EMA 8 above EMA 34", Order = 4, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Cond: EMA 8 above EMA 34", Order = 4, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "LONG: EMA 8 above EMA 34. SHORT mirrored. Toggle applies to both directions.")]
 		public bool AlertA1CondEma8Above34 { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Cond: EMA 34 above EMA 89", Order = 5, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Cond: EMA 34 above EMA 89", Order = 5, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "LONG: EMA 34 above EMA 89 (trend confirmed, not just a fast-EMA spike). SHORT mirrored.")]
 		public bool AlertA1CondEma34Above89 { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Cond: EMA 89 above EMA 144", Order = 6, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Cond: EMA 89 above EMA 144", Order = 6, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "LONG: EMA 89 above EMA 144. SHORT mirrored.")]
 		public bool AlertA1CondEma89Above144 { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Cond: EMA 144 above EMA 200", Order = 7, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Cond: EMA 144 above EMA 200", Order = 7, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "LONG: EMA 144 above EMA 200. SHORT mirrored.")]
 		public bool AlertA1CondEma144Above200 { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Cond: EMA 34 slope angle", Order = 8, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Cond: EMA 34 slope angle", Order = 8, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "LONG: EMA 34 slope at least +Min Angle (rising). SHORT: at most -Min Angle (falling). Renamed in v0.67 so stale saved 'true' values from v0.65/0.66 drop and the OFF default applies.")]
 		public bool AlertA1AngleEnabled { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Min Angle (deg)", Order = 9, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Min Angle (deg)", Order = 9, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "Minimum EMA 34 slope angle in degrees — up for LONG, down for SHORT.")]
 		public double AlertA1AngleMin { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Break Bars (invalid before re-arm)", Order = 10, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Break Bars (invalid before re-arm)", Order = 10, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "After a fired environment, the condition must stay invalid this many consecutive A1 bars before it counts as broken and the next valid environment fires a new line. Prevents re-triggering on 1-2 bar wobbles.")]
 		public int AlertA1BreakBars { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "ATR Period (angle normalization)", Order = 11, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "ATR Period (angle normalization)", Order = 11, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "ATR period on the A1 series used as the slope-angle normalization unit (a slope of 1 ATR per bar reads as 45 degrees). Auto-adapts per instrument — no manual price tuning.")]
 		public int AlertA1AtrPeriod { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Line Width (px)", Order = 12, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "Line Width (px)", Order = 12, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "Vertical alert line thickness.")]
 		public int AlertA1LineWidth { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "LONG Line Color", Order = 13, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "LONG Line Color", Order = 13, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "Vertical line color for the LONG environment. Renamed in v0.70 so stale saved bright values drop and the dark default applies.")]
 		[XmlIgnore]
 		public Color AlertA1LongLineColor { get; set; }
@@ -472,7 +475,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		}
 
 		[NinjaScriptProperty]
-		[Display(Name = "SHORT Line Color", Order = 13, GroupName = "2. Alert Signal A1 — fan 30s",
+		[Display(Name = "SHORT Line Color", Order = 13, GroupName = "2. Alert Signal A1 — EmaZone30s",
 			Description = "Vertical line color for the SHORT environment. Renamed in v0.70 so stale saved bright values drop and the dark default applies.")]
 		[XmlIgnore]
 		public Color AlertA1ShortLineColor { get; set; }
@@ -483,6 +486,21 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			get { return AlertA1ShortLineColor.ToString(); }
 			set { AlertA1ShortLineColor = ParseColor(value, Colors.DarkRed); }
 		}
+
+		[NinjaScriptProperty]
+		[Display(Name = "Cond: EMA34 zone TF1", Order = 14, GroupName = "2. Alert Signal A1 — EmaZone30s",
+			Description = "Higher-TF zone condition 1 (default 3m): LONG needs price above EMA34 on this TF, SHORT below (last closed zone bar, no lookahead).")]
+		public KatEmaZoneTf AlertA1EmaZoneTf1 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Cond: EMA34 zone TF2", Order = 15, GroupName = "2. Alert Signal A1 — EmaZone30s",
+			Description = "Higher-TF zone condition 2 (default 5m): LONG needs price above EMA34 on this TF, SHORT below (last closed zone bar, no lookahead).")]
+		public KatEmaZoneTf AlertA1EmaZoneTf2 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Cond: EMA34 zone TF3", Order = 16, GroupName = "2. Alert Signal A1 — EmaZone30s",
+			Description = "Higher-TF zone condition 3 (default 15m): LONG needs price above EMA34 on this TF, SHORT below (last closed zone bar, no lookahead).")]
+		public KatEmaZoneTf AlertA1EmaZoneTf3 { get; set; }
 
 		// --- 2.5 Alert Signal A2 (Placeholder sub-module) ---
 		[NinjaScriptProperty]

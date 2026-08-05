@@ -12,6 +12,18 @@ namespace Kat34Scalper
 		Buy
 	}
 
+	// A1 EMA34 zone timeframes (value = period seconds; NT8 renders enum names as the dropdown).
+	public enum KatEmaZoneTf
+	{
+		S90 = 90,
+		M1 = 60,
+		M2 = 120,
+		M3 = 180,
+		M5 = 300,
+		M15 = 900,
+		M30 = 1800
+	}
+
 	/// <summary>
 	/// Per-side A1 sequence state — the caller owns one instance per side (sell/buy).
 	/// Phase: 0 = idle (waiting for price beyond the fast EMA), 1 = armed (price beyond the fast
@@ -343,6 +355,17 @@ namespace Kat34Scalper
 			if (dir != 0) return dir;
 			if (breakBars < 1) breakBars = 1;
 			return invalidStreak + 1 >= breakBars ? 0 : lastDir;
+		}
+
+		/// <summary>
+		/// A1 EMA34 zone condition (v0.84), mirrored by direction: LONG needs the zone bar's close
+		/// above EMA34, SHORT below; direction 0 is neutral and passes.
+		/// </summary>
+		public static bool EmaZonePass(int dir, double close, double ema)
+		{
+			if (dir > 0) return close > ema;
+			if (dir < 0) return close < ema;
+			return true;
 		}
 
 		/// <summary>

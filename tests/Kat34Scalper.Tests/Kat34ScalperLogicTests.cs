@@ -988,6 +988,16 @@ public class Kat34ScalperLogicTests
 		Assert.Equal(0, effDir);
 		Assert.Equal(0, lastDir);
 	}
+
+	[Fact]
+	public void EmaZonePass_MirrorsDirection()
+	{
+		Assert.True(Kat34ScalperLogic.EmaZonePass(1, 101, 100));   // LONG above EMA34
+		Assert.False(Kat34ScalperLogic.EmaZonePass(1, 99, 100));   // LONG below EMA34
+		Assert.True(Kat34ScalperLogic.EmaZonePass(-1, 99, 100));   // SHORT below EMA34
+		Assert.False(Kat34ScalperLogic.EmaZonePass(-1, 101, 100)); // SHORT above EMA34
+		Assert.True(Kat34ScalperLogic.EmaZonePass(0, 99, 100));     // neutral passes
+	}
 	#endregion
 }
 

@@ -18,8 +18,8 @@ Chuẩn mô tả cho MỌI signal trong indicator. Mỗi signal là một sub-mo
 
 ## ALERT SIGNALS (A1, A2...)
 
-### A1 — Alert Signal A1 (fan 30s)
-- File: `src/Kat34Scalper.AlertSignal.A1.cs` | Settings group: `2. Alert Signal A1 — fan 30s` | HUD toggle: ALERT SIGNAL › `A1 (fan 30s)`
+### A1 — Alert Signal A1 (EmaZone30s)
+- File: `src/Kat34Scalper.AlertSignal.A1.cs` | Settings group: `2. Alert Signal A1 — EmaZone30s` | HUD toggle: ALERT SIGNAL › `A1 (EmaZone30s)`
 - Mục đích: Cảnh báo môi trường trend "fan" (EMA xếp quạt + góc nghiêng EMA 34) bằng vertical line + âm thanh. KHÔNG bắn lệnh Bot. **Độc lập hoàn toàn** với Bot Signals: series riêng, EMA riêng, không dùng chung state/drawing/logic.
 - Series riêng: `AddDataSeries(Second, AlertA1PeriodSeconds)` (default 30s) — chạy đúng TF này dù chart TF bất kỳ. EMA 8/34/144/200 tính riêng trên `BarsArray[1]`.
 - Điều kiện môi trường — LONG (SHORT mirror ngược lại), **mỗi điều kiện có toggle riêng**:
@@ -28,6 +28,7 @@ Chuẩn mô tả cho MỌI signal trong indicator. Mỗi signal là một sub-mo
   3. `Cond: EMA 89 above EMA 144` — strict `>`.
   4. `Cond: EMA 144 above EMA 200` — strict `>`.
   5. `Cond: EMA 34 slope angle` (`AlertA1AngleEnabled`) — góc nghiêng EMA 34 tối thiểu `+Min Angle` độ (lên) cho LONG; tối thiểu `-Min Angle` độ (xuống) cho SHORT. Góc chuẩn hoá tự động bằng ATR trên series 30s: `atan(Δema34/bar / ATR(period))` — 45° = slope 1 ATR/bar, không phụ thuộc zoom, không cần chỉnh tay theo instrument (`ATR Period` chỉnh được). **Default OFF** (property đổi tên ở v0.67 để xoá giá trị `true` lưu cũ) — slope bar 30s thường quá nhỏ so với ATR nên 30° hiếm khi đạt; bật tay khi muốn dùng.
+  6. `Cond: EMA34 zone TF1/2/3` (v0.84, default 3m/5m/15m; chọn từ dropdown S90/M1/M2/M3/M5/M15/M30) — giá phải nằm đúng phía EMA34 trên từng khung cao hơn: LONG trên, SHORT dưới (close của bar zone ĐÃ ĐÓNG, không lookahead; warmup = gate mở). Mirror theo direction.
 - Alert: **edge trigger + break debounce** — 1 vertical line (dash, width default 2, màu LONG lime / SHORT đỏ — đổi được) + 1 Alert Sound (global `Alert Sound`) khi môi trường chuyển invalid → valid. Sau khi fire, môi trường phải invalid LIÊN TIẾP `Break Bars` bar mới coi là phá vỡ — wobble 1-2 bar không sinh line mới. Đổi hướng (LONG→SHORT) fire ngay.
 - Settings: `AlertA1Enabled` (true), `AlertA1HistoryDays` (3), `AlertA1PeriodSeconds` (30), cond toggles (8>34, 34>89, 89>144, 144>200: true; angle: **false**), `AlertA1AngleMin` (30), `AlertA1BreakBars` (3), `AlertA1AtrPeriod` (14), `AlertA1LineWidth` (2), `AlertA1LongColor` (LimeGreen), `AlertA1ShortColor` (Red).
 - Tag drawing: `K34S_ALERTA1_VL_<B/S>_<bar>` (vertical line neo theo thời gian bar 30s).

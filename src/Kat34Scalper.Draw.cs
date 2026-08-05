@@ -46,21 +46,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			public bool KeepAlive; // A2 pending entry: lines render while the setup is alive, ignoring the Line Length fade
 		}
 		private readonly List<KatSignalRecord> signalRecords = new List<KatSignalRecord>();
-		private bool versionDrawn;
 		private bool legacySignalDrawingsCleared;
 		// Arrow/Text feature removed per request. Only lines + ATM triggers remain.
-
-		// Primary-series timeframe, e.g. "30 Second" — proof the indicator computes on the chart TF it was added to.
-		private string ChartTimeframe()
-		{
-			return BarsArray[0].BarsPeriod.Value + " " + BarsArray[0].BarsPeriod.BarsPeriodType;
-		}
-
-		private void DrawVersionLabel()
-		{
-			versionDrawn = true;
-			Draw.TextFixed(this, "K34S_version", string.Format("Kat34Scalper v{0} ({1}) [{2}]", VERSION, RELEASE_DATE, ChartTimeframe()), TextPosition.TopLeft);
-		}
 
 		private void PlayAlertSound()
 		{
@@ -322,11 +309,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				}
 				foreach (string tag in doomed)
 					RemoveDrawObject(tag);
-				if (ShowVersion && versionDrawn)
-				{
-					versionDrawn = false;
-					DrawVersionLabel();
-				}
 				ForceRefresh();
 				Print(string.Format("[Kat34Scalper] Cleared {0} old signal drawing(s).", doomed.Count));
 			}
@@ -972,7 +954,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			var secAlert = new StackPanel();
 			Grid aRow = CreateTwoColGrid();
 			aRow.Margin = new Thickness(0);
-			Button btnAlertA1 = CreateFilterToggle("A1 (fan 30s)", () => cachedAlertA1, v => SetAlertA1Signal(v));
+			Button btnAlertA1 = CreateFilterToggle("A1 (EmaZone30s)", () => cachedAlertA1, v => SetAlertA1Signal(v));
 			Grid.SetColumn(btnAlertA1, 0);
 			aRow.Children.Add(btnAlertA1);
 			Button btnAlertA2 = CreateFilterToggle("A2", () => cachedAlertA2, v => SetAlertA2Signal(v));
