@@ -1,13 +1,13 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 1.01 (2026-08-05)
+ * Version: 1.02 (2026-08-05)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
  *
  * Module layout (partial classes):
  *   Kat34Scalper.cs                    — main: state, OnStateChange, OnBarUpdate orchestration, settings
- *   src/Kat34ScalperLogic.cs           — pure signal/filter math + ATM parser (zero NT8 deps, xunit-tested)
+ *   src/KatSignalCore.cs           — pure signal/filter math + ATM parser (zero NT8 deps, xunit-tested)
  *   src/Kat34Scalper.AlertSignal.cs    — Alert Signal module shared helpers (alert backfill)
  *   src/Kat34Scalper.AlertSignal.A1.cs — Signal A1 host (standalone shell, alert-only)
  *   src/Kat34Scalper.AlertSignal.A2.cs — Signal A2 host (standalone shell, alert-only)
@@ -30,7 +30,7 @@ using System.Xml.Serialization;
 using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
-using Kat34Scalper;
+using KAT.Signals;
 #endregion
 
 // Dropdown of the ATM strategy templates in NT8's templates\AtmStrategy folder (+ "None" = bare order).
@@ -84,7 +84,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "1.01";
+		public const string VERSION = "1.02";
 		public const string RELEASE_DATE = "2026-08-05";
 		private const int AlertA2SeriesIndex = 6; // Configure order: 0 primary, 1 A1, 2 ADX MTF, 3-5 A1 zones, 6 A2 5m.
 
@@ -708,7 +708,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		public string AtmSet1Name
 		{
 			get { return atmSet1Name; }
-			set { atmSet1Name = Kat34ScalperLogic.NormalizeAtmSetName(value, "A"); }
+			set { atmSet1Name = KatSignalCore.NormalizeAtmSetName(value, "A"); }
 		}
 
 		[NinjaScriptProperty]
@@ -721,7 +721,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		public string AtmSet2Name
 		{
 			get { return atmSet2Name; }
-			set { atmSet2Name = Kat34ScalperLogic.NormalizeAtmSetName(value, "B"); }
+			set { atmSet2Name = KatSignalCore.NormalizeAtmSetName(value, "B"); }
 		}
 
 		[NinjaScriptProperty]
@@ -734,7 +734,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		public string AtmSet3Name
 		{
 			get { return atmSet3Name; }
-			set { atmSet3Name = Kat34ScalperLogic.NormalizeAtmSetName(value, "C"); }
+			set { atmSet3Name = KatSignalCore.NormalizeAtmSetName(value, "C"); }
 		}
 
 		[NinjaScriptProperty]
@@ -747,7 +747,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		public string AtmSet4Name
 		{
 			get { return atmSet4Name; }
-			set { atmSet4Name = Kat34ScalperLogic.NormalizeAtmSetName(value, "D"); }
+			set { atmSet4Name = KatSignalCore.NormalizeAtmSetName(value, "D"); }
 		}
 
 		[NinjaScriptProperty]
@@ -760,7 +760,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		public string AtmSet5Name
 		{
 			get { return atmSet5Name; }
-			set { atmSet5Name = Kat34ScalperLogic.NormalizeAtmSetName(value, "E"); }
+			set { atmSet5Name = KatSignalCore.NormalizeAtmSetName(value, "E"); }
 		}
 
 		[NinjaScriptProperty]
@@ -773,7 +773,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		public string AtmSet6Name
 		{
 			get { return atmSet6Name; }
-			set { atmSet6Name = Kat34ScalperLogic.NormalizeAtmSetName(value, "F"); }
+			set { atmSet6Name = KatSignalCore.NormalizeAtmSetName(value, "F"); }
 		}
 
 		[NinjaScriptProperty]

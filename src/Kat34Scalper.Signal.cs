@@ -8,7 +8,7 @@
 #region Using declarations
 using System;
 using NinjaTrader.NinjaScript;
-using Kat34Scalper;
+using KAT.Signals;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT

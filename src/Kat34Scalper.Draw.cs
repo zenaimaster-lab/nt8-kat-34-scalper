@@ -17,7 +17,7 @@ using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
-using Kat34Scalper;
+using KAT.Signals;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
@@ -193,7 +193,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			// A1 dual entry: c1 = U-turn bar extreme, c2 = best later candidate (0 = none yet — fall back to the signal bar).
 			double ref1 = c1 != 0 ? c1 : (isBuy ? high : low);
 			double ref2 = c2 != 0 ? c2 : ref1;
-			double entryPrice = Kat34ScalperLogic.EffectiveEntry(isBuy, ref1, ref2, offsetTicks, tick);
+			double entryPrice = KatSignalCore.EffectiveEntry(isBuy, ref1, ref2, offsetTicks, tick);
 			double cand1 = isBuy ? ref1 + offsetTicks * tick : ref1 - offsetTicks * tick;
 			double cand2 = isBuy ? ref2 + offsetTicks * tick : ref2 - offsetTicks * tick;
 

@@ -19,17 +19,25 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v1.02] — 2026-08-05
+- **Standalone signal independence cleanup**: Renamed the shared pure logic layer away from Scalper-specific naming so A/B standalone indicators no longer depend on `Kat34Scalper`-named core APIs.
+  - `src\Kat34ScalperLogic.cs` → `src\KatSignalCore.cs`, class `KatSignalCore`, namespace `KAT.Signals`.
+  - `src\Kat34Scalper.State.cs` → `src\KatSignalState.cs`, namespace `KAT.Signals`.
+  - `KatSignalA1/A2/B1/B2.cs` now use `KAT.Signals.KatSignalCore`; they do not reference the `Kat34Scalper` indicator class.
+  - `Kat34Scalper.cs` also uses `KAT.Signals.KatSignalCore`, making Scalper a true orchestration/bot host over the same neutral signal core.
+  - Contract clarified in README: standalone signals can be loaded on any chart without adding Kat34Scalper; only the neutral shared core/state files must be present in NT8's Indicators compile folder to avoid duplicated signal math.
+
 ### [v1.01] — 2026-08-05
 - **Post-refactor audit fix**: Re-audited v1.00 after signal extraction and fixed the blocking B1/B2 orchestrator gap.
   - `src\Kat34Scalper.Signal.A2.cs` + `Kat34Scalper.cs`: fixed A2 orchestrator no-op by adding its own 5-minute series (`BarsArray[6]`) and live/backfill fan detection, drawings, sound, and cleanup.
   - `Kat34Scalper.cs` no longer keeps empty B1/B2 no-op bodies; it delegates to the B1/B2 signal modules.
   - `src\Kat34Scalper.Signal.B1.cs`: implemented live + backfill 34bounce8+ detection, chart drawing, bot submission, and OFF cleanup/cancel.
   - `src\Kat34Scalper.Signal.B2.cs`: implemented live + backfill 89uturn34 detection, chart drawing, bot submission, and OFF cleanup/cancel.
-  - `src\Kat34ScalperLogic.cs`: added shared pure helpers `B1Direction` and `B2Direction` so standalone indicators and Kat34Scalper use one source of truth.
+  - `src\KatSignalCore.cs`: added shared pure helpers `B1Direction` and `B2Direction` so standalone indicators and Kat34Scalper use one source of truth.
   - `KatSignalB1.cs` / `KatSignalB2.cs`: switched standalone indicators to the shared helpers to prevent future logic drift.
   - `scripts\Deploy-NT8.ps1`: fixed deploy coverage to include the standalone `KatSignal*.cs` indicators, not only `Kat34Scalper.cs` + `src\*.cs`.
-  - `tests\Kat34Scalper.Tests\Kat34ScalperLogicTests.cs`: added B1/B2 direction tests so no-op/divergence regressions are caught earlier.
-  - Graphify entity mapping: `Kat34ScalperLogic.B1Direction`, `Kat34ScalperLogic.B2Direction`, `Kat34Scalper.EvaluateB1Bar`, `Kat34Scalper.EvaluateB2Bar`.
+  - `tests\Kat34Scalper.Tests\KatSignalCoreTests.cs`: added B1/B2 direction tests so no-op/divergence regressions are caught earlier.
+  - Graphify entity mapping: `KatSignalCore.B1Direction`, `KatSignalCore.B2Direction`, `Kat34Scalper.EvaluateB1Bar`, `Kat34Scalper.EvaluateB2Bar`.
 
 ### [v1.00] — 2026-08-05
 - **Signal indicator completion & orchestration (Phases 14-18 final)**: Full implementation of A2 + B1/B2 bot signals; cross-signal callbacks in Kat34Scalper orchestrator.
@@ -46,7 +54,7 @@ graph TD
 
 ### [v0.90] — 2026-08-05
 - **Signal indicator extraction (Phase 10-13 final)**: extracted A1/A2/B1/B2 logic into separate, independent NinjaScript indicator classes. Each can load on any chart without Kat34Scalper.
-  - Created `KatSignalA1.cs`: standalone Alert Signal A1 indicator — full implementation (EMAs 8/34/89/144/200, ATR, fan detection, debounce, backfill, drawing, sound). Uses Kat34ScalperLogic for pure logic. Runs on 30s secondary series (BarsArray[1]).
+  - Created `KatSignalA1.cs`: standalone Alert Signal A1 indicator — full implementation (EMAs 8/34/89/144/200, ATR, fan detection, debounce, backfill, drawing, sound). Uses KatSignalCore for pure logic. Runs on 30s secondary series (BarsArray[1]).
   - Created `KatSignalA2.cs`, `KatSignalB1.cs`, `KatSignalB2.cs`: stub indicators (TBD implementation — same pattern as A1).
   - Kept `src\Kat34Scalper.Signal.A1.cs` (partial class) as legacy; main orchestrator still calls it, but KatSignalA1.cs is the new independent version.
   - Compile gate: ✅ PASS (10 warnings, 0 errors).
@@ -65,7 +73,7 @@ graph TD
 
 ### [v0.86] — 2026-08-05
 - **Signal indicator shell refactor (phase 1 - entry points)**: tách các signal A1/A2/B1/B2 thành các file partial classes độc lập để chuẩn bị cho việc compile chúng riêng lẻ thành indicator riêng.
-  - Tạo `src\Kat34Scalper.State.cs`: tách KatSignalKind, KatEmaZoneTf, KatA1State, KatA2State, KatA2Action enums/classes ra file riêng để tránh CS0436 conflicts với NinjaTrader.Custom DLL khi compile gate.
+  - Tạo `src\KatSignalState.cs`: tách KatSignalKind, KatEmaZoneTf, KatA1State, KatA2State, KatA2Action enums/classes ra file riêng để tránh CS0436 conflicts với NinjaTrader.Custom DLL khi compile gate.
   - Tạo `src\Kat34Scalper.Signal.A1.cs`, `src\Kat34Scalper.Signal.A2.cs`: host shell files cho Alert Signal A1/A2 (đã có EvaluateAlertA1Bar, BackfillAlertA1, v.v.).
   - Cập nhật `src\Kat34Scalper.Signal.B1.cs`, `src\Kat34Scalper.Signal.B2.cs`: thêm BackfillB1/B2 stubs và cachedB1/B2 state variables.
   - Main orchestrator (Kat34Scalper.cs): gọi SetAlertA1Signal, SetAlertA2Signal, SetB1Signal, SetB2Signal từ HUD; gọi EvaluateAlertA1Bar, EvaluateA2, EvaluateB1, EvaluateB2 từ OnBarUpdate.
@@ -74,14 +82,14 @@ graph TD
 
 ### [v0.85] — 2026-08-05
 - **Custom alert sounds from local disk**: Alert Sound dropdown + playback now support NT8's user sounds folder `Documents\NinjaTrader 8\sounds` (no admin needed — drop any `.wav` there, it shows up in the dropdown and plays). Resolution order: user folder wins over install folder on equal names, install folder fallback. Converter auto-creates the user sounds folder for discoverability.
-  - New pure logic `Kat34ScalperSound.ResolvePath/ListSounds` in `src\Kat34ScalperLogic.cs` + 2 tests (106 total). `Kat34ScalperSoundConverter` (Kat34Scalper.cs) and `PlayAlertSound` (Kat34Scalper.Draw.cs) both route through it.
+  - New pure logic `Kat34ScalperSound.ResolvePath/ListSounds` in `src\KatSignalCore.cs` + 2 tests (106 total). `Kat34ScalperSoundConverter` (Kat34Scalper.cs) and `PlayAlertSound` (Kat34Scalper.Draw.cs) both route through it.
   - Graphify entity mapping: `Kat34ScalperSound`, `Kat34ScalperSoundConverter`, `Kat34Scalper.PlayAlertSound`.
 
 ### [v0.84] — 2026-08-04
 - **Chart-top version label removed** (the `Kat34Scalper v0.83 (...) [30 Second]` TextFixed line): `ShowVersion` setting, `DrawVersionLabel`, `ChartTimeframe`, `versionDrawn` all deleted.
 - **A1 renamed `fan 30s` → `EmaZone30s`** everywhere visible: HUD toggle `A1 (EmaZone30s)`, settings group `2. Alert Signal A1 — EmaZone30s`, docs.
-- **A1 EmaZone gate (3 higher-TF conditions)**: new settings `Cond: EMA34 zone TF1/2/3` (enum dropdown S90/M1/M2/M3/M5/M15/M30, defaults 3m/5m/15m). For an environment to be valid, the last CLOSED zone bar's close must sit on the episode side of that TF's EMA34 — LONG above, SHORT below (mirrored per direction, user-confirmed). Three extra Second series (BarsArray[3..5], always added for stable indexes) + `zoneEma34` EMAs; gate math reuses the ADX-MTF no-lookahead cutoff (`ClosedBarCutoff` + `BarsAgoAtOrBefore`) on the A1 series, backfill-replay aware; warmup = gate open. Pure `Kat34ScalperLogic.EmaZonePass(dir, close, ema)` + 1 test (104 total). Applied in `EvaluateAlertA1Bar` and `BackfillAlertA1` right after the fan direction, before debounce/edge step.
-  - Graphify entity mapping: `KatEmaZoneTf`, `Kat34ScalperLogic.EmaZonePass`, `Kat34Scalper.zoneEma34/EmaZonePassAt`, `AlertA1EmaZoneTf1/2/3`, A1 `EvaluateAlertA1Bar/BackfillAlertA1` (zone-zeroed rawDir).
+- **A1 EmaZone gate (3 higher-TF conditions)**: new settings `Cond: EMA34 zone TF1/2/3` (enum dropdown S90/M1/M2/M3/M5/M15/M30, defaults 3m/5m/15m). For an environment to be valid, the last CLOSED zone bar's close must sit on the episode side of that TF's EMA34 — LONG above, SHORT below (mirrored per direction, user-confirmed). Three extra Second series (BarsArray[3..5], always added for stable indexes) + `zoneEma34` EMAs; gate math reuses the ADX-MTF no-lookahead cutoff (`ClosedBarCutoff` + `BarsAgoAtOrBefore`) on the A1 series, backfill-replay aware; warmup = gate open. Pure `KatSignalCore.EmaZonePass(dir, close, ema)` + 1 test (104 total). Applied in `EvaluateAlertA1Bar` and `BackfillAlertA1` right after the fan direction, before debounce/edge step.
+  - Graphify entity mapping: `KatEmaZoneTf`, `KatSignalCore.EmaZonePass`, `Kat34Scalper.zoneEma34/EmaZonePassAt`, `AlertA1EmaZoneTf1/2/3`, A1 `EvaluateAlertA1Bar/BackfillAlertA1` (zone-zeroed rawDir).
 
 ### [v0.83] — 2026-08-04
 - **HUD title renamed to "KAT 34-ScalperBot"** (HUD only; chart version label untouched).
@@ -100,9 +108,9 @@ graph TD
   - Graphify entity mapping: `Kat34Scalper.SyncChartTraderAccount/GetChartTraderControl` (Draw module, HUD acc combo wiring).
 
 ### [v0.80] — 2026-08-04
-- **A1 Break Bars unified with the invalid decision (episodes/bands)**: the edge-trigger debounce (`A1EdgeStep`) already absorbed 1-2 bar wobbles for alert lines, but episode bands + gray ranging lines judged the environment invalid on the FIRST raw invalid bar — episodes visibly fractured on every wobble while no new alert line fired, so "Break Bars (invalid before re-arm)" looked dead. New pure `Kat34ScalperLogic.A1DebouncedDir(dir, lastDir, invalidStreak, breakBars)`: an armed environment keeps counting until invalid for `breakBars` consecutive bars (flip passes through immediately, same rule as the edge step). `EvaluateAlertA1Bar` + `BackfillAlertA1` now feed debounced dir to the band/episode/ranging-line logic and the raw dir to `A1EdgeStep` (pre-step state), so episode end, ranging line and re-arm land on the same bar (pinned by `A1DebouncedDir_MatchesEdgeStepDisarmBar`).
+- **A1 Break Bars unified with the invalid decision (episodes/bands)**: the edge-trigger debounce (`A1EdgeStep`) already absorbed 1-2 bar wobbles for alert lines, but episode bands + gray ranging lines judged the environment invalid on the FIRST raw invalid bar — episodes visibly fractured on every wobble while no new alert line fired, so "Break Bars (invalid before re-arm)" looked dead. New pure `KatSignalCore.A1DebouncedDir(dir, lastDir, invalidStreak, breakBars)`: an armed environment keeps counting until invalid for `breakBars` consecutive bars (flip passes through immediately, same rule as the edge step). `EvaluateAlertA1Bar` + `BackfillAlertA1` now feed debounced dir to the band/episode/ranging-line logic and the raw dir to `A1EdgeStep` (pre-step state), so episode end, ranging line and re-arm land on the same bar (pinned by `A1DebouncedDir_MatchesEdgeStepDisarmBar`).
 - Tests 98 → 103 (5 A1DebouncedDir cases); compile gate green.
-  - Graphify entity mapping: `Kat34ScalperLogic.A1DebouncedDir`, `EvaluateAlertA1Bar/BackfillAlertA1` (rawDir vs debounced dir split).
+  - Graphify entity mapping: `KatSignalCore.A1DebouncedDir`, `EvaluateAlertA1Bar/BackfillAlertA1` (rawDir vs debounced dir split).
 
 ### [v0.79] — 2026-08-04
 - **Alert-side filters abolished — A1 is now a pure EMA fan**: every gate moved to the single Bot filter side; the ALERT FILTER HUD section is gone. A1 episodes/bands/edge lines run on the fan + angle alone (`EvaluateAlertA1Bar`/`BackfillAlertA1` no longer call any market gate).
@@ -114,10 +122,10 @@ graph TD
   - Graphify entity mapping: `Filter.AdxMtfPassAt/SeriesPeriodSeconds`, `cachedAdxRise/cachedAdxMtf` (bot side), `EvaluateAlertA1Bar/BackfillAlertA1` (gate-free), HUD BOT FILTER rows, `AdxMtfMinutes/Period/Min`.
 
 ### [v0.78] — 2026-08-04
-- **Environment bands actually render now (the long-standing green/red background bug)**: `DrawEnvBand`'s guards were written for barsAgo arguments (`barsAgoStart <= barsAgoEnd → return`), but every caller passes ABSOLUTE bar indexes where a valid episode always has `startIdx < endIdx` — so the guard rejected EVERY episode and the rectangle was never drawn (backfill or live). The v0.73/v0.75 "visible band" analyses verified the time-anchor math and missed the guard direction — owned. The decision + index→barsAgo conversion now lives in pure, tested `Kat34ScalperLogic.EnvBandAnchors(dir, startIdx, endIdx, hi, lo, currentBarIdx, out agoStart, out agoEnd)`; `DrawEnvBand` is a thin wrapper over it.
+- **Environment bands actually render now (the long-standing green/red background bug)**: `DrawEnvBand`'s guards were written for barsAgo arguments (`barsAgoStart <= barsAgoEnd → return`), but every caller passes ABSOLUTE bar indexes where a valid episode always has `startIdx < endIdx` — so the guard rejected EVERY episode and the rectangle was never drawn (backfill or live). The v0.73/v0.75 "visible band" analyses verified the time-anchor math and missed the guard direction — owned. The decision + index→barsAgo conversion now lives in pure, tested `KatSignalCore.EnvBandAnchors(dir, startIdx, endIdx, hi, lo, currentBarIdx, out agoStart, out agoEnd)`; `DrawEnvBand` is a thin wrapper over it.
 - **Tests 98 → 102**: valid episode draws with correct barsAgo anchors (agoStart > agoEnd, older bar = larger barsAgo), ranging (dir 0) not drawn, zero-length episode (startIdx == endIdx) not drawn, flat extent (hi == lo) not drawn.
 - Note: band fill stays areaOpacity 8 (deliberately pale). If it reads as "too faint" on your theme, the fix is the `8` in `DrawEnvBand` — one constant.
-  - Graphify entity mapping: `Kat34ScalperLogic.EnvBandAnchors`, `Kat34Scalper.DrawEnvBand` (guard fix + index semantics).
+  - Graphify entity mapping: `KatSignalCore.EnvBandAnchors`, `Kat34Scalper.DrawEnvBand` (guard fix + index semantics).
 
 ### [v0.77] — 2026-08-04
 - **Plain ADX toggles removed (both sides)** per user request: the ALERT FILTER "ADX" button (`cachedAdxA`) and the BOT FILTER "ADX" button (`cachedAdx`) are gone, together with both gate clauses (`AlertA1MarketPassAt` alert leg + `MarketPassAt` shared leg). The alert side keeps its ADX family via the A1-only `ADX rising` + `ADX MTF (A1)` legs; the bot side keeps Volume/Time/ER/CI. `PassMarketFilter` pure logic untouched (bot caller now passes the ADX leg open: `0, 0`).
@@ -135,25 +143,25 @@ graph TD
   - Graphify entity mapping: `Kat34Scalper.cachedMtf` (removed), HUD BOT FILTER "MTF" button (removed), `AlertA1MarketPassAt` (riseBars clamp).
 
 ### [v0.75] — 2026-08-04
-- **Alert filter/signal re-audit — backfill lookahead fixed**: the A1 alert gates (`AlertA1MarketPassAt` series-0 legs ADX/ADX-rising/ER/CI + `A1AdxMtfPassAt`) searched target-series bars "opened at or before the A1 bar time". Live evaluation only ever sees CLOSED target bars, but the one-shot backfill searches the COMPLETE series — so near gate thresholds the backfill could read a target bar that had not closed yet at the A1 bar's close (lookahead, backfill≠live). New pure `Kat34ScalperLogic.ClosedBarCutoff(sourceOpen, sourceSecs, targetSecs)` = sourceClose − targetPeriod; new `A1ClosedCutoff(ago, series)` wrapper (Second/Minute periods; non-time target series stay at the A1 open — conservative). Live behavior unchanged; backfill now matches live.
+- **Alert filter/signal re-audit — backfill lookahead fixed**: the A1 alert gates (`AlertA1MarketPassAt` series-0 legs ADX/ADX-rising/ER/CI + `A1AdxMtfPassAt`) searched target-series bars "opened at or before the A1 bar time". Live evaluation only ever sees CLOSED target bars, but the one-shot backfill searches the COMPLETE series — so near gate thresholds the backfill could read a target bar that had not closed yet at the A1 bar's close (lookahead, backfill≠live). New pure `KatSignalCore.ClosedBarCutoff(sourceOpen, sourceSecs, targetSecs)` = sourceClose − targetPeriod; new `A1ClosedCutoff(ago, series)` wrapper (Second/Minute periods; non-time target series stay at the A1 open — conservative). Live behavior unchanged; backfill now matches live.
 - **Load sound spam killed**: `EvaluateAlertA1Bar` runs on every historical 30s bar and its fire block called `PlayAlertSound()` unguarded — NT8 plays sounds on historical bars, so every load/F5 machine-gunned one sound per historical environment edge. Sound + its Print now gated to `State == State.Realtime` (line drawing stays — backfill overwrites same tags).
 - **Tests 91 → 95**: 4 `ClosedBarCutoff` cases — slower MTF target excludes the not-yet-closed bar / admits it once closed (composed with `BarsAgoAtOrBefore`), faster target admits bars closed by the source close, non-time target falls back to the source open.
 - Audit notes (no change): `MarketPassAt` bot path re-checks the ADX leg inside `PassMarketFilter` after line-76 already gated it (harmless redundancy); `DrawEnvBand` param names say barsAgo but receive absolute bar indexes — the double conversion cancels, math verified correct on both live and backfill paths; ER/CI legs fail-closed at the history edge (intended, conservative).
 - No new tooling needed: xunit + net48 compile gate + live NT8 recompile cover the fix.
-  - Graphify entity mapping: `Kat34ScalperLogic.ClosedBarCutoff`, `Kat34Scalper.A1ClosedCutoff`, `AlertA1MarketPassAt`/`A1AdxMtfPassAt` (cutoff call sites), `EvaluateAlertA1Bar` (Realtime sound gate).
+  - Graphify entity mapping: `KatSignalCore.ClosedBarCutoff`, `Kat34Scalper.A1ClosedCutoff`, `AlertA1MarketPassAt`/`A1AdxMtfPassAt` (cutoff call sites), `EvaluateAlertA1Bar` (Realtime sound gate).
 
 ### [v0.74] — 2026-08-04
 - **Full filter/A1 audit**: one real bug fixed — band hi/lo fields initialized 0/0, so when backfill skipped warmup the live band could anchor lo=0 (prices are always positive, the `< a1BandLo` update never fired); now Min/MaxValue at declaration and in `ClearAlertA1Drawings`.
-- **Decomposition**: the duplicated cross-series binary search (series-0 mapping + MTF mapping) extracted to pure `Kat34ScalperLogic.BarsAgoAtOrBefore(timeAt, maxBarsAgo, t)`; A1 wrappers are one-liners.
+- **Decomposition**: the duplicated cross-series binary search (series-0 mapping + MTF mapping) extracted to pure `KatSignalCore.BarsAgoAtOrBefore(timeAt, maxBarsAgo, t)`; A1 wrappers are one-liners.
 - **Tests 86 → 91**: 4 BarsAgoAtOrBefore cases (exact/between/older/newer) + the common-sense property test `LineGate_FilterOn_NeverMoreLinesThanOff` (simulated env/gate sequences through A1EdgeStep+A1LineGateStep assert lines(ON) ≤ lines(OFF)).
 - No new tooling needed: xunit (pure logic) + net48 compile gate + live NT8 recompile already cover the three layers.
-  - Graphify entity mapping: `Kat34ScalperLogic.BarsAgoAtOrBefore`, `Kat34Scalper.a1BandHi/a1BandLo` init, test `CountLines` simulator.
+  - Graphify entity mapping: `KatSignalCore.BarsAgoAtOrBefore`, `Kat34Scalper.a1BandHi/a1BandLo` init, test `CountLines` simulator.
 
 ### [v0.73] — 2026-08-04
-- **Filters no longer ADD lines (subset semantics)**: gating the environment direction with the market filters fragmented LONG/SHORT episodes, so enabling a stricter filter produced MORE edge-trigger lines — the opposite of common sense. Episodes now run on the fan alone; pure `Kat34ScalperLogic.A1LineGateStep` defers each episode's line to the first bar the ALERT FILTER passes (pending dropped when the episode dies). Filters can now only remove or delay lines (3 new xunit cases; 86 green).
+- **Filters no longer ADD lines (subset semantics)**: gating the environment direction with the market filters fragmented LONG/SHORT episodes, so enabling a stricter filter produced MORE edge-trigger lines — the opposite of common sense. Episodes now run on the fan alone; pure `KatSignalCore.A1LineGateStep` defers each episode's line to the first bar the ALERT FILTER passes (pending dropped when the episode dies). Filters can now only remove or delay lines (3 new xunit cases; 86 green).
 - **Environment bands finally visible**: the invisible-band bug was the Draw.Rectangle fill overload — its last int is `areaOpacity` (0-100), not line width; passing 1 rendered a 1%-opacity area. Verified the exact overloads by decoding NinjaTrader.Custom.dll metadata (System.Reflection.Metadata probe). Bands now use the time-anchored overload `(isAutoScale, startTime, startY, endTime, endY, brush, areaBrush, areaOpacity)` with solid green/red area at opacity 8, anchored by A1 bar times (no series-mismatch).
 - 86 tests green; compile gate green; NT8 live recompile accepted.
-  - Graphify entity mapping: `Kat34ScalperLogic.A1LineGateStep`, `Kat34Scalper.a1LinePending`, `DrawEnvBand` (time anchor + areaOpacity), `AlertA1DirectionAt` (fan-only).
+  - Graphify entity mapping: `KatSignalCore.A1LineGateStep`, `Kat34Scalper.a1LinePending`, `DrawEnvBand` (time anchor + areaOpacity), `AlertA1DirectionAt` (fan-only).
 
 ### [v0.72] — 2026-08-04
 - **Filter-toggle re-backfill fixed (signals vanished)**: `ReBackfillAlertA1` (used by every ALERT FILTER button + ADX MTF (A1)) cleared the A1 drawings but never set `alertA1BackfillPending`, so `FlushAlertBackfill` no-opped and after 1-2 toggle presses all A1 lines/bands stayed gone. Now sets the pending flag before the flush — toggles redraw lines AND environment bands on every ON/OFF press.
@@ -178,15 +186,15 @@ graph TD
 ### [v0.69] — 2026-08-04
 - **Range-regime filters for 30s scalping** — four new gates, each with a friendly HUD toggle button in the GLOBAL FILTER section (session-only, boot OFF like the existing gates):
   - **ADX tuned**: default `AdxPeriod` 14→60 (30-min regime window on 30s; 14 = 7 min whipsaws). New `ADX rising` leg (`AdxRisingEnabled` default OFF / `AdxRisingBars` 5): only entries while ADX above its value N bars ago — blocks dying-trend chops.
-  - **`ER (trend)` gate**: Kaufman Efficiency Ratio, pure `Kat34ScalperLogic.EfficiencyRatio` (xunit-tested: flat=0, perfect trend=1, sawtooth<0.25). Defaults 40 bars / min 0.25 (random-walk noise floor at N=40 ≈ 0.13).
-  - **`CI (chop)` gate**: Choppiness Index, pure `Kat34ScalperLogic.ChoppinessIndex` (xunit-tested: trend<38.2, sawtooth>61.8, flat=100). Defaults 40 bars / max 50.
+  - **`ER (trend)` gate**: Kaufman Efficiency Ratio, pure `KatSignalCore.EfficiencyRatio` (xunit-tested: flat=0, perfect trend=1, sawtooth<0.25). Defaults 40 bars / min 0.25 (random-walk noise floor at N=40 ≈ 0.13).
+  - **`CI (chop)` gate**: Choppiness Index, pure `KatSignalCore.ChoppinessIndex` (xunit-tested: trend<38.2, sawtooth>61.8, flat=100). Defaults 40 bars / max 50.
   - **`ADX MTF (A1)` gate**: independent regime gate living in the A1 sub-module (NOT Global Filter): ADX(14) on a dedicated 3-minute series (BarsArray[2], always added for index stability), default min 22, default OFF. Backfill replays via binary search over `Times[2]` picking the last MTF bar closed at/before each A1 bar time (no lookahead); the HUD button re-backfills A1 instantly so history lines match the toggle.
   - 83 tests green; compile gate (net48 + NT8 assemblies) green; NT8 live recompile accepted.
-  - Graphify entity mapping: `Kat34ScalperLogic.EfficiencyRatio/ChoppinessIndex`, `Kat34Scalper.adxMtfInd`, `cachedAdxRise/cachedEr/cachedCi/cachedA1AdxMtf`, `Kat34Scalper.ErPassAt/CiPassAt`, `Kat34Scalper.A1AdxMtfPassAt/SetAlertA1AdxMtf`, HUD buttons `ADX rising / ER (trend) / CI (chop) / ADX MTF (A1)`.
+  - Graphify entity mapping: `KatSignalCore.EfficiencyRatio/ChoppinessIndex`, `Kat34Scalper.adxMtfInd`, `cachedAdxRise/cachedEr/cachedCi/cachedA1AdxMtf`, `Kat34Scalper.ErPassAt/CiPassAt`, `Kat34Scalper.A1AdxMtfPassAt/SetAlertA1AdxMtf`, HUD buttons `ADX rising / ER (trend) / CI (chop) / ADX MTF (A1)`.
 
 ### [v0.68] — 2026-08-04
 - **A1 fan completed to 5 EMAs (8>34>89>144>200), both LONG and SHORT**: user audit caught a LONG line firing while EMA34 still below EMA89 — the v0.64 spec omitted the 89 link. Added `AlertA1CondEma34Above89` + renamed `AlertA1CondEma34Above144` → `AlertA1CondEma89Above144` (stale saved values orphan; defaults true). Dedicated `a1Ema89` on the A1 30s series. Transitional fans (fast EMAs turned, 34 vs 89 unconfirmed) now block both sides — xunit `A1Direction_TransitionalFan_34Below89_BlocksBothSides`. 77 tests green.
-  - Graphify entity mapping: `Kat34Scalper.a1Ema89`, `AlertA1CondEma34Above89/AlertA1CondEma89Above144`, `Kat34ScalperLogic.A1Direction` (5-EMA fan).
+  - Graphify entity mapping: `Kat34Scalper.a1Ema89`, `AlertA1CondEma34Above89/AlertA1CondEma89Above144`, `KatSignalCore.A1Direction` (5-EMA fan).
 
 ### [v0.67] — 2026-08-04
 - **A1 angle gate property renamed `AlertA1CondAngle` → `AlertA1AngleEnabled`**: NT8 restores saved per-chart property values over SetDefaults — charts saved under v0.65 kept `AlertA1CondAngle=true`, silently overriding the v0.66 OFF default and blocking every signal. The rename orphans the stale saved value so the OFF default truly applies; user can re-enable from settings.
@@ -196,13 +204,13 @@ graph TD
 
 ### [v0.66] — 2026-08-04
 - **A1 angle gate default OFF**: on 30s bars the EMA34 slope-per-bar is tiny vs ATR, so the 30° gate almost never passed and A1 drew nothing. `AlertA1CondAngle` now defaults false — A1 fires on the EMA stack alone until the angle gate is enabled manually. New xunit case proves tiny-slope blocks with the gate ON and fires with it OFF (75 tests green).
-  - Graphify entity mapping: `Kat34Scalper.SetDefaults` (AlertA1CondAngle default), `Kat34ScalperLogicTests.A1Direction_TinySlopeVsNorm...`.
+  - Graphify entity mapping: `Kat34Scalper.SetDefaults` (AlertA1CondAngle default), `KatSignalCoreTests.A1Direction_TinySlopeVsNorm...`.
 
 ### [v0.65] — 2026-08-04
 - **A1 fan 30s tuning: break debounce + auto ATR angle normalization**:
-  - `AlertA1BreakBars` (default 3): after a fired environment, the condition must stay invalid this many consecutive A1 bars before it counts as broken ("điều kiện phá vỡ") — 1-2 bar stack/angle wobbles no longer re-fire a line. Direction flip LONG↔SHORT still fires immediately. Pure `Kat34ScalperLogic.A1EdgeStep` (xunit-tested, 74 tests green).
+  - `AlertA1BreakBars` (default 3): after a fired environment, the condition must stay invalid this many consecutive A1 bars before it counts as broken ("điều kiện phá vỡ") — 1-2 bar stack/angle wobbles no longer re-fire a line. Direction flip LONG↔SHORT still fires immediately. Pure `KatSignalCore.A1EdgeStep` (xunit-tested, 74 tests green).
   - Removed `AlertA1AngleNorm` manual setting — angle now normalized by `ATR(AlertA1AtrPeriod)` on the A1 series (45° = 1 ATR/bar slope), auto-adapts per instrument; ATR period itself is a setting (default 14) for experimentation. `Min Angle` stays user-tunable (default 30, not fixed).
-  - Graphify entity mapping: `Kat34Scalper.a1Atr`, `AlertA1BreakBars/AlertA1AtrPeriod` settings, `Kat34ScalperLogic.A1EdgeStep`, `Kat34Scalper.EvaluateAlertA1Bar/BackfillAlertA1` (debounce state).
+  - Graphify entity mapping: `Kat34Scalper.a1Atr`, `AlertA1BreakBars/AlertA1AtrPeriod` settings, `KatSignalCore.A1EdgeStep`, `Kat34Scalper.EvaluateAlertA1Bar/BackfillAlertA1` (debounce state).
 
 ### [v0.64] — 2026-08-04
 - **Alert Signal A1 implemented: fan 30s (independent, alert-only)**:
@@ -210,9 +218,9 @@ graph TD
   - LONG environment: ema8 > ema34 > ema144 > ema200 AND ema34 slope angle >= +Min Angle (rising). SHORT mirrored with falling angle. Each condition has its own settings toggle.
   - Edge trigger: one vertical line (dash, width 2 default, LONG lime / SHORT red — colors configurable) + one global Alert Sound per invalid->valid transition. Tags `K34S_ALERTA1_VL_*`; OFF removes only A1 drawings.
   - Slope angle normalized: `atan(delta_ema34 / AlertA1AngleNorm)` degrees — zoom-independent, backfillable. `AlertA1AngleNorm` = price/bar that counts as 45 deg (tune per instrument).
-  - Pure logic `Kat34ScalperLogic.SlopeAngleDeg` + `Kat34ScalperLogic.A1Direction` (xunit-tested, 68 tests green). Backfill replays History Days on the 30s series (no sound), syncs edge state; Global Filter not applied (A1 independence).
+  - Pure logic `KatSignalCore.SlopeAngleDeg` + `KatSignalCore.A1Direction` (xunit-tested, 68 tests green). Backfill replays History Days on the 30s series (no sound), syncs edge state; Global Filter not applied (A1 independence).
   - Default ON; HUD button renamed `A1 (fan 30s)`; settings group `2. Alert Signal A1 — fan 30s`.
-  - Graphify entity mapping: `Kat34Scalper.a1Ema8/34/144/200`, `Kat34Scalper.EvaluateAlertA1Bar` (bip1 branch), `Kat34Scalper.AlertA1DirectionAt`, `Kat34Scalper.DrawAlertA1Line`, `Kat34Scalper.BackfillAlertA1`, `State.Configure` (AddDataSeries), `Kat34ScalperLogic.SlopeAngleDeg/A1Direction`.
+  - Graphify entity mapping: `Kat34Scalper.a1Ema8/34/144/200`, `Kat34Scalper.EvaluateAlertA1Bar` (bip1 branch), `Kat34Scalper.AlertA1DirectionAt`, `Kat34Scalper.DrawAlertA1Line`, `Kat34Scalper.BackfillAlertA1`, `State.Configure` (AddDataSeries), `KatSignalCore.SlopeAngleDeg/A1Direction`.
 
 ### [v0.63] — 2026-08-03
 - **Swap Bot Signal Names and Positions**:
@@ -254,9 +262,9 @@ graph TD
     - Position active: consolidates all Stop Loss bracket orders into 1 canonical Stop anchor with `QuantityChanged = position.Quantity`, and all Target bracket orders into 1 canonical Target anchor with `QuantityChanged = position.Quantity`.
     - Automatically cancels all duplicate bracket orders (`duplicates`) and stale opposite bracket orders (`staleOppositeBrackets`).
     - Position flat: enforces `ShouldDeferAtmFlatCleanup` (3000ms grace period after entry startup) and cancels all candidate bracket orders when flat (`ATM MERGE flat cleanup`).
-  - Added pure logic helpers `ShouldDeferAtmFlatCleanup` and `IsAtmExitAction` to `src/Kat34ScalperLogic.cs`.
-  - Added unit tests in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs` (60/60 tests passing).
-  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Bot.cs`, `src/Kat34ScalperLogic.cs`, `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs`.
+  - Added pure logic helpers `ShouldDeferAtmFlatCleanup` and `IsAtmExitAction` to `src/KatSignalCore.cs`.
+  - Added unit tests in `tests/Kat34Scalper.Tests/KatSignalCoreTests.cs` (60/60 tests passing).
+  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Bot.cs`, `src/KatSignalCore.cs`, `tests/Kat34Scalper.Tests/KatSignalCoreTests.cs`.
 
 ### [v0.58] — 2026-08-03
 - **Fix Orphan Working Orders & Opposite Market Order Execution**:
@@ -264,8 +272,8 @@ graph TD
   - Implemented `CancelWorkingOrdersForInstrument(acc)` in `src/Kat34Scalper.Bot.cs` to cancel all existing working orders for the instrument before executing opposite market orders.
   - Updated `PlaceMarketOrder(...)`: if the market order is opposite and closes the position (`qty <= pos.Quantity`), submits a clean market close order without launching a new ATM strategy (preventing new orphan brackets on a 0-contract position).
   - Added `CleanupFlatOrphans()` running on bar/watchdog updates: automatically detects when position is Flat (0 contracts) and cancels any orphan working Stop/Limit bracket orders on the account for that instrument.
-  - Added `ShouldCancelFlatOrphans` helper to `src/Kat34ScalperLogic.cs` and unit test in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs` (58/58 tests passing).
-  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Bot.cs`, `src/Kat34ScalperLogic.cs`, `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs`.
+  - Added `ShouldCancelFlatOrphans` helper to `src/KatSignalCore.cs` and unit test in `tests/Kat34Scalper.Tests/KatSignalCoreTests.cs` (58/58 tests passing).
+  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Bot.cs`, `src/KatSignalCore.cs`, `tests/Kat34Scalper.Tests/KatSignalCoreTests.cs`.
 
 ### [v0.57] — 2026-08-03
 - **Port Buy/Sell Market, BE, Revert Buttons & Trading Logic from Trade Manager**:
@@ -280,9 +288,9 @@ graph TD
     - `SetBreakeven()` with underwater protective stop validation vs live price and existing stop order modification.
     - `RevertPosition()` position reversal via market-close followed by opposite market entry.
     - Added `BotBufferTicks` setting property (default: 2 ticks) to `Kat34Scalper.cs` under Group "5. Bot".
-  - Added pure logic functions `CalculateBreakevenPrice` and `IsStopOnValidSide` to `src/Kat34ScalperLogic.cs`.
-  - Added 8 unit tests in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs` (57/57 tests passing).
-  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Bot.cs`, `src/Kat34Scalper.Draw.cs`, `src/Kat34ScalperLogic.cs`, `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs`.
+  - Added pure logic functions `CalculateBreakevenPrice` and `IsStopOnValidSide` to `src/KatSignalCore.cs`.
+  - Added 8 unit tests in `tests/Kat34Scalper.Tests/KatSignalCoreTests.cs` (57/57 tests passing).
+  - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Bot.cs`, `src/Kat34Scalper.Draw.cs`, `src/KatSignalCore.cs`, `tests/Kat34Scalper.Tests/KatSignalCoreTests.cs`.
 
 ### [v0.56] — 2026-08-02
 - **Signal A0, A3, A4 Removal & Signal Numbering Enforcement**:
@@ -290,15 +298,15 @@ graph TD
   - Strictly preserved remaining signal names and numbers: `A1` (`A1 89-34`) and `A2` (`A2 34+8`).
   - Cleaned up HUD buttons in `src/Kat34Scalper.Draw.cs` (`secSignal`) to display only `A1 (89-34)` and `A2 (34+8)` buttons.
   - Simplified filter gating in `src/Kat34Scalper.Filter.cs` and `src/Kat34Scalper.Signal.cs`.
-  - Updated unit tests in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs` (49/49 tests passing).
+  - Updated unit tests in `tests/Kat34Scalper.Tests/KatSignalCoreTests.cs` (49/49 tests passing).
   - Graphify entity mapping: `Kat34Scalper.cs`, `src/Kat34Scalper.Signal.cs`, `src/Kat34Scalper.Signal.A1.cs`, `src/Kat34Scalper.Signal.A2.cs`, `src/Kat34Scalper.Filter.cs`, `src/Kat34Scalper.Bot.cs`, `src/Kat34Scalper.Draw.cs`.
 
 ### [v0.55] — 2026-08-02
 - **Close/Flatten Button in HUD**:
   - Added `Close/flatten` button in `src/Kat34Scalper.Draw.cs` (`BuildHud()`) underneath `BOT ON/OFF` button in `secBot` panel, styled using TradeManager design system (`height=33`, `fontSize=15`, background `#141414` / `Color.FromRgb(20,20,20)`).
   - Implemented `FlattenAllPositions()` and `IsActiveOrderState` in `src/Kat34Scalper.Bot.cs` to cancel working bot entries/OCO orders and market close open positions.
-  - Added pure logic helper `Kat34ScalperLogic.ShouldFlattenAccount` in `src/Kat34ScalperLogic.cs` with unit test in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs`.
-  - Graphify entity mapping: `Kat34Scalper.Draw.cs` (`BuildHud`, `btnClose`), `Kat34Scalper.Bot.cs` (`FlattenAllPositions`, `IsActiveOrderState`), `Kat34ScalperLogic.cs` (`ShouldFlattenAccount`).
+  - Added pure logic helper `KatSignalCore.ShouldFlattenAccount` in `src/KatSignalCore.cs` with unit test in `tests/Kat34Scalper.Tests/KatSignalCoreTests.cs`.
+  - Graphify entity mapping: `Kat34Scalper.Draw.cs` (`BuildHud`, `btnClose`), `Kat34Scalper.Bot.cs` (`FlattenAllPositions`, `IsActiveOrderState`), `KatSignalCore.cs` (`ShouldFlattenAccount`).
 
 ### [v0.54] — 2026-08-02
 - **Single Line HUD Status Slot**:
@@ -335,11 +343,11 @@ graph TD
   - Feature: Added Daily Max Drawdown (`Max DD`) and Daily Max Net Profit (`Max Profit`) protection buttons and calculation logic identical to `nt8-kat-TradeManager`.
   - HUD UI: Placed two side-by-side buttons (`Max DD: ON/OFF` and `Max Profit: ON/OFF`) directly below the `BOT ON/OFF` button in `secBot`, using matching dimensions (height 24, font size 10) and colors (`#2D3241` OFF, `#3A136B` ON).
   - Protection Logic:
-    - Pure calculations ported to `src/Kat34ScalperLogic.cs` (`GetNySessionStartUtc`, `ShouldCaptureSessionBaseline`, `EvaluateDailyRiskBreach`).
+    - Pure calculations ported to `src/KatSignalCore.cs` (`GetNySessionStartUtc`, `ShouldCaptureSessionBaseline`, `EvaluateDailyRiskBreach`).
     - PnL calculations and session baseline tracking added in `src/Kat34Scalper.Bot.cs` (`CalculateDailyPnL`, `IsDailyRiskBreached`, `EvaluateDailyRiskLimits`).
     - Order submission (`TrySubmitBotEntry` and `TrySubmitA4BotOcoEntries`) checks for daily risk breach and blocks new orders when breached. Pending bot orders are automatically cancelled when daily risk limit is hit.
-    - Added unit tests in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs`.
-- **Graphify entity mapping**: `Kat34ScalperLogic.EvaluateDailyRiskBreach/GetNySessionStartUtc/ShouldCaptureSessionBaseline`, `Kat34Scalper.DailyMaxDDEnabled/DailyMaxDD/DailyMaxProfitEnabled/DailyMaxProfit`, `Kat34Scalper.CalculateDailyPnL/IsDailyRiskBreached/EvaluateDailyRiskLimits`, `Kat34Scalper.Draw.cs` (`btnDailyMaxDD/btnDailyMaxProfit`).
+    - Added unit tests in `tests/Kat34Scalper.Tests/KatSignalCoreTests.cs`.
+- **Graphify entity mapping**: `KatSignalCore.EvaluateDailyRiskBreach/GetNySessionStartUtc/ShouldCaptureSessionBaseline`, `Kat34Scalper.DailyMaxDDEnabled/DailyMaxDD/DailyMaxProfitEnabled/DailyMaxProfit`, `Kat34Scalper.CalculateDailyPnL/IsDailyRiskBreached/EvaluateDailyRiskLimits`, `Kat34Scalper.Draw.cs` (`btnDailyMaxDD/btnDailyMaxProfit`).
 
 ### [v0.48] — 2026-08-02
 - **Selective Drawing Cleanup on A4 OCO Fill**:
@@ -360,10 +368,10 @@ graph TD
   - Root cause: `Kat34ScalperAtmParser` previously only extracted tick distances for StopLoss/Target/Triggers and skipped contract quantities (`EntryQuantity` / bracket `<Quantity>`). Order submission in `Kat34Scalper.Bot.cs` passed `BotOrderQuantity` (default 1) to `acc.CreateOrder(...)`. When `AtmStrategy.StartAtmStrategy(tpl, order)` was called, NT8 executed the entry order with its assigned quantity of 1 contract, ignoring contract quantities defined in the user's selected ATM template (e.g. 2ct, 3ct).
   - Fix:
     - Added `Quantity` field to `Kat34ScalperAtmData`.
-    - Updated `Kat34ScalperAtmParser.ParseDocument` in `src/Kat34ScalperLogic.cs` to extract `<EntryQuantity>` from `AtmStrategy` (or sum `<Quantity>` across `<Bracket>` elements under `<Brackets>`).
+    - Updated `Kat34ScalperAtmParser.ParseDocument` in `src/KatSignalCore.cs` to extract `<EntryQuantity>` from `AtmStrategy` (or sum `<Quantity>` across `<Bracket>` elements under `<Brackets>`).
     - Added `GetEffectiveBotQuantity()` helper in `src/Kat34Scalper.Bot.cs` to return `GetAtmData().Quantity` when an active ATM template defines contract quantity, falling back to `BotOrderQuantity`.
     - Updated `SubmitBotOrder` and `TrySubmitA4BotOcoEntries` to create orders with `GetEffectiveBotQuantity()`.
-    - Added unit test `Atm_ParseQuantity_ReadsEntryQuantityOrSumOfBrackets` in `tests/Kat34Scalper.Tests/Kat34ScalperLogicTests.cs`.
+    - Added unit test `Atm_ParseQuantity_ReadsEntryQuantityOrSumOfBrackets` in `tests/Kat34Scalper.Tests/KatSignalCoreTests.cs`.
 - **Graphify entity mapping**: `Kat34ScalperAtmData.Quantity`, `Kat34ScalperAtmParser.ParseDocument`, `Kat34Scalper.GetEffectiveBotQuantity`, `Kat34Scalper.SubmitBotOrder`, `Kat34Scalper.TrySubmitA4BotOcoEntries`.
 
 ### [v0.45] — 2026-08-02
@@ -402,13 +410,13 @@ graph TD
 
 ### [v0.40] — 2026-08-02
 - **Signal sub-module A4 (OCO Prev Bar) — new independent signal**: Always creates a BUY signal at previous bar High (`Highs[0][1] + Entry Offset`) and a SELL signal at previous bar Low (`Lows[0][1] - Entry Offset`).
-- **OCO Order Pair Execution & Limit Conversion**: Submits BUY and SELL entry orders simultaneously as an OCO (One-Cancels-Other) order pair when BOT is ON. When one order fills, the remaining active order is automatically cancelled via `ManageA4BotEntry()`. Converts pending StopMarket orders to Limit orders if market price has already run past the trigger price (`Kat34ScalperLogic.UseStopOrder`).
-- **Level Prioritization**: Maximum 1 BUY and 1 SELL signal simultaneously. Always prioritizes the **LOWEST** BUY level (`SelectA4BuyPrice`) and the **HIGHEST** SELL level (`SelectA4SellPrice`). Added 2 unit tests in `Kat34ScalperLogicTests.cs`.
+- **OCO Order Pair Execution & Limit Conversion**: Submits BUY and SELL entry orders simultaneously as an OCO (One-Cancels-Other) order pair when BOT is ON. When one order fills, the remaining active order is automatically cancelled via `ManageA4BotEntry()`. Converts pending StopMarket orders to Limit orders if market price has already run past the trigger price (`KatSignalCore.UseStopOrder`).
+- **Level Prioritization**: Maximum 1 BUY and 1 SELL signal simultaneously. Always prioritizes the **LOWEST** BUY level (`SelectA4BuyPrice`) and the **HIGHEST** SELL level (`SelectA4SellPrice`). Added 2 unit tests in `KatSignalCoreTests.cs`.
 - **New file `src/Kat34Scalper.Signal.A4.cs`**: `cachedA4`/`a4BackfillPending`, `SetA4Signal`, `EvaluateA4`, `ClearA4Drawings` (prefix `K34S_A4_`), `BackfillA4`.
 - **Settings group `3.7 Signal A4 — OCO Prev Bar`**: `A4Enabled` (false), `A4HistoryDays` (3), `A4EntryOffsetTicks` (1), `A4StopDistanceTicks` (60), `A4TargetDistanceTicks` (120). Main: defaults, DataLoaded cached/backfill wiring, DIAG print, `EvaluateA4` in the OnBarUpdate pipeline, `FlushBackfill` A4 branch, `RenderSignal` owner gate for A4.
 - **HUD**: Added `A4 OCO` toggle button in the SIGNAL section of the HUD.
 - **Validation**: 55/55 xunit tests passing; CompileCheck 0 errors; NT8 recompile via Deploy-NT8.ps1.
-- **Graphify entity mapping**: `Kat34ScalperLogic.SelectA4BuyPrice/SelectA4SellPrice`, `Kat34Scalper.Signal.A4.cs` (`SetA4Signal`, `EvaluateA4`, `ClearA4Drawings`, `BackfillA4`), `Kat34Scalper.A4Enabled/A4HistoryDays/A4EntryOffsetTicks/A4StopDistanceTicks/A4TargetDistanceTicks`, `TrySubmitA4BotOcoEntries`, `ManageA4BotEntry`, `FlushBackfill` (A4 branch), `RenderSignal` (A4 owner gate).
+- **Graphify entity mapping**: `KatSignalCore.SelectA4BuyPrice/SelectA4SellPrice`, `Kat34Scalper.Signal.A4.cs` (`SetA4Signal`, `EvaluateA4`, `ClearA4Drawings`, `BackfillA4`), `Kat34Scalper.A4Enabled/A4HistoryDays/A4EntryOffsetTicks/A4StopDistanceTicks/A4TargetDistanceTicks`, `TrySubmitA4BotOcoEntries`, `ManageA4BotEntry`, `FlushBackfill` (A4 branch), `RenderSignal` (A4 owner gate).
 
 ### [v0.39] — 2026-08-02
 
@@ -417,17 +425,17 @@ graph TD
 - **Graphify entity mapping**: `Kat34Scalper.SignalOwnerEnabled`, `Kat34Scalper.CancelSignalBotEntry`, `Kat34Scalper.TrySubmitBotEntry` (owner gate), `Kat34Scalper.ManageBotEntry` (owner gate on re-place), `SetA1Signal/SetA2Signal/SetA3Signal` (OFF cancels owned pending).
 
 ### [v0.38] — 2026-08-02
-- **Signal sub-module A3 (8cross34) — new independent signal**: EMA 8 cross EMA 34 → BUY (up) / SELL (down). Stateless single-bar event (no sequence, no stage markers, no filters) — simplest signal per user spec. New pure `Kat34ScalperLogic.CrossDirection(prevFast, prevSlow, fast, slow)` (+1/−1/0; equal on the previous bar = old side) with 4 unit tests. New file `src/Kat34Scalper.Signal.A3.cs`: `cachedA3`/`a3BackfillPending`, `SetA3Signal`, `EvaluateA3` (live bar: cross → `DrawSignal(..., owner:"A3")` with c1=c2=0 → entry falls back to the cross candle's high/low; opposite cross cancels an A3-owned pending bot order first — new entry submits once the old is terminal), `ClearA3Drawings` (prefix `K34S_A3_`), `BackfillA3` (replays the History Days window, counts cross signals; stateless → nothing to sync). EMA 34 = fixed `fanEmas[0][2]` (same independence-from-A1-periods rule as A2); warmup 35 bars.
+- **Signal sub-module A3 (8cross34) — new independent signal**: EMA 8 cross EMA 34 → BUY (up) / SELL (down). Stateless single-bar event (no sequence, no stage markers, no filters) — simplest signal per user spec. New pure `KatSignalCore.CrossDirection(prevFast, prevSlow, fast, slow)` (+1/−1/0; equal on the previous bar = old side) with 4 unit tests. New file `src/Kat34Scalper.Signal.A3.cs`: `cachedA3`/`a3BackfillPending`, `SetA3Signal`, `EvaluateA3` (live bar: cross → `DrawSignal(..., owner:"A3")` with c1=c2=0 → entry falls back to the cross candle's high/low; opposite cross cancels an A3-owned pending bot order first — new entry submits once the old is terminal), `ClearA3Drawings` (prefix `K34S_A3_`), `BackfillA3` (replays the History Days window, counts cross signals; stateless → nothing to sync). EMA 34 = fixed `fanEmas[0][2]` (same independence-from-A1-periods rule as A2); warmup 35 bars.
 - **Settings group `3.6 Signal A3 — 8cross34`**: `A3Enabled` (false), `A3HistoryDays` (3), `A3EntryOffsetTicks` (1), `A3StopDistanceTicks` (60), `A3TargetDistanceTicks` (120). Main: defaults, DataLoaded cached/backfill wiring, DIAG print, `EvaluateA3` in the OnBarUpdate pipeline (after A2), `FlushBackfill` A3 branch, `RenderSignal` owner gate for A3.
 - **HUD**: disabled `A3…` placeholder replaced with the real `A3 8x34` toggle.
 - **Validation**: 53/53 xunit; CompileCheck 0 errors (CS0436 warnings expected); NT8 recompile via Deploy-NT8.ps1.
-- **Graphify entity mapping**: `Kat34ScalperLogic.CrossDirection`, `Kat34Scalper.Signal.A3.cs` (`SetA3Signal`, `EvaluateA3`, `ClearA3Drawings`, `BackfillA3`, `A3WarmupBars`), `Kat34Scalper.A3Enabled/A3HistoryDays/A3EntryOffsetTicks/A3StopDistanceTicks/A3TargetDistanceTicks`, `FlushBackfill` (A3 branch), `RenderSignal` (A3 owner gate).
+- **Graphify entity mapping**: `KatSignalCore.CrossDirection`, `Kat34Scalper.Signal.A3.cs` (`SetA3Signal`, `EvaluateA3`, `ClearA3Drawings`, `BackfillA3`, `A3WarmupBars`), `Kat34Scalper.A3Enabled/A3HistoryDays/A3EntryOffsetTicks/A3StopDistanceTicks/A3TargetDistanceTicks`, `FlushBackfill` (A3 branch), `RenderSignal` (A3 owner gate).
 
 ### [v0.37] — 2026-08-02
 - **Trigger mode removed — A1 always fires on the U-turn close**: user asked to delete the Retest Bounce mode entirely ("mỗi strategy độc lập, không cần phân biệt mode"). Deleted: `Kat34ScalperTriggerMode` enum (main file), `KatTriggerMode` enum + `mode` parameter (Logic.Update), `ToLogicMode` (Signal.cs), the `Trigger Mode` setting, phase 3 retest-wait blocks in the state machine (were only reachable in RetestBounce), the `A1-U` phase marker branch, and the 2 retest xunit tests. A1 is now a pure 4-step sequence: arm → cross → touch ema89 → U-turn close fires immediately; C1 == C2 == U-turn bar extreme (the dual-candidate C2 tracking only existed for the retest wait). Docs updated (README, docs/SIGNALS.md: stage table + fire rules rewritten).
-- **ATM Quick Sets — 6 HUD buttons (TradeManager pattern)**: new settings group `6. ATM Quick Sets` with per-set `Set N Name` (label, normalized to ≤3 chars with letter fallback via new pure `Kat34ScalperLogic.NormalizeAtmSetName`, defaults A–F) and `Set N ATM` (template dropdown via existing `Kat34ScalperAtmTemplateConverter`, default empty). HUD BOT section: `atmCombo` promoted to field `atmComboBox`; a 6-column star grid (2 px gutters) of 22 px buttons sits under the ATM dropdown. `ApplyAtmSetSelection(idx)`: empty assignment → status hint; template not on disk → status hint; otherwise sets the dropdown SelectedIndex (its handler persists `cachedBotAtm` + `BotAtmTemplate`). `UpdateAtmSetButtons()` recolors: amber (180,90,20) ON when its ATM == current selection (case-insensitive, "None"/empty = all OFF), called on dropdown change, quick-set click and HUD build. 4 new normalize xunit tests.
+- **ATM Quick Sets — 6 HUD buttons (TradeManager pattern)**: new settings group `6. ATM Quick Sets` with per-set `Set N Name` (label, normalized to ≤3 chars with letter fallback via new pure `KatSignalCore.NormalizeAtmSetName`, defaults A–F) and `Set N ATM` (template dropdown via existing `Kat34ScalperAtmTemplateConverter`, default empty). HUD BOT section: `atmCombo` promoted to field `atmComboBox`; a 6-column star grid (2 px gutters) of 22 px buttons sits under the ATM dropdown. `ApplyAtmSetSelection(idx)`: empty assignment → status hint; template not on disk → status hint; otherwise sets the dropdown SelectedIndex (its handler persists `cachedBotAtm` + `BotAtmTemplate`). `UpdateAtmSetButtons()` recolors: amber (180,90,20) ON when its ATM == current selection (case-insensitive, "None"/empty = all OFF), called on dropdown change, quick-set click and HUD build. 4 new normalize xunit tests.
 - **Validation**: 49/49 xunit; CompileCheck 0 errors (CS0436 warnings expected); NT8 recompile via Deploy-NT8.ps1.
-- **Graphify entity mapping**: `Kat34ScalperLogic.Update` (mode-less), `Kat34ScalperLogic.NormalizeAtmSetName`, `KatA1State` (phases 0–2), `Kat34Scalper.AtmSet1Name–AtmSet6Name`/`AtmSet1Atm–AtmSet6Atm`, `Kat34Scalper.GetAtmSetTemplate/GetAtmSetName/ApplyAtmSetSelection/UpdateAtmSetButtons`, `atmComboBox`, `atmSetButtons`, `Kat34Scalper.DrawA1PhaseMarkerAt` (no phase-3).
+- **Graphify entity mapping**: `KatSignalCore.Update` (mode-less), `KatSignalCore.NormalizeAtmSetName`, `KatA1State` (phases 0–2), `Kat34Scalper.AtmSet1Name–AtmSet6Name`/`AtmSet1Atm–AtmSet6Atm`, `Kat34Scalper.GetAtmSetTemplate/GetAtmSetName/ApplyAtmSetSelection/UpdateAtmSetButtons`, `atmComboBox`, `atmSetButtons`, `Kat34Scalper.DrawA1PhaseMarkerAt` (no phase-3).
 
 ### [v0.36] — 2026-08-02
 - **A2 gate-transition diagnostics + replay counters**: user reported chart fully empty after v0.35 (no lines, no text). Trace/log showed no exception; v0.35 never touched the text path → the chart had zero A2 actions to draw (toggle reverted OFF on reload, setups legitimately cancelled, or no valid 34+++ stack in the window — indistinguishable from outside). New observability: `[Kat34Scalper][A2][GATE]` prints on every buy/sell trend-stack flip (live bar, Filter-[GATE] pattern: trends + active flags + raw ema values); `SetA2Signal` prints the toggle; backfill summary includes replay counters (`X entries, Y cancels, Z fills` — `a2ReplayEntries/Cancels/Fills` incremented in `A2HandleAction` during replay). Open New → NinjaScript Output to see exactly why A2 is silent.
@@ -442,13 +450,13 @@ graph TD
 ### [v0.34] — 2026-08-02
 - **Signal sub-module A2 (34+8+Bounce) — new independent signal**: pending stop entry on an EMA-34 bounce inside a stacked trend (BUY 34+++: `ema8 >= ema34` touch-allowed + `ema34 > ema89 > ema144 > ema200`; SELL mirrored; each condition a separate toggle in new group `3.5 Signal A2 — 34+8+Bounce`). Setup: pullback TOUCHES ema34 (wick) and closes on the trend side → pending stop at the touch candle's extreme ± `A2 Entry Offset` (buy: high + offset); later touch with a better extreme MIGRATES the entry (buy: lower high → move down); a higher high means the stop already filled (Filled check runs first: high >= RefExtreme + offset); close beyond ema34 or trend loss CANCELS the entry. Touch candle closing beyond ema34 never places an entry. New fixed `ema8` series (fanEmas starts at 9); ema34/89/144/200 read from `fanEmas[0][2/4/5/6]` so A2 ignores A1's configurable periods. Warmup = 200 bars.
 - **No stage markers per user spec** (single-phase signal): drawings = entry/SL/TP lines (shared pipeline) + `Buy A2` below the entry candle (Buy Text Color) / `Sell A2` above (Sell Text Color), tag `K34S_A2_TX_<B/S>_<bar>`; migration moves lines + label to the new candle; cancel removes them; fill lets lines fade per `Line Length`. Ownership prefix `K34S_A2_` + records owner `A2`; OFF removes only its own. No filters gate A2 yet (higher-TF filters deferred to the Filter section).
-- **Pure logic**: `KatA2Action` (None/NewEntry/Migrate/Cancel/Filled), `KatA2State` (Active + RefExtreme, Reset/CopyFrom), `Kat34ScalperLogic.UpdateA2` (check order: Filled → Cancel → touch NewEntry/Migrate). 12 unit tests + 3 synthetic-series BACKTEST replays asserting exact per-bar action sequences (buy run touch→migrate→fill; cancel→re-entry→fill; sell trend-loss cancel→re-entry→migrate→fill).
+- **Pure logic**: `KatA2Action` (None/NewEntry/Migrate/Cancel/Filled), `KatA2State` (Active + RefExtreme, Reset/CopyFrom), `KatSignalCore.UpdateA2` (check order: Filled → Cancel → touch NewEntry/Migrate). 12 unit tests + 3 synthetic-series BACKTEST replays asserting exact per-bar action sequences (buy run touch→migrate→fill; cancel→re-entry→fill; sell trend-loss cancel→re-entry→migrate→fill).
 - **Draw pipeline shared**: `DrawSignal` now returns the `KatSignalRecord`; level math extracted to `FillSignalRecord` (A2 migration reuses it after `RemoveSignalRecordDrawings`); new `RemoveSignalRecord` helper; `RenderSignal` owner gate extended to A2.
 - **Bot owner tracking**: `TrySubmitBotEntry`/`SubmitBotOrder` take explicit `offsetTicks` + `owner`; new fields `pendingOrderOwner`/`pendingOffsetTicks` (migration re-place reuses both) — bot entry price now matches each signal's drawn entry line; `CancelA2BotEntry` cancels only A2-owned pendings on the matching side.
 - **HUD**: SIGNAL section row 2: real `A2 34+8` toggle (SetA2Signal, backfill on ON / ClearA2Drawings on OFF) replaces the disabled `A2…` placeholder; `A3…` stays.
 - **docs/SIGNALS.md**: A2 section per template (cond stack with per-condition toggles, state table idle/pending, check order, fire rules, drawing/ownership).
 - **Validation**: 47/47 xunit; CompileCheck 0 errors (CS0436 warnings expected); NT8 recompile via Deploy-NT8.ps1.
-- **Graphify entity mapping**: `Kat34ScalperLogic.UpdateA2`, `KatA2State`, `KatA2Action`, `Kat34Scalper.Signal.A2.cs` (`SetA2Signal`, `EvaluateA2`, `RunA2Bar`, `A2HandleAction`, `DrawA2Text`, `ClearA2Drawings`, `CancelA2BotEntry`, `BackfillA2`, `A2BuyTrendOk`/`A2SellTrendOk`, `ema8`), `Kat34Scalper.Draw.cs` (`DrawSignal` return, `FillSignalRecord`, `RemoveSignalRecord(Drawings)`, `RenderSignal` owner gate), `Kat34Scalper.Bot.cs` (`pendingOrderOwner`, `pendingOffsetTicks`), A2 settings group properties.
+- **Graphify entity mapping**: `KatSignalCore.UpdateA2`, `KatA2State`, `KatA2Action`, `Kat34Scalper.Signal.A2.cs` (`SetA2Signal`, `EvaluateA2`, `RunA2Bar`, `A2HandleAction`, `DrawA2Text`, `ClearA2Drawings`, `CancelA2BotEntry`, `BackfillA2`, `A2BuyTrendOk`/`A2SellTrendOk`, `ema8`), `Kat34Scalper.Draw.cs` (`DrawSignal` return, `FillSignalRecord`, `RemoveSignalRecord(Drawings)`, `RenderSignal` owner gate), `Kat34Scalper.Bot.cs` (`pendingOrderOwner`, `pendingOffsetTicks`), A2 settings group properties.
 
 ### [v0.33] — 2026-08-02
 - **A0 fan filter gate removed**: `FanFilterEnabled` no longer gates A1 signals (A0 signal still computes + draws its fan markers independently). FILTER HUD section: A0 Fan toggle gone; MTF/ADX/Volume/Time remain.
@@ -469,7 +477,7 @@ graph TD
 
 - **Graphify entity mapping**: `Kat34Scalper.Signal.A0.cs` (`SetA0Signal`, `EvaluateA0Fan`, `BackfillA0`, `a0BackfillPending`), `Kat34Scalper.Signal.A1.cs` (`SetA1Signal`, `EvaluateA1`, `DrawA1PhaseMarkerAt`, `BackfillA1`), `Kat34Scalper.Signal.cs` (`FlushBackfill`, `FindHistoryStartBarsAgo`), `Kat34Scalper.Filter.cs` (`PassFiltersAt`, `SeriesFanDirectionAt`, `MtfPassAt`, `MarketPassAt`, `TimePassAt`), `KatA1State.CopyFrom`, `Kat34Scalper.FanFilterEnabled` (session-only, gate removed), `Kat34Scalper.A0Enabled/A1Enabled/A0HistoryDays/A1HistoryDays`, `Kat34Scalper.BotAccountName` (Sim101), `Kat34Scalper.RemoveModuleDrawings/ClearA1Drawings/ClearOldSignalDrawings`, `Kat34Scalper.DrawSignal` (replay + owner), `KatSignalRecord.Owner`, `SignalTag`, `RenderSignal` (owner guard).
 - **Default TriggerMode → Breakdown**: `Kat34ScalperTriggerMode.RetestBounce` → `Breakdown` in `SetDefaults`. Breakdown fires immediately on the U-turn close (4-step sequence: arm → cross → touch ema89 → U-turn), instead of waiting for an extra retest close back through ema34 (5-step). More signals fire on real data — the retest wait was the step that most often expired inside `Max Sequence Bars` (30) on 30s charts.
-- **A1 phase markers rebuilt to milestones (persistent on history)**: the v0.30 live marker reused one tag per side and redrew it every bar at `barsAgo=0`, so only the latest bar carried the label — historical bars showed nothing. Replaced with `DrawA1PhaseMarker` drawing a unique tag per bar (`K34S_A1ST_B/S_<bar>`) at every phase transition and at the ema89 touch, so each milestone persists on chart history. Labels: `A1-arm` / `A1-pull` / `A1-pull-T` (touched ema89) / `A1-U` (RetestBounce phase 3 only). Buy markers below the low, sell above the high (same offset as arrows). Touch tracked via new `sellTouchedBefore`/`buyTouchedBefore` captures around `Kat34ScalperLogic.Update`.
+- **A1 phase markers rebuilt to milestones (persistent on history)**: the v0.30 live marker reused one tag per side and redrew it every bar at `barsAgo=0`, so only the latest bar carried the label — historical bars showed nothing. Replaced with `DrawA1PhaseMarker` drawing a unique tag per bar (`K34S_A1ST_B/S_<bar>`) at every phase transition and at the ema89 touch, so each milestone persists on chart history. Labels: `A1-arm` / `A1-pull` / `A1-pull-T` (touched ema89) / `A1-U` (RetestBounce phase 3 only). Buy markers below the low, sell above the high (same offset as arrows). Touch tracked via new `sellTouchedBefore`/`buyTouchedBefore` captures around `KatSignalCore.Update`.
 - **Validation**: 35/35 xunit; CompileCheck 0 errors; NT8 live recompile after deploy.
 - **Graphify entity mapping**: `Kat34Scalper.TriggerMode` (default Breakdown), `Kat34Scalper.EvaluateA1` (touchedBefore capture + milestone draw calls), `Kat34Scalper.DrawA1PhaseMarker`.
 ### [v0.30] — 2026-08-02
@@ -484,8 +492,8 @@ graph TD
 - **Defaults/docs**: all filter gates remain OFF by default; source and README explicitly distinguish A0 signal output from the A1 fan filter.
 - **Graphify entity mapping**: `Kat34Scalper.EvaluateA0Fan`, `Kat34Scalper.PassFilters`, `Kat34Scalper.BuildHud`, `Kat34Scalper.FanFilterEnabled`.
 ### [v0.28] — 2026-08-02
-- **A1 progression bug fixed**: `EvaluateA1` previously skipped `Kat34ScalperLogic.Update` whenever A0/fan filters returned `sellAllowed=false` or `buyAllowed=false`. A normal EMA pullback collapses the ribbon, so A1 froze before touch/U-turn and could never reach `DrawSignal`. Both A1 state machines now advance on every primary bar while 34/89 trend is valid; enabled filters gate completed signal emission.
-- **Graphify entity mapping**: `Kat34Scalper.EvaluateA1`, `Kat34ScalperLogic.Update`, `Kat34Scalper.DrawSignal`.
+- **A1 progression bug fixed**: `EvaluateA1` previously skipped `KatSignalCore.Update` whenever A0/fan filters returned `sellAllowed=false` or `buyAllowed=false`. A normal EMA pullback collapses the ribbon, so A1 froze before touch/U-turn and could never reach `DrawSignal`. Both A1 state machines now advance on every primary bar while 34/89 trend is valid; enabled filters gate completed signal emission.
+- **Graphify entity mapping**: `Kat34Scalper.EvaluateA1`, `KatSignalCore.Update`, `Kat34Scalper.DrawSignal`.
 ### [v0.27] — 2026-08-02
 - **Runtime diagnosis**: NinjaScript Output/trace had no A1 signal or draw entries, so static inspection could not distinguish “A1 never fires” from “Draw API rejects object”. Added low-noise `[DIAG]`, `[GATE]`, `[A1]`, and `[DRAW]` prints for config, gate transitions, state-machine phase transitions, signal results, and stored draw records.
 - **Graphify entity mapping**: `Kat34Scalper.PassFilters`, `Kat34Scalper.EvaluateA1`, `Kat34Scalper.DrawSignal`, `Kat34Scalper.RenderSignal`, diagnostic state fields.
@@ -525,9 +533,9 @@ graph TD
 - **Deploy workflow hardening**: `scripts/Deploy-NT8.ps1` now supports non-strict verification mode by default (still checks recompile), prints focused trace/log hints on timeout, and keeps strict CI-like behavior available via `-FailOnMissingRecompile`.
 - **Test coverage improved**: added boundary tests for time window semantics (start inclusive, end exclusive) and stop-vs-limit decision when trigger equals market price.
 - **Validation**: 35/35 xunit tests; CompileCheck 0 errors.
-- **Graphify entity mapping**: `Kat34Scalper.pendingOrderAccount`, `Kat34Scalper.SubmitBotOrder` (owner-account capture + ATM existence reuse), `Kat34Scalper.ManageBotEntry` (owner-account cleanup), `Kat34Scalper.CancelPendingBotOrder` (owner-account cancel path), `Kat34Scalper.BuildHud` (ATM fallback sync), `Kat34ScalperLogicTests.Time_StartInclusive_EndExclusive_Boundaries`, `Kat34ScalperLogicTests.BotEntry_TriggerEqualsMarket_UsesLimit_BothSides`, `scripts/Deploy-NT8.ps1` (`-FailOnMissingRecompile`, timeout diagnostics).
+- **Graphify entity mapping**: `Kat34Scalper.pendingOrderAccount`, `Kat34Scalper.SubmitBotOrder` (owner-account capture + ATM existence reuse), `Kat34Scalper.ManageBotEntry` (owner-account cleanup), `Kat34Scalper.CancelPendingBotOrder` (owner-account cancel path), `Kat34Scalper.BuildHud` (ATM fallback sync), `KatSignalCoreTests.Time_StartInclusive_EndExclusive_Boundaries`, `KatSignalCoreTests.BotEntry_TriggerEqualsMarket_UsesLimit_BothSides`, `scripts/Deploy-NT8.ps1` (`-FailOnMissingRecompile`, timeout diagnostics).
 ### [v0.20] — 2026-08-02
-- **Project renamed: Kat8934 → Kat 34 Scalper**. Every occurrence updated: class `Kat34Scalper` (namespace `NinjaTrader.NinjaScript.Indicators.KAT` — still the KAT folder in NT8), pure namespace `Kat34Scalper`, all types (`Kat34ScalperLogic`, `Kat34ScalperTriggerMode`, `Kat34ScalperAtmParser`, `Kat34ScalperAtmData`, converters), indicator `Name`, version label, HUD title (`⚡ KAT 34 SCALPER`), Print prefixes, draw-object tags (`K8934_*` → `K34S_*`), file names (`Kat34Scalper.cs`, `src/Kat34Scalper{Logic,.Signal,.Filter,.Bot,.Draw}.cs`, `tests/Kat34Scalper.Tests`), build/deploy scripts, README/AGENTS/RULES, local repo folder (`nt8-kat-34-scalper`) and the GitHub repo. DIARY/RELEASE_NOTES history entries keep the old name (historical record).
+- **Project renamed: Kat8934 → Kat 34 Scalper**. Every occurrence updated: class `Kat34Scalper` (namespace `NinjaTrader.NinjaScript.Indicators.KAT` — still the KAT folder in NT8), pure namespace `Kat34Scalper`, all types (`KatSignalCore`, `Kat34ScalperTriggerMode`, `Kat34ScalperAtmParser`, `Kat34ScalperAtmData`, converters), indicator `Name`, version label, HUD title (`⚡ KAT 34 SCALPER`), Print prefixes, draw-object tags (`K8934_*` → `K34S_*`), file names (`Kat34Scalper.cs`, `src/Kat34Scalper{Logic,.Signal,.Filter,.Bot,.Draw}.cs`, `tests/Kat34Scalper.Tests`), build/deploy scripts, README/AGENTS/RULES, local repo folder (`nt8-kat-34-scalper`) and the GitHub repo. DIARY/RELEASE_NOTES history entries keep the old name (historical record).
 - **NT8 migration**: `Deploy-NT8.ps1` now deletes legacy `Kat8934*.cs` from the Indicators folder (stale files would keep the old indicator alive next to the new one). NT8 sees `Kat34Scalper` as a NEW indicator — charts that had `Kat8934` must re-add it (old settings in saved workspaces do not carry over).
 - **Validation**: 33/33 xunit tests; CompileCheck 0 errors.
 - **Graphify entity mapping**: all `Kat34Scalper*` entities (rename of every `Kat8934*` node).

@@ -1,12 +1,12 @@
-/* Kat34ScalperLogic.cs - pure signal state machine + ATM template parser, zero NT8 dependencies (unit-testable). */
+/* KatSignalCore.cs - pure signal state machine + ATM template parser, zero NT8 dependencies (unit-testable). */
 
 using System;
 using System.IO;
 using System.Xml;
 
-namespace Kat34Scalper
+namespace KAT.Signals
 {
-	public static class Kat34ScalperLogic
+	public static class KatSignalCore
 	{
 		/// <summary>Close/flatten has work to do only if the account has working orders or an open position.</summary>
 		public static bool ShouldFlattenAccount(bool hasWorkingOrders, bool hasOpenPosition)

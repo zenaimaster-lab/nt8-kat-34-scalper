@@ -43,9 +43,11 @@ On every code change, BEFORE closing session:
    - `DIARY.md`: new version history entry
 4. **Update Graphify**: run `graphify update .`
 5. **Update Diary**: add entry with timestamp, changes summary, Graphify entity mapping.
-6. **Deploy NT8 (MANDATORY FULL SYNC)**: copy ALL source `.cs` files (`Kat34Scalper.cs` AND `src/*.cs`) to `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\` with force overwrite (`scripts\Deploy-NT8.ps1` does this + verifies recompile):
+6. **Deploy NT8 (MANDATORY FULL SYNC)**: copy ALL source `.cs` files (`Kat34Scalper.cs`, `KatSignal*.cs`, AND `src/*.cs`) to `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\` with force overwrite (`scripts\Deploy-NT8.ps1` does this + verifies recompile):
    - `Kat34Scalper.cs` (main: lifecycle, settings, orchestration)
-   - `src\Kat34ScalperLogic.cs` (pure logic, xunit-tested)
+   - `KatSignalA1.cs` / `KatSignalA2.cs` / `KatSignalB1.cs` / `KatSignalB2.cs` (standalone chart-loadable signal indicators)
+   - `src\KatSignalCore.cs` (pure logic, xunit-tested)
+   - `src\KatSignalState.cs` (pure signal enums/state)
    - `src\Kat34Scalper.Signal.cs` (Signal shared helpers: backfill window, FlushBackfill)
    - `src\Kat34Scalper.Signal.A0.cs` / `.A1.cs` / `.A2.cs` / `.A3.cs` (independent signal sub-modules)
    - `src\Kat34Scalper.Filter.cs` (Filter module: MTF, ADX, Volume, Time)
@@ -57,11 +59,11 @@ On every code change, BEFORE closing session:
    - `git push origin main`
 
 ## Verification Layers (run `pwsh scripts/Run-AllChecks.ps1`)
-1. xunit suite: `dotnet test tests\Kat34Scalper.Tests` — pure logic `src\Kat34ScalperLogic.cs`.
+1. xunit suite: `dotnet test tests\Kat34Scalper.Tests` — pure logic `src\KatSignalCore.cs`.
 2. Compile gate: `dotnet build tools\CompileCheck` — net48 + NT8 assemblies, mirrors NT8 Roslyn compile.
 3. Live NT8 recompile after deploy (Deploy-NT8.ps1 checks NinjaTrader.Custom.dll timestamp).
 
 ## Version Tracking
 - Code versions: Kat34Scalper.cs VERSION constant
 - Doc versions: README.md, DIARY.md
-- **Current: v0.79 (2026-08-04)**
+- **Current: v1.02 (2026-08-05)**

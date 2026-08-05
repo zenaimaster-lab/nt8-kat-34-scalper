@@ -15,7 +15,7 @@ using System.Linq;
 using System.Windows.Media;
 using NinjaTrader.Cbi;
 using NinjaTrader.NinjaScript;
-using Kat34Scalper;
+using KAT.Signals;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
@@ -57,7 +57,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			Account acc = ResolveBotAccount();
 			if (acc == null) return 0;
 
-			DateTime currentSessionStartUtc = Kat34ScalperLogic.GetNySessionStartUtc(DateTime.UtcNow);
+			DateTime currentSessionStartUtc = KatSignalCore.GetNySessionStartUtc(DateTime.UtcNow);
 			double currentRealizedPnL = 0;
 			bool realizedReadOk;
 			try
@@ -70,7 +70,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				realizedReadOk = false;
 			}
 
-			if (Kat34ScalperLogic.ShouldCaptureSessionBaseline(isSessionStartCaptured, currentSessionStartUtc, lastSessionStartUtc, realizedReadOk))
+			if (KatSignalCore.ShouldCaptureSessionBaseline(isSessionStartCaptured, currentSessionStartUtc, lastSessionStartUtc, realizedReadOk))
 			{
 				lastSessionStartUtc = currentSessionStartUtc;
 				sessionStartRealizedPnL = currentRealizedPnL;
@@ -96,7 +96,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			double dailyPnL = CalculateDailyPnL();
 
-			return Kat34ScalperLogic.EvaluateDailyRiskBreach(
+			return KatSignalCore.EvaluateDailyRiskBreach(
 				cachedIsDailyMaxDD, cachedDailyMaxDD,
 				cachedIsDailyMaxProfit, cachedDailyMaxProfit,
 				dailyPnL, out breachReason);
@@ -245,7 +245,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			double entryPrice = isBuy
 				? refExtreme + offsetTicks * TickSize
 				: refExtreme - offsetTicks * TickSize;
-			bool useStop = Kat34ScalperLogic.UseStopOrder(isBuy, entryPrice, Closes[0][0]);
+			bool useStop = KatSignalCore.UseStopOrder(isBuy, entryPrice, Closes[0][0]);
 			int qty = GetEffectiveBotQuantity();
 			try
 			{
@@ -628,12 +628,12 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 				double tickSize = Instrument.MasterInstrument.TickSize;
 				bool isLong = pos.MarketPosition == MarketPosition.Long;
-				double bePrice = Kat34ScalperLogic.CalculateBreakevenPrice(isLong, pos.AveragePrice, cachedBotBufferTicks, tickSize);
+				double bePrice = KatSignalCore.CalculateBreakevenPrice(isLong, pos.AveragePrice, cachedBotBufferTicks, tickSize);
 
 				// Underwater check: BE stop on wrong side of market → broker rejection
 				double livePrice = 0;
 				try { livePrice = Closes[0][0]; } catch { }
-				if (livePrice > 0 && !Kat34ScalperLogic.IsStopOnValidSide(isLong, bePrice, livePrice))
+				if (livePrice > 0 && !KatSignalCore.IsStopOnValidSide(isLong, bePrice, livePrice))
 				{
 					Print(string.Format("[Kat34Scalper] BE skipped: stop {0} invalid vs market {1}.", bePrice, livePrice));
 					ShowHudStatus(string.Format("BE skipped: stop {0} invalid", bePrice), Brushes.OrangeRed);
@@ -1018,7 +1018,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 						? -1
 						: (DateTime.UtcNow - lastActivity).TotalMilliseconds;
 
-					if (Kat34ScalperLogic.ShouldDeferAtmFlatCleanup(
+					if (KatSignalCore.ShouldDeferAtmFlatCleanup(
 						startupPending,
 						false,
 						wasPositionConfirmed,

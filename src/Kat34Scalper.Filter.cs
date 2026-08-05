@@ -12,7 +12,7 @@
 #region Using declarations
 using System;
 using NinjaTrader.NinjaScript;
-using Kat34Scalper;
+using KAT.Signals;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (cachedAdxRise && (adxInd == null || CurrentBars[0] < barsAgo + riseBars || adxInd[barsAgo] <= adxInd[barsAgo + riseBars])) return false;
 			if (cachedAdxMtf && !AdxMtfPassAt(barsAgo)) return false;
 			double volSma = cachedVol && volSmaInd != null ? volSmaInd[barsAgo] : 0;
-			if (!Kat34ScalperLogic.PassMarketFilter(0, 0, Volumes[0][barsAgo], volSma, VolumeMinMult)) return false;
+			if (!KatSignalCore.PassMarketFilter(0, 0, Volumes[0][barsAgo], volSma, VolumeMinMult)) return false;
 			return true;
 		}
 
@@ -70,7 +70,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (CurrentBars[0] < barsAgo + n) return false;
 			double[] closes = new double[n];
 			for (int i = 0; i < n; i++) closes[i] = Closes[0][barsAgo + n - 1 - i];
-			return Kat34ScalperLogic.EfficiencyRatio(closes) >= ErMin;
+			return KatSignalCore.EfficiencyRatio(closes) >= ErMin;
 		}
 
 		// Choppiness Index over the last CiPeriod bars ending at barsAgo (closes carry one extra prior bar).
@@ -88,13 +88,13 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				lows[i] = Lows[0][barsAgo + n - 1 - i];
 				closes[i + 1] = Closes[0][barsAgo + n - 1 - i];
 			}
-			return Kat34ScalperLogic.ChoppinessIndex(highs, lows, closes) <= CiMax;
+			return KatSignalCore.ChoppinessIndex(highs, lows, closes) <= CiMax;
 		}
 
 		private bool TimePassAt(int barsAgo)
 		{
 			if (!cachedTime || timeWindowDisabled) return true;
-			return Kat34ScalperLogic.IsInTimeWindow(Times[0][barsAgo].TimeOfDay, timeStart, timeEnd);
+			return KatSignalCore.IsInTimeWindow(Times[0][barsAgo].TimeOfDay, timeStart, timeEnd);
 		}
 
 		// ADX regime gate on the dedicated MTF series (BarsArray[2]): the most recent MTF bar CLOSED
@@ -102,8 +102,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private bool AdxMtfPassAt(int barsAgo)
 		{
 			if (adxMtfInd == null || CurrentBars == null || CurrentBars.Length < 3 || CurrentBars[2] < 1) return true;
-			DateTime cutoff = Kat34ScalperLogic.ClosedBarCutoff(Times[0][barsAgo], SeriesPeriodSeconds(0), SeriesPeriodSeconds(2));
-			int idx = Kat34ScalperLogic.BarsAgoAtOrBefore(i => Times[2][i], CurrentBars[2], cutoff);
+			DateTime cutoff = KatSignalCore.ClosedBarCutoff(Times[0][barsAgo], SeriesPeriodSeconds(0), SeriesPeriodSeconds(2));
+			int idx = KatSignalCore.BarsAgoAtOrBefore(i => Times[2][i], CurrentBars[2], cutoff);
 			if (idx < 0) return true; // MTF series starts after the bar — warmup, gate open
 			return adxMtfInd[idx] >= AdxMtfMin;
 		}

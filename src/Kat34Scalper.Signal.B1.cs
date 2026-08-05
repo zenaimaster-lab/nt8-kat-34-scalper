@@ -11,7 +11,7 @@ using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
-using Kat34Scalper;
+using KAT.Signals;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
@@ -62,7 +62,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				bool sellAllowed, buyAllowed;
 				PassFiltersAt(ago, out sellAllowed, out buyAllowed);
-				int dir = Kat34ScalperLogic.B1Direction(
+				int dir = KatSignalCore.B1Direction(
 					B1CondEma8Above34, B1CondEma34Above89, B1CondEma89Above144, B1CondEma144Above200,
 					ema8[ago], fastEma[ago], slowEma[ago], ema144[ago], ema200[ago], 0.10);
 
@@ -90,7 +90,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			bool a1LongAllows = !cachedAlertA1 || a1LastDir > 0;
 			bool a1ShortAllows = !cachedAlertA1 || a1LastDir < 0;
-			int dir = Kat34ScalperLogic.B1Direction(
+			int dir = KatSignalCore.B1Direction(
 				B1CondEma8Above34, B1CondEma34Above89, B1CondEma89Above144, B1CondEma144Above200,
 				ema8[0], fastEma[0], slowEma[0], ema144[0], ema200[0], 0.10);
 

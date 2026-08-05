@@ -16,7 +16,7 @@ using NinjaTrader.Data;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.Indicators;
 using NinjaTrader.NinjaScript.DrawingTools;
-using Kat34Scalper;
+using KAT.Signals;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
@@ -88,7 +88,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (CurrentBars == null || CurrentBars[0] < 100) return;
 			if (b2Ema34 == null || b2Ema89 == null) return;
 
-			int dir = Kat34ScalperLogic.B2Direction(b2Ema34[0], b2Ema89[0], b2Ema89[1]);
+			int dir = KatSignalCore.B2Direction(b2Ema34[0], b2Ema89[0], b2Ema89[1]);
 
 			if (dir != 0)
 			{
@@ -104,7 +104,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (start < 0) return;
 			for (int ago = start; ago >= 1; ago--)
 			{
-				int dir = Kat34ScalperLogic.B2Direction(b2Ema34[ago], b2Ema89[ago], b2Ema89[ago + 1]);
+				int dir = KatSignalCore.B2Direction(b2Ema34[ago], b2Ema89[ago], b2Ema89[ago + 1]);
 				if (dir != 0)
 				{
 					Draw.VerticalLine(this, string.Format("K34S_B2_BF_{0}", CurrentBars[0] - ago), Times[0][ago], dir > 0 ? Brushes.DodgerBlue : Brushes.Magenta, DashStyleHelper.Dash, 1);

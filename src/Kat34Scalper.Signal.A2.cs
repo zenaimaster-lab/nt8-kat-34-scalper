@@ -9,7 +9,7 @@ using System.Windows.Media;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
-using Kat34Scalper;
+using KAT.Signals;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
@@ -54,7 +54,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (a2Ema8 == null || a2Ema34 == null || a2Ema89 == null || a2Ema144 == null || a2Ema200 == null || a2Atr == null) return;
 
 			int rawDir = AlertA2DirectionAt(0, out double angle);
-			int dir = Kat34ScalperLogic.A1DebouncedDir(rawDir, a2LastDir, a2InvalidStreak, 3);
+			int dir = KatSignalCore.A1DebouncedDir(rawDir, a2LastDir, a2InvalidStreak, 3);
 			if (Highs[AlertA2SeriesIndex][0] > a2BandHi) a2BandHi = Highs[AlertA2SeriesIndex][0];
 			if (Lows[AlertA2SeriesIndex][0] < a2BandLo) a2BandLo = Lows[AlertA2SeriesIndex][0];
 			if (dir != a2PrevDir)
@@ -72,7 +72,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				DrawAlertA2Band(a2BandDir, a2BandStartIdx, CurrentBars[AlertA2SeriesIndex], a2BandHi, a2BandLo);
 			}
 
-			bool fired = Kat34ScalperLogic.A1EdgeStep(rawDir, a2LastDir, a2InvalidStreak, 3, out a2LastDir, out a2InvalidStreak);
+			bool fired = KatSignalCore.A1EdgeStep(rawDir, a2LastDir, a2InvalidStreak, 3, out a2LastDir, out a2InvalidStreak);
 			if (fired)
 			{
 				DrawAlertA2Line(a2LastDir, 0);
@@ -87,8 +87,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private int AlertA2DirectionAt(int ago, out double angle)
 		{
-			angle = Kat34ScalperLogic.SlopeAngleDeg(a2Ema34[ago], a2Ema34[ago + 1], a2Atr[ago]);
-			return Kat34ScalperLogic.A1Direction(
+			angle = KatSignalCore.SlopeAngleDeg(a2Ema34[ago], a2Ema34[ago + 1], a2Atr[ago]);
+			return KatSignalCore.A1Direction(
 				true, true, true, true, true,
 				a2Ema8[ago], a2Ema34[ago], a2Ema89[ago], a2Ema144[ago], a2Ema200[ago],
 				angle, 5.0);
@@ -124,7 +124,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			for (int ago = start; ago >= 1; ago--)
 			{
 				int rawDir = AlertA2DirectionAt(ago, out _);
-				int dir = Kat34ScalperLogic.A1DebouncedDir(rawDir, lastDir, invalidStreak, 3);
+				int dir = KatSignalCore.A1DebouncedDir(rawDir, lastDir, invalidStreak, 3);
 				if (dir != bandDir)
 				{
 					DrawAlertA2Band(bandDir, bandStartIdx, CurrentBars[AlertA2SeriesIndex] - ago, hi, lo);
@@ -132,7 +132,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					bandDir = dir;
 					bandStartIdx = CurrentBars[AlertA2SeriesIndex] - ago;
 				}
-				bool fired = Kat34ScalperLogic.A1EdgeStep(rawDir, lastDir, invalidStreak, 3, out lastDir, out invalidStreak);
+				bool fired = KatSignalCore.A1EdgeStep(rawDir, lastDir, invalidStreak, 3, out lastDir, out invalidStreak);
 				if (fired)
 				{
 					DrawAlertA2Line(lastDir, ago);
@@ -189,7 +189,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private void DrawAlertA2Band(int dir, int startIdx, int endIdx, double hi, double lo)
 		{
-			if (!Kat34ScalperLogic.EnvBandAnchors(dir, startIdx, endIdx, hi, lo, CurrentBars[AlertA2SeriesIndex], out int agoStart, out int agoEnd)) return;
+			if (!KatSignalCore.EnvBandAnchors(dir, startIdx, endIdx, hi, lo, CurrentBars[AlertA2SeriesIndex], out int agoStart, out int agoEnd)) return;
 			Brush area = new SolidColorBrush(dir > 0 ? Colors.DodgerBlue : Colors.OrangeRed);
 			string tag = string.Format("K34S_ALERTA2_BAND_{0}_{1}", dir > 0 ? "B" : "S", startIdx);
 			Draw.Rectangle(this, tag, false, Times[AlertA2SeriesIndex][agoStart], hi, Times[AlertA2SeriesIndex][agoEnd], lo, Brushes.Transparent, area, 8);

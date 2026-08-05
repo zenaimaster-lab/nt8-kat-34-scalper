@@ -16,7 +16,7 @@ using NinjaTrader.Data;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.Indicators;
 using NinjaTrader.NinjaScript.DrawingTools;
-using Kat34Scalper;
+using KAT.Signals;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
@@ -92,7 +92,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (CurrentBars == null || CurrentBars[0] < 100) return;
 			if (b1Ema8 == null || b1Ema34 == null || b1Ema89 == null) return;
 
-			int dir = Kat34ScalperLogic.B1Direction(true, true, false, false,
+			int dir = KatSignalCore.B1Direction(true, true, false, false,
 				b1Ema8[0], b1Ema34[0], b1Ema89[0], 0, 0, 0.10);
 
 			if (dir != 0)
@@ -109,7 +109,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (start < 0) return;
 			for (int ago = start; ago >= 0; ago--)
 			{
-				int dir = Kat34ScalperLogic.B1Direction(true, true, false, false,
+				int dir = KatSignalCore.B1Direction(true, true, false, false,
 					b1Ema8[ago], b1Ema34[ago], b1Ema89[ago], 0, 0, 0.10);
 				if (dir != 0)
 				{

@@ -1,8 +1,8 @@
-/* Kat34Scalper.State.cs - standalone signal state enums (prevent NT8 DLL conflicts). */
+/* KatSignalState.cs - standalone signal state enums (prevent NT8 DLL conflicts). */
 
 using System;
 
-namespace Kat34Scalper
+namespace KAT.Signals
 {
 	public enum KatSignalKind
 	{

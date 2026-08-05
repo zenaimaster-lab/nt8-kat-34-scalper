@@ -19,7 +19,7 @@ using System.Windows.Media;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
-using Kat34Scalper;
+using KAT.Signals;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.KAT
@@ -67,7 +67,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 			int rawDir = AlertA1DirectionAt(0, out double angle);
 			if (rawDir != 0 && !EmaZonePassAt(0, rawDir)) rawDir = 0;
-			int dir = Kat34ScalperLogic.A1DebouncedDir(rawDir, a1LastDir, a1InvalidStreak, AlertA1BreakBars);
+			int dir = KatSignalCore.A1DebouncedDir(rawDir, a1LastDir, a1InvalidStreak, AlertA1BreakBars);
 			if (Highs[1][0] > a1BandHi) a1BandHi = Highs[1][0];
 			if (Lows[1][0] < a1BandLo) a1BandLo = Lows[1][0];
 			if (dir != a1PrevDir)
@@ -85,7 +85,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				DrawEnvBand(a1BandDir, a1BandStartIdx, CurrentBars[1], a1BandHi, a1BandLo); // extend the open episode
 			}
-			bool fired = Kat34ScalperLogic.A1EdgeStep(rawDir, a1LastDir, a1InvalidStreak, AlertA1BreakBars, out a1LastDir, out a1InvalidStreak);
+			bool fired = KatSignalCore.A1EdgeStep(rawDir, a1LastDir, a1InvalidStreak, AlertA1BreakBars, out a1LastDir, out a1InvalidStreak);
 			if (fired)
 			{
 				DrawAlertA1Line(a1LastDir, 0);
@@ -102,8 +102,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		// slope normalized by the A1-series ATR so the angle needs no manual tuning).
 		private int AlertA1DirectionAt(int ago, out double angle)
 		{
-			angle = Kat34ScalperLogic.SlopeAngleDeg(a1Ema34[ago], a1Ema34[ago + 1], a1Atr[ago]);
-			return Kat34ScalperLogic.A1Direction(
+			angle = KatSignalCore.SlopeAngleDeg(a1Ema34[ago], a1Ema34[ago + 1], a1Atr[ago]);
+			return KatSignalCore.A1Direction(
 				AlertA1CondEma8Above34, AlertA1CondEma34Above89, AlertA1CondEma89Above144, AlertA1CondEma144Above200, AlertA1AngleEnabled,
 				a1Ema8[ago], a1Ema34[ago], a1Ema89[ago], a1Ema144[ago], a1Ema200[ago],
 				angle, Math.Abs(AlertA1AngleMin));
@@ -119,10 +119,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				int s = 3 + z;
 				if (zoneEma34[z] == null || CurrentBars == null || CurrentBars.Length <= s || CurrentBars[s] < 1) continue;
-				DateTime cutoff = Kat34ScalperLogic.ClosedBarCutoff(Times[1][ago], SeriesPeriodSeconds(1), SeriesPeriodSeconds(s));
-				int idx = Kat34ScalperLogic.BarsAgoAtOrBefore(i => Times[s][i], CurrentBars[s], cutoff);
+				DateTime cutoff = KatSignalCore.ClosedBarCutoff(Times[1][ago], SeriesPeriodSeconds(1), SeriesPeriodSeconds(s));
+				int idx = KatSignalCore.BarsAgoAtOrBefore(i => Times[s][i], CurrentBars[s], cutoff);
 				if (idx < 0) continue;
-				if (!Kat34ScalperLogic.EmaZonePass(dir, Closes[s][idx], zoneEma34[z][idx])) return false;
+				if (!KatSignalCore.EmaZonePass(dir, Closes[s][idx], zoneEma34[z][idx])) return false;
 			}
 			return true;
 		}
@@ -165,7 +165,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			{
 				int rawDir = AlertA1DirectionAt(ago, out _);
 				if (rawDir != 0 && !EmaZonePassAt(ago, rawDir)) rawDir = 0;
-				int dir = Kat34ScalperLogic.A1DebouncedDir(rawDir, lastDir, invalidStreak, AlertA1BreakBars);
+				int dir = KatSignalCore.A1DebouncedDir(rawDir, lastDir, invalidStreak, AlertA1BreakBars);
 				if (dir != bandDir)
 				{
 					DrawEnvBand(bandDir, bandStartIdx, CurrentBars[1] - ago, hi, lo);
@@ -173,7 +173,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 					bandDir = dir;
 					bandStartIdx = CurrentBars[1] - ago;
 				}
-				bool fired = Kat34ScalperLogic.A1EdgeStep(rawDir, lastDir, invalidStreak, AlertA1BreakBars, out lastDir, out invalidStreak);
+				bool fired = KatSignalCore.A1EdgeStep(rawDir, lastDir, invalidStreak, AlertA1BreakBars, out lastDir, out invalidStreak);
 				if (fired)
 				{
 					DrawAlertA1Line(lastDir, ago);
@@ -221,7 +221,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		// bands never rendered; the decision + barsAgo conversion now live in EnvBandAnchors (tested).
 		private void DrawEnvBand(int dir, int startIdx, int endIdx, double hi, double lo)
 		{
-			if (!Kat34ScalperLogic.EnvBandAnchors(dir, startIdx, endIdx, hi, lo, CurrentBars[1], out int agoStart, out int agoEnd)) return;
+			if (!KatSignalCore.EnvBandAnchors(dir, startIdx, endIdx, hi, lo, CurrentBars[1], out int agoStart, out int agoEnd)) return;
 			Brush area = new SolidColorBrush(dir > 0 ? Colors.Green : Colors.Red);
 			string tag = string.Format("K34S_ALERTA1_BAND_{0}_{1}", dir > 0 ? "B" : "S", startIdx);
 			Draw.Rectangle(this, tag, false, Times[1][agoStart], hi, Times[1][agoEnd], lo, Brushes.Transparent, area, 8);

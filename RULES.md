@@ -19,9 +19,11 @@ Whenever any changes are made to this repository, the following workflow MUST be
 - Apply Karpathy Guidelines: surgical minimal diffs, zero unnecessary abstractions, clear success criteria.
 
 ## 3. NinjaTrader 8 Deployment (MANDATORY FULL SYNC HARD RULE)
-- MUST copy/deploy ALL source `.cs` files (`Kat34Scalper.cs` + all `src/*.cs` files) directly to NinjaTrader 8 custom indicators directory with force overwrite on every code change to prevent stale file compilation mismatches:
+- MUST copy/deploy ALL source `.cs` files (`Kat34Scalper.cs` + standalone `KatSignal*.cs` + all `src/*.cs` files) directly to NinjaTrader 8 custom indicators directory with force overwrite on every code change to prevent stale file compilation mismatches:
   - `Kat34Scalper.cs` -> `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\Kat34Scalper.cs`
-  - `src\Kat34ScalperLogic.cs` -> `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\Kat34ScalperLogic.cs`
+  - `KatSignalA1.cs` / `KatSignalA2.cs` / `KatSignalB1.cs` / `KatSignalB2.cs` -> `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\`
+  - `src\KatSignalCore.cs` -> `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\KatSignalCore.cs`
+  - `src\KatSignalState.cs` -> `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\KatSignalState.cs`
 - Compile gate: `dotnet build tools/CompileCheck` must succeed (net48 + NT8 assemblies, mirrors NT8's internal Roslyn compile).
 
 ## 4. Git & GitHub Synchronization

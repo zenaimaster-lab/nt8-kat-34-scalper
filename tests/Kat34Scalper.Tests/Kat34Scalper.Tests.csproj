@@ -18,8 +18,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\src\Kat34Scalper.State.cs" Link="Kat34Scalper.State.cs" />
-    <Compile Include="..\..\src\Kat34ScalperLogic.cs" Link="Kat34ScalperLogic.cs" />
+    <Compile Include="..\..\src\KatSignalState.cs" Link="KatSignalState.cs" />
+    <Compile Include="..\..\src\KatSignalCore.cs" Link="KatSignalCore.cs" />
   </ItemGroup>
 
 </Project>
