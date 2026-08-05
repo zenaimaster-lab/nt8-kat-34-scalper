@@ -8,8 +8,19 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot   = Split-Path -Parent $PSScriptRoot
-$indicators = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\Indicators'
-$customDll  = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\NinjaTrader.Custom.dll'
+$customRoot = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom'
+$indicators = Join-Path $customRoot 'Indicators'
+$customDll  = Join-Path $customRoot 'NinjaTrader.Custom.dll'
+
+# Critical: `dotnet build` on NinjaTrader.Custom.csproj writes
+# obj\Debug\<culture>\NinjaTrader.Custom.resources.cs with [assembly: ...] attrs.
+# NT8's F5 compile walks all .cs under Custom and then hits CS0579 duplicates vs AssemblyInfo.cs.
+# Always wipe obj before/after deploy so NinjaScript Editor stays clean.
+$customObj = Join-Path $customRoot 'obj'
+if (Test-Path $customObj) {
+    Remove-Item $customObj -Recurse -Force
+    Write-Host 'removed Custom\obj (prevents CS0579 duplicate assembly attributes)'
+}
 
 # Main + src partials + standalone indicators under indicators\ (KatA1/A2/B1/B2).
 $files = @('Kat34Scalper.cs') `
