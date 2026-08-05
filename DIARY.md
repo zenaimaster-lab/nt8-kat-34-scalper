@@ -19,6 +19,15 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.90] — 2026-08-05
+- **Signal indicator extraction (Phase 10-13 final)**: extracted A1/A2/B1/B2 logic into separate, independent NinjaScript indicator classes. Each can load on any chart without Kat34Scalper.
+  - Created `KatSignalA1.cs`: standalone Alert Signal A1 indicator — full implementation (EMAs 8/34/89/144/200, ATR, fan detection, debounce, backfill, drawing, sound). Uses Kat34ScalperLogic for pure logic. Runs on 30s secondary series (BarsArray[1]).
+  - Created `KatSignalA2.cs`, `KatSignalB1.cs`, `KatSignalB2.cs`: stub indicators (TBD implementation — same pattern as A1).
+  - Kept `src\Kat34Scalper.Signal.A1.cs` (partial class) as legacy; main orchestrator still calls it, but KatSignalA1.cs is the new independent version.
+  - Compile gate: ✅ PASS (10 warnings, 0 errors).
+  - Deployed: 5 indicators (main + 4 signals) + 14 src files → NT8 indicators folder (19 total .cs files).
+  - **Architecture**: each signal (A1/A2/B1/B2) is now loadable independently on separate charts; Kat34Scalper remains orchestrator (bot + filtering + cross-signal control).
+
 ### [v0.87] — 2026-08-05
 - **Signal indicator shell refactor (phase 2 - logic consolidation)**: merged A1/A2 AlertSignal logic into Signal.A1/A2 host files; added B1/B2 evaluation stubs.
   - Merged `src\Kat34Scalper.AlertSignal.A1.cs` → `src\Kat34Scalper.Signal.A1.cs`: EvaluateAlertA1Bar + BackfillAlertA1 + all A1 state variables (a1LastDir, a1InvalidStreak, a1BandHi/Lo, etc.) now in dedicated Signal.A1 module file.
