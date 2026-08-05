@@ -23,6 +23,7 @@
   <ItemGroup>
     <Compile Include="..\..\Kat34Scalper.cs" />
     <Compile Include="..\..\src\*.cs" />
+    <Compile Include="..\..\indicators\*.cs" />
   </ItemGroup>
 
   <ItemGroup>

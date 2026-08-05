@@ -11,9 +11,11 @@ $repoRoot   = Split-Path -Parent $PSScriptRoot
 $indicators = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\Indicators'
 $customDll  = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\NinjaTrader.Custom.dll'
 
-# Main file + every module under src\ (Logic, Signal, Filter, Bot, Draw, ...).
-$files = @('Kat34Scalper.cs') + (Get-ChildItem (Join-Path $repoRoot 'src') -Filter '*.cs' |
-    ForEach-Object { 'src\' + $_.Name })
+# Main + src partials + standalone indicators under indicators\ (KatA1/A2/B1/B2).
+$files = @('Kat34Scalper.cs') `
+    + (Get-ChildItem (Join-Path $repoRoot 'src') -Filter '*.cs' | ForEach-Object { 'src\' + $_.Name }) `
+    + (Get-ChildItem (Join-Path $repoRoot 'indicators') -Filter '*.cs' -ErrorAction SilentlyContinue |
+        ForEach-Object { 'indicators\' + $_.Name })
 
 # Legacy cleanup after the Kat8934 -> Kat34Scalper rename (v0.20): stale files would keep
 # the OLD indicator alive next to the new one inside NT8's single NinjaScript assembly.
@@ -22,9 +24,9 @@ Get-ChildItem $indicators -Filter 'Kat8934*.cs' -ErrorAction SilentlyContinue | 
     Write-Host "removed legacy: $($_.Name)"
 }
 
-# Clean up orphaned Kat34Scalper files in NT8 Indicators folder that no longer exist in src\
+# Clean up orphaned Kat34Scalper / standalone Kat* files no longer in repo deploy set
 $targetLeaves = $files | ForEach-Object { Split-Path $_ -Leaf }
-Get-ChildItem $indicators -Filter 'Kat34Scalper*.cs' -ErrorAction SilentlyContinue | ForEach-Object {
+Get-ChildItem $indicators -Filter 'Kat*.cs' -ErrorAction SilentlyContinue | ForEach-Object {
     if ($targetLeaves -notcontains $_.Name) {
         Remove-Item $_.FullName -Force
         Write-Host "removed orphan: $($_.Name)"

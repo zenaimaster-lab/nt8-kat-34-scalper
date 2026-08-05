@@ -51,6 +51,7 @@ On every code change, BEFORE closing session:
    - `src\Kat34Scalper.Filter.cs` (Filter module: MTF, ADX, Volume, Time)
    - `src\Kat34Scalper.Bot.cs` (Bot module: order ops, stop/limit, ATM)
    - `src\Kat34Scalper.Draw.cs` (Draw module: lines + ATM triggers + HUD)
+   - `indicators\KatA1.cs` / `KatA2.cs` / `KatB1.cs` / `KatB2.cs` (standalone Add→KAT indicators)
 7. **Git sync**:
    - `git add .`
    - `git commit -m "vX.XX (YYYY-MM-DD): Description"`
@@ -64,4 +65,4 @@ On every code change, BEFORE closing session:
 ## Version Tracking
 - Code versions: Kat34Scalper.cs VERSION constant
 - Doc versions: README.md, DIARY.md
-- **Current: v0.79 (2026-08-04)**
+- **Current: v0.86 (2026-08-05)**

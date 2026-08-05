@@ -1,8 +1,19 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.85` (Released: `2026-08-05`)
+**Current Version**: `v0.86` (Released: `2026-08-05`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
+
+### Add Indicators → KAT folder
+| Indicator | Role |
+|---|---|
+| `Kat34Scalper` | All-in-one bot HUD (embeds A1/A2/B1/B2 modules + filters + bot) |
+| `KatA1` | Standalone Alert A1 EmaZone30s (chart + sound only) |
+| `KatA2` | Standalone Alert A2 placeholder |
+| `KatB1` | Standalone B1 34bounce8+ drawings (no bot) |
+| `KatB2` | Standalone B2 89uturn34 drawings (no bot) |
+
+**Note:** code modules inside Scalper ≠ separate NT8 indicators. Scalper still has A1/B1 settings for the bot chart. Standalone `KatA*`/`KatB*` are for other charts. A1 default inside Scalper is **OFF** (use HUD toggle or add `KatA1`).
 
 ## Module structure (partial classes)
 

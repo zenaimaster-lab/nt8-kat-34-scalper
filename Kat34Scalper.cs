@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.85 (2026-08-05)
+ * Version: 0.86 (2026-08-05)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -17,6 +17,7 @@
  *   src/Kat34Scalper.Filter.cs         — Filter module: ADX rising/ADX MTF/ER/CI/Volume/Time gates (single Bot side since v0.79; A1 is pure fan)
  *   src/Kat34Scalper.Bot.cs            — Bot module: order ops, stop/limit, ATM
  *   src/Kat34Scalper.Draw.cs           — Draw module: lines + ATM triggers + HUD
+ *   indicators/KatA1.cs|KatA2.cs|KatB1.cs|KatB2.cs — standalone chart indicators (Add→KAT)
  */
 
 #region Using declarations
@@ -84,7 +85,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.85";
+		public const string VERSION = "0.86";
 		public const string RELEASE_DATE = "2026-08-05";
 
 
@@ -144,8 +145,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				TimeFilterEnd				= "17:00";
 				AlertSound					= "Alert1.wav";
 
-				// 2. Alert Signal A1 (fan) defaults — ON (independent 30s series)
-				AlertA1Enabled				= true;
+				// 2. Alert Signal A1 (fan) defaults — OFF (standalone KatA1 exists under Add→KAT)
+				AlertA1Enabled				= false;
 				AlertA1HistoryDays			= 3;
 				AlertA1PeriodSeconds		= 30;
 				AlertA1CondEma8Above34		= true;
@@ -403,7 +404,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		// --- 2. Alert Signal A1 (EmaZone30s — independent 30s series, alert-only, no Bot/order interaction) ---
 		[NinjaScriptProperty]
 		[Display(Name = "Enabled", Order = 1, GroupName = "2. Alert Signal A1 — EmaZone30s",
-			Description = "Default ON. Alert Signal A1 (fan) generates sound alerts and vertical-line drawings only — fully independent from the Bot Signals.")]
+			Description = "Default OFF. Embedded A1 alert inside Scalper (HUD toggle). For multi-chart use standalone KatA1 under Add Indicators → KAT.")]
 		public bool AlertA1Enabled { get; set; }
 
 		[NinjaScriptProperty]

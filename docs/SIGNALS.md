@@ -8,7 +8,10 @@ Chuẩn mô tả cho MỌI signal trong indicator. Mỗi signal là một sub-mo
 - **Alert Signal (A1, A2...) vs Bot Signal (B1, B2...)**:
   - **ALERT SIGNAL**: Tạo âm thanh cảnh báo (Alert Sound) và vẽ hình/đường giá trên chart (chỉ vẽ), **không** tham gia chạy Bot hay bắn order.
   - **BOT SIGNAL**: Quản lý tín hiệu chạy Bot khi HUD BOT ON, vẽ đường Entry/SL/TP và gửi order sang Bot execution. Format vẽ nhãn chart: `Buy B1`, `Sell B1`, `Buy B2`, `Sell B2`.
-- **Default OFF.** Mỗi signal có công tắc `Enabled` (default `false`) trong settings group riêng và toggle trên HUD.
+- **Hai lớp "độc lập"** (v0.86):
+  1. **Module code** trong `Kat34Scalper` (partial class) — cùng 1 indicator, settings + HUD vẫn nằm trong Scalper; bot cần B1/B2 embed.
+  2. **Standalone indicator** `indicators/KatA1|KatA2|KatB1|KatB2.cs` — class riêng, hiện ở **Add Indicators → KAT**, add chart khác; chart-only (không bot).
+- **Default OFF.** Mỗi signal embed có công tắc `Enabled` (default `false`, kể cả A1 từ v0.86) trong settings group riêng và toggle trên HUD.
 - **History Days.** Mỗi signal có `HistoryDays` (default `3`). Khi bật ON, sub-module TỰ ĐỘNG tính toán lại và vẽ trên chart trong cửa sổ N ngày gần nhất.
 - **OFF = độc lập tuyệt đối.** Tắt signal chỉ xoá drawing có tag prefix của chính nó (`K34S_ALERTA1_`, `K34S_B1_`...).
 - **Ownership rule:** Mỗi signal sở hữu prefix vẽ riêng. Clear button HUD xóa TOÀN BỘ K34S_* + K8934_*.

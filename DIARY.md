@@ -19,6 +19,13 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.86] — 2026-08-05
+- **Standalone signal indicators under Add → KAT**: new `indicators/KatA1.cs`, `KatA2.cs`, `KatB1.cs`, `KatB2.cs` — each is its own `Indicator` class in namespace `NinjaTrader.NinjaScript.Indicators.KAT` so NT8 lists them in the KAT folder. Chart-only (no bot). Share pure math via `Kat34ScalperLogic`.
+- **Why Scalper still has A1 settings**: "module split" was partial-class organization inside one indicator, not separate NT8 indicators. Scalper keeps embedded A1/A2/B1/B2 for the all-in-one bot HUD chart. Standalone copies are for multi-chart use.
+- **Scalper A1 default OFF** (`AlertA1Enabled=false`) so adding only Scalper no longer auto-draws A1. Toggle via HUD/settings or add standalone `KatA1`.
+- Deploy + CompileCheck now include `indicators\*.cs`.
+  - Graphify entity mapping: `KatA1`, `KatA2`, `KatB1`, `KatB2` (standalone), `AlertA1Enabled` default flip.
+
 ### [v0.85] — 2026-08-05
 - **Custom alert sounds from local disk**: Alert Sound dropdown + playback now support NT8's user sounds folder `Documents\NinjaTrader 8\sounds` (no admin needed — drop any `.wav` there, it shows up in the dropdown and plays). Resolution order: user folder wins over install folder on equal names, install folder fallback. Converter auto-creates the user sounds folder for discoverability.
   - New pure logic `Kat34ScalperSound.ResolvePath/ListSounds` in `src\Kat34ScalperLogic.cs` + 2 tests (106 total). `Kat34ScalperSoundConverter` (Kat34Scalper.cs) and `PlayAlertSound` (Kat34Scalper.Draw.cs) both route through it.
