@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.87` (Released: `2026-08-06`)
+**Current Version**: `v0.88` (Released: `2026-08-06`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -19,6 +19,9 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | `src/Kat34Scalper.Filter.cs` | **Filter** | two independent sides — BOT FILTER (MTF/ADX/Volume/Time/ER/CI → B1+B2) and ALERT FILTER (ADX/ER/CI + A1-only ADX rising & ADX MTF → A1+A2), per-bar `*At(barsAgo)` variants for backfill replay |
 | `src/Kat34Scalper.Bot.cs` | **Bot** | signal → order conversion (stop on valid side, limit when price ran past), ATM brackets, migration, trend-flip cancel, Close/Flatten |
 | `src/Kat34Scalper.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, labels, version label, alert sound, HUD (sections titled ALERT SIGNAL / BOT SIGNAL / ALERT FILTER / BOT FILTER / BOT / DRAW) |
+| `src/nt8-kat-StackEMA.cs` | **Standalone StackEMA** | independent `nt8-kat-StackEMA` indicator: five configurable timeframe packs, EMA 8/21/34/55/89, top-left status HUD |
+| `src/StackEmaLogic.cs` | **StackEMA pure logic** | Positive/Negative/Neutral direction, closed-bar MTF mapping, Scalper filter rule |
+| `src/Kat34Scalper.StackEMA.cs` | **StackEMA filter adapter** | Scalper BIP 6-10 secondary series and directional bot filter |
 
 Every signal sub-module is **independent and default OFF**; its stages are specified in **`docs/SIGNALS.md`** (the standard every new signal must follow). Per bar the pipeline runs: **Signal A0** (direction/marker) → **Filter** (A1-only gates) → **Signal A1** → fires **Draw** + **Bot**.
 
@@ -76,7 +79,7 @@ Every signal sub-module is **independent and default OFF**; its stages are speci
 ## Settings (6 sections)
 || Section | Settings |
 ||---|---|
-|| 1. Filters | A0 Fan Filter Enabled (**session-only**, boots OFF), Fan Min Spread (20 ticks), Fan Spread Lookback (5 bars), Use 3m/5m/15m Fan (off), ADX Period (14), ADX Min (20), Volume SMA Period (20), Volume Min x SMA (1.0), Time Start/End (08:00–17:00), Alert Sound (dropdown of NT8 .wav files) |
+|| 1. Filters | A0 Fan Filter Enabled (**session-only**, boots OFF), Fan Min Spread (20 ticks), Fan Spread Lookback (5 bars), Use 3m/5m/15m Fan (off), ADX Period (14), ADX Min (20), Volume SMA Period (20), Volume Min x SMA (1.0), Time Start/End (08:00–17:00), StackEMA filter + EMA 8/21/34/55/89 + five timeframes (30s/1m/3m/5m/15m) + five visible-pack toggles, Alert Sound (dropdown of NT8 .wav files) |
 || 2. Signal A0 — EMA Fan | Enabled (**default OFF**), History Days (3 — ON backfills + draws this window) |
 || 3. Signal A1 — 89/34 Pullback | Enabled (**default OFF**), History Days (3), Fast EMA Period (34), Slow EMA Period (89), Max Sequence Bars (30), Entry Offset (1 tick), Stop Distance (60, ATM fallback), Target Distance (120, ATM fallback) |
 || 3.5 Signal A2 — 34+8+Bounce | Enabled (**default OFF**), History Days (3), Cond toggles: EMA 8 above EMA 34 / EMA 34 above EMA 89 / EMA 89 above EMA 144 / EMA 144 above EMA 200 (all on), Entry Offset (1 tick), Stop Distance (60, ATM fallback), Target Distance (120, ATM fallback) |
@@ -101,6 +104,8 @@ TradeManager-style panel (same colors, sizes and structure): dark navy card `Arg
 3. Open or import `Kat34Scalper.cs` under `Indicators`.
 4. Press **F5** to Compile (chart indicators auto-reload with the new version label).
 5. Add `Kat34Scalper` to any NT8 Chart.
+
+`nt8-kat-StackEMA` is installed from the same source sync and can be added independently to a chart. Its standalone settings are separate from `Kat34Scalper`; configure the host's matching five pack settings when using the StackEMA filter. Visible host packs select filter participation; with all five hidden, that filter bypasses.
 
 ## Development workflow
 - `pwsh scripts/Run-AllChecks.ps1` — xunit suite + net48 compile gate.

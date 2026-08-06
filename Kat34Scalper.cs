@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.87 (2026-08-06)
+ * Version: 0.88 (2026-08-06)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -14,7 +14,8 @@
  *   src/Kat34Scalper.Signal.cs         — Bot Signal module shared helpers (backfill window)
  *   src/Kat34Scalper.Signal.B1.cs      — Bot Signal sub-module B1: 34bounce8+ (34+8+Bounce ema34-touch pending entry)
  *   src/Kat34Scalper.Signal.B2.cs      — Bot Signal sub-module B2: 89uturn34 (89-34 pullback setup)
- *   src/Kat34Scalper.Filter.cs         — Filter module: ADX rising/ADX MTF/ER/CI/Volume/Time gates (single Bot side since v0.79; A1 is pure fan)
+ *   src/Kat34Scalper.Filter.cs         — Filter module: ADX rising/ADX MTF/ER/CI/Volume/Time/StackEMA gates
+ *   src/Kat34Scalper.StackEMA.cs       — StackEMA filter adapter (BIP 6-10, shared pure logic)
  *   src/Kat34Scalper.Bot.cs            — Bot module: order ops, stop/limit, ATM
  *   src/Kat34Scalper.Draw.cs           — Draw module: lines + ATM triggers + HUD
  */
@@ -31,6 +32,7 @@ using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using Kat34Scalper;
+using KatStackEMA;
 #endregion
 
 // Dropdown of the ATM strategy templates in NT8's templates\AtmStrategy folder (+ "None" = bare order).
@@ -84,7 +86,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.87";
+		public const string VERSION = "0.88";
 		public const string RELEASE_DATE = "2026-08-06";
 
 
@@ -134,6 +136,22 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AdxMtfMinutes				= 3;
 				AdxMtfPeriod				= 14;
 				AdxMtfMin					= 22;
+				StackEmaFilterEnabled		= false;
+				StackEmaEMA8				= 8;
+				StackEmaEMA21				= 21;
+				StackEmaEMA34				= 34;
+				StackEmaEMA55				= 55;
+				StackEmaEMA89				= 89;
+				StackEmaTimeframe1			= StackEmaTimeframe.S30;
+				StackEmaTimeframe2			= StackEmaTimeframe.M1;
+				StackEmaTimeframe3			= StackEmaTimeframe.M3;
+				StackEmaTimeframe4			= StackEmaTimeframe.M5;
+				StackEmaTimeframe5			= StackEmaTimeframe.M15;
+				StackEmaStack1Visible		= true;
+				StackEmaStack2Visible		= true;
+				StackEmaStack3Visible		= true;
+				StackEmaStack4Visible		= true;
+				StackEmaStack5Visible		= true;
 				ErPeriod					= 40;
 				ErMin						= 0.25;
 				CiPeriod					= 40;
@@ -237,6 +255,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AddDataSeries(Data.BarsPeriodType.Second, (int)AlertA1EmaZoneTf1);
 				AddDataSeries(Data.BarsPeriodType.Second, (int)AlertA1EmaZoneTf2);
 				AddDataSeries(Data.BarsPeriodType.Second, (int)AlertA1EmaZoneTf3);
+				ConfigureStackEma();
 			}
 			else if (State == State.DataLoaded)
 			{
@@ -257,6 +276,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				a1Atr = ATR(BarsArray[1], Math.Max(1, AlertA1AtrPeriod));
 				adxMtfInd = ADX(BarsArray[2], Math.Max(1, AdxMtfPeriod));
 				zoneEma34 = new[] { EMA(BarsArray[3], 34), EMA(BarsArray[4], 34), EMA(BarsArray[5], 34) };
+				LoadStackEma();
 
 				timeWindowDisabled = string.Equals(TimeFilterStart, TimeFilterEnd, StringComparison.OrdinalIgnoreCase);
 				if (!timeWindowDisabled)
@@ -305,6 +325,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				EvaluateAlertA1Bar();                                // Alert Signal sub-module A1 (fan) — dedicated 30s series
 				return;
 			}
+			if (IsStackEmaSeries(BarsInProgress)) return;
 			if (BarsInProgress != 0 || CurrentBars[0] < 1) return;
 
 			ClearLegacySignalDrawings();
@@ -399,6 +420,76 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "ADX MTF Min", Order = 22, GroupName = "1. Filters",
 			Description = "Minimum ADX on the MTF timeframe — blocks weak-regime bars.")]
 		public double AdxMtfMin { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "StackEMA Filter Enabled", Order = 23, GroupName = "1. Filters",
+			Description = "Buy requires every visible pack Positive; Sell requires every visible pack Negative. No visible packs bypass.")]
+		public bool StackEmaFilterEnabled { get; set; }
+
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name = "StackEMA EMA 8", Order = 24, GroupName = "1. Filters")]
+		public int StackEmaEMA8 { get; set; }
+
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name = "StackEMA EMA 21", Order = 25, GroupName = "1. Filters")]
+		public int StackEmaEMA21 { get; set; }
+
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name = "StackEMA EMA 34", Order = 26, GroupName = "1. Filters")]
+		public int StackEmaEMA34 { get; set; }
+
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name = "StackEMA EMA 55", Order = 27, GroupName = "1. Filters")]
+		public int StackEmaEMA55 { get; set; }
+
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name = "StackEMA EMA 89", Order = 28, GroupName = "1. Filters")]
+		public int StackEmaEMA89 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "StackEMA Pack 1 Timeframe", Order = 29, GroupName = "1. Filters")]
+		public StackEmaTimeframe StackEmaTimeframe1 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "StackEMA Pack 2 Timeframe", Order = 30, GroupName = "1. Filters")]
+		public StackEmaTimeframe StackEmaTimeframe2 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "StackEMA Pack 3 Timeframe", Order = 31, GroupName = "1. Filters")]
+		public StackEmaTimeframe StackEmaTimeframe3 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "StackEMA Pack 4 Timeframe", Order = 32, GroupName = "1. Filters")]
+		public StackEmaTimeframe StackEmaTimeframe4 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "StackEMA Pack 5 Timeframe", Order = 33, GroupName = "1. Filters")]
+		public StackEmaTimeframe StackEmaTimeframe5 { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "StackEMA Pack 1 Visible", Order = 34, GroupName = "1. Filters")]
+		public bool StackEmaStack1Visible { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "StackEMA Pack 2 Visible", Order = 35, GroupName = "1. Filters")]
+		public bool StackEmaStack2Visible { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "StackEMA Pack 3 Visible", Order = 36, GroupName = "1. Filters")]
+		public bool StackEmaStack3Visible { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "StackEMA Pack 4 Visible", Order = 37, GroupName = "1. Filters")]
+		public bool StackEmaStack4Visible { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "StackEMA Pack 5 Visible", Order = 38, GroupName = "1. Filters")]
+		public bool StackEmaStack5Visible { get; set; }
 
 		// --- 2. Alert Signal A1 (EmaZone30s — independent 30s series, alert-only, no Bot/order interaction) ---
 		[NinjaScriptProperty]

@@ -1,10 +1,49 @@
 using Kat34Scalper;
+using KatStackEMA;
 using Xunit;
 
 namespace Kat34Scalper.Tests;
 
 public class Kat34ScalperLogicTests
 {
+	#region Stack EMA
+	[Fact]
+	public void StackEmaDirection_RequiresPriceAboveEveryEma()
+	{
+		Assert.Equal(1, StackEmaLogic.Direction(100, 99, 98, 97, 96, 95));
+		Assert.Equal(0, StackEmaLogic.Direction(100, 99, 101, 97, 96, 95));
+	}
+
+	[Fact]
+	public void StackEmaDirection_RequiresPriceBelowEveryEma()
+	{
+		Assert.Equal(-1, StackEmaLogic.Direction(90, 91, 92, 93, 94, 95));
+		Assert.Equal(0, StackEmaLogic.Direction(90, 91, 89, 93, 94, 95));
+	}
+
+	[Fact]
+	public void StackEmaFilter_UsesEnabledPacks_AndBypassesWhenNoneSelected()
+	{
+		Assert.True(StackEmaLogic.FilterPass(true, true, new[] { 1, 1, 0 }, new[] { true, true, false }));
+		Assert.False(StackEmaLogic.FilterPass(true, true, new[] { 1, -1, 1 }, new[] { true, true, true }));
+		Assert.True(StackEmaLogic.FilterPass(true, false, new[] { 1, 0, 1 }, new[] { false, false, false }));
+	}
+
+	[Fact]
+	public void StackEmaClosedBarCutoff_LeavesTargetBarClosed()
+	{
+		var cutoff = StackEmaLogic.ClosedBarCutoff(new System.DateTime(2026, 8, 6, 10, 0, 0), 30, 180);
+		Assert.Equal(new System.DateTime(2026, 8, 6, 9, 57, 30), cutoff);
+	}
+
+	[Fact]
+	public void StackEmaTimeframeLabel_UsesCompactNames()
+	{
+		Assert.Equal("30s", StackEmaLogic.TimeframeLabel(StackEmaTimeframe.S30));
+		Assert.Equal("15m", StackEmaLogic.TimeframeLabel(StackEmaTimeframe.M15));
+	}
+	#endregion
+
 	// --- A1 sequence: pullback from beyond ema34 -> ema89 touch -> U-turn close through ema34 ---
 	// Sell trend: ema34 below ema89 (e.g. 100.5 / 101.5). Buy trend mirrored (100.5 / 99.5).
 
@@ -1043,4 +1082,3 @@ public class Kat34ScalperLogicTests
 	}
 	#endregion
 }
-

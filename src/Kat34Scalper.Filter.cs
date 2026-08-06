@@ -47,8 +47,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private void PassFiltersAt(int barsAgo, out bool sellAllowed, out bool buyAllowed)
 		{
 			bool pass = MarketPassAt(barsAgo) && TimePassAt(barsAgo);
-			sellAllowed = pass;
-			buyAllowed  = pass;
+			sellAllowed = pass && StackEmaFilterPassAt(barsAgo, false);
+			buyAllowed  = pass && StackEmaFilterPassAt(barsAgo, true);
 		}
 
 		private bool MarketPassAt(int barsAgo)

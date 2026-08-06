@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.88] — 2026-08-06
+- **Standalone StackEMA**: added `nt8-kat-StackEMA` with five configurable second-based timeframe packs (defaults 30s/1m/3m/5m/15m), shared EMA periods 89/55/34/21/8, Positive/Negative/Neutral state, 50%-alpha colors, and top-left HUD with per-pack visibility.
+- **Scalper filter integration**: added `StackEmaLogic` and `Kat34Scalper.StackEMA.cs`; host adds BIP 6-10 series and applies StackEMA to buy/sell filter using visible packs. All hidden bypasses filter. Reads latest closed secondary bar to avoid look-ahead.
+  - Graphify entity mapping: `StackEMA`, `StackEmaLogic.Direction`, `StackEmaLogic.FilterPass`, `Kat34Scalper.StackEmaFilterPassAt`, `nt8-kat-StackEMA` HUD.
+
 ### [v0.87] — 2026-08-06
 - **A1 connection script**: added `scripts/connect-A1.ps1` to sync and initialize Scalper's pinned A1 submodule after fresh clone, verify canonical A1 source, and print path/commit/remote. Script intentionally does not pull latest A1, preserving parent compatibility pin.
   - Graphify entity mapping: `scripts/connect-A1.ps1`, `.gitmodules`, `nt8-kat-A1-TradeBackground`.
