@@ -19,6 +19,10 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.87] — 2026-08-06
+- **A1 connection script**: added `scripts/connect-A1.ps1` to sync and initialize Scalper's pinned A1 submodule after fresh clone, verify canonical A1 source, and print path/commit/remote. Script intentionally does not pull latest A1, preserving parent compatibility pin.
+  - Graphify entity mapping: `scripts/connect-A1.ps1`, `.gitmodules`, `nt8-kat-A1-TradeBackground`.
+
 ### [v0.86] — 2026-08-06
 - **A1 extracted into separate repository**: canonical `Kat34Scalper.AlertSignal.A1.cs` now lives in `nt8-kat-A1-TradeBackground` and is mounted by Scalper as a Git submodule. Removed parent A1 duplicate to prevent source drift and duplicate partial-class members.
   - Parent compile gate includes the A1 sub-repo source; `Deploy-NT8.ps1` copies it into NT8 with all other sources, preserving the existing `Kat34Scalper` partial-class contract and BIP 1 signal behavior.

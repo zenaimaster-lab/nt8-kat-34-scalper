@@ -24,6 +24,7 @@ Whenever any changes are made to this repository, the following workflow MUST be
   - `src\Kat34ScalperLogic.cs` -> `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\Kat34ScalperLogic.cs`
 - Compile gate: `dotnet build tools/CompileCheck` must succeed (net48 + NT8 assemblies, mirrors NT8's internal Roslyn compile).
 - Canonical A1 source is `nt8-kat-A1-TradeBackground/Kat34Scalper.AlertSignal.A1.cs`; parent compile/deploy scripts include it directly.
+- Fresh checkout: run `pwsh scripts/connect-A1.ps1` to initialize pinned A1 submodule.
 
 ## 4. Git & GitHub Synchronization
 - Stage all modified files (`git add .`).

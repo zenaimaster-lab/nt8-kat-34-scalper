@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.86` (Released: `2026-08-06`)
+**Current Version**: `v0.87` (Released: `2026-08-06`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -106,6 +106,7 @@ TradeManager-style panel (same colors, sizes and structure): dark navy card `Arg
 - `pwsh scripts/Run-AllChecks.ps1` — xunit suite + net48 compile gate.
 - `pwsh scripts/Deploy-NT8.ps1` — copies sources into NT8 + verifies auto-recompile.
 - `nt8-kat-A1-TradeBackground` — separate Git repository mounted as a submodule; parent compile/deploy uses its canonical A1 source.
+- `pwsh scripts/connect-A1.ps1` — syncs and initializes pinned A1 submodule after fresh clone, then verifies A1 source.
 - Version bump, diary, graphify and GitHub sync per `AGENTS.md` / `RULES.md`.
 
 ## License
