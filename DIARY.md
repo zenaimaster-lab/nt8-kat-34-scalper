@@ -19,6 +19,10 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.89] — 2026-08-06
+- **StackEMA settings polish**: standalone display name changed to `KAT-StackEMA`; Positive/Negative/Neutral settings now use NT8 `Brush` color pickers with 50% alpha rendering defaults.
+  - Graphify entity mapping: `StackEMA.Name`, `StackEMA.StackedPositive`, `StackEMA.StackedNegative`, `StackEMA.NeutralColor`.
+
 ### [v0.88] — 2026-08-06
 - **Standalone StackEMA**: added `nt8-kat-StackEMA` with five configurable second-based timeframe packs (defaults 30s/1m/3m/5m/15m), shared EMA periods 89/55/34/21/8, Positive/Negative/Neutral state, 50%-alpha colors, and top-left HUD with per-pack visibility.
 - **Scalper filter integration**: added `StackEmaLogic` and `Kat34Scalper.StackEMA.cs`; host adds BIP 6-10 series and applies StackEMA to buy/sell filter using visible packs. All hidden bypasses filter. Reads latest closed secondary bar to avoid look-ahead.

@@ -1,6 +1,6 @@
 /*
  * nt8-kat-StackEMA.cs - standalone five-pack Stack EMA indicator.
- * Version: 0.88 (2026-08-06)
+ * Version: 0.89 (2026-08-06)
  *
  * Each pack reads its own closed secondary bar. Positive means price is above
  * EMA 8/21/34/55/89; Negative means price is below all five; otherwise Neutral.
@@ -17,6 +17,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using System.Xml.Serialization;
 using System.Threading;
+using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using KatStackEMA;
 #endregion
@@ -25,7 +26,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
 	public class StackEMA : Indicator
 	{
-		public const string VERSION = "0.88";
+		public const string VERSION = "0.89";
 		public const string RELEASE_DATE = "2026-08-06";
 
 		private readonly int[] directions = new int[5];
@@ -45,7 +46,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			if (State == State.SetDefaults)
 			{
 				Description = "nt8-kat-StackEMA: five configurable timeframe EMA stacks.";
-				Name = "nt8-kat-StackEMA";
+				Name = "KAT-StackEMA";
 				Calculate = Calculate.OnBarClose;
 				IsOverlay = true;
 				DisplayInDataBox = true;
@@ -68,9 +69,9 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				Stack3Enabled = true;
 				Stack4Enabled = true;
 				Stack5Enabled = true;
-				StackedPositive = Color.FromArgb(128, 0, 128, 0);
-				StackedNegative = Color.FromArgb(128, 255, 0, 0);
-				NeutralColor = Color.FromArgb(128, 128, 128, 128);
+				StackedPositive = new SolidColorBrush(Color.FromArgb(128, 0, 128, 0));
+				StackedNegative = new SolidColorBrush(Color.FromArgb(128, 255, 0, 0));
+				NeutralColor = new SolidColorBrush(Color.FromArgb(128, 128, 128, 128));
 			}
 			else if (State == State.Configure)
 			{
@@ -168,7 +169,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private Brush DirectionBrush(int direction)
 		{
-			Color color = direction > 0 ? StackedPositive : direction < 0 ? StackedNegative : NeutralColor;
+			Brush selected = direction > 0 ? StackedPositive : direction < 0 ? StackedNegative : NeutralColor;
+			SolidColorBrush solid = selected as SolidColorBrush;
+			if (solid == null) return selected;
+			Color color = solid.Color;
 			return new SolidColorBrush(Color.FromArgb(128, color.R, color.G, color.B));
 		}
 
@@ -322,48 +326,37 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[NinjaScriptProperty]
 		[Display(Name = "StackedPositive", Order = 11, GroupName = "Parameters")]
 		[XmlIgnore]
-		public Color StackedPositive { get; set; }
+		public Brush StackedPositive { get; set; }
 
 		[Browsable(false)]
 		public string StackedPositiveSerializable
 		{
-			get { return StackedPositive.ToString(); }
-			set { StackedPositive = ParseColor(value, Color.FromArgb(128, 0, 128, 0)); }
+			get { return Serialize.BrushToString(StackedPositive); }
+			set { StackedPositive = Serialize.StringToBrush(value); }
 		}
 
 		[NinjaScriptProperty]
 		[Display(Name = "StackedNegative", Order = 12, GroupName = "Parameters")]
 		[XmlIgnore]
-		public Color StackedNegative { get; set; }
+		public Brush StackedNegative { get; set; }
 
 		[Browsable(false)]
 		public string StackedNegativeSerializable
 		{
-			get { return StackedNegative.ToString(); }
-			set { StackedNegative = ParseColor(value, Color.FromArgb(128, 255, 0, 0)); }
+			get { return Serialize.BrushToString(StackedNegative); }
+			set { StackedNegative = Serialize.StringToBrush(value); }
 		}
 
 		[NinjaScriptProperty]
 		[Display(Name = "NeutralColor", Order = 13, GroupName = "Parameters")]
 		[XmlIgnore]
-		public Color NeutralColor { get; set; }
+		public Brush NeutralColor { get; set; }
 
 		[Browsable(false)]
 		public string NeutralColorSerializable
 		{
-			get { return NeutralColor.ToString(); }
-			set { NeutralColor = ParseColor(value, Color.FromArgb(128, 128, 128, 128)); }
-		}
-
-		private static Color ParseColor(string value, Color fallback)
-		{
-			try
-			{
-				var color = ColorConverter.ConvertFromString(value);
-				if (color != null) return (Color)color;
-			}
-			catch { }
-			return fallback;
+			get { return Serialize.BrushToString(NeutralColor); }
+			set { NeutralColor = Serialize.StringToBrush(value); }
 		}
 		#endregion
 	}

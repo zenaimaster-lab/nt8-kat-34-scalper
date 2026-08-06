@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.88` (Released: `2026-08-06`)
+**Current Version**: `v0.89` (Released: `2026-08-06`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -105,7 +105,7 @@ TradeManager-style panel (same colors, sizes and structure): dark navy card `Arg
 4. Press **F5** to Compile (chart indicators auto-reload with the new version label).
 5. Add `Kat34Scalper` to any NT8 Chart.
 
-`nt8-kat-StackEMA` is installed from the same source sync and can be added independently to a chart. Its standalone settings are separate from `Kat34Scalper`; configure the host's matching five pack settings when using the StackEMA filter. Visible host packs select filter participation; with all five hidden, that filter bypasses.
+`KAT-StackEMA` is installed from the same source sync and can be added independently to a chart. Its standalone settings are separate from `Kat34Scalper`; configure the host's matching five pack settings when using the StackEMA filter. Visible host packs select filter participation; with all five hidden, that filter bypasses.
 
 ## Development workflow
 - `pwsh scripts/Run-AllChecks.ps1` — xunit suite + net48 compile gate.
