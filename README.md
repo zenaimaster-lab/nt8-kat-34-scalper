@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.90` (Released: `2026-08-06`)
+**Current Version**: `v0.92` (Released: `2026-08-06`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -106,6 +106,8 @@ TradeManager-style panel (same colors, sizes and structure): dark navy card `Arg
 5. Add `Kat34Scalper` to any NT8 Chart.
 
 `KAT-StackEMA` is installed from the same source sync and can be added independently to a chart. Its standalone settings are separate from `Kat34Scalper`; configure the host's matching five pack settings when using the StackEMA filter. Visible host packs select filter participation; with all five hidden, that filter bypasses.
+
+When `StackEMA Filter Enabled` is OFF, Scalper does not add StackEMA secondary series. When ON, matching A1/zone `Second` timeframes are reused; only unique StackEMA `Second` timeframes are added. The ADX `Minute` series is never reused. This preserves A1's BIP 1 path.
 
 ## Development workflow
 - `pwsh scripts/Run-AllChecks.ps1` — xunit suite + net48 compile gate.

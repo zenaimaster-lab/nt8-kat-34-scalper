@@ -19,6 +19,14 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.92] — 2026-08-06
+- **A1/StackEMA clash fix**: StackEMA filter no longer adds secondary series while disabled. When enabled, it reuses matching A1/zone `Second` series, adds only unique series, and routes mapped BIPs instead of assuming 6-10. No visible StackEMA packs bypass filter and add no StackEMA series.
+  - Graphify entity mapping: `StackEmaLogic.MapRequestedSeries`, `Kat34Scalper.ConfigureStackEma`, `Kat34Scalper.LoadStackEma`, A1 BIP 1 path. Secondary BIPs other than A1 now fall through to the existing `BarsInProgress != 0` return with no StackEMA interception.
+
+### [v0.91] — 2026-08-06
+- **A1 isolation fix**: Scalper now keeps BIP 0 processing active when StackEMA filter is OFF, adds StackEMA series only when enabled, and reuses existing A1/ADX/zone timeframe series instead of adding duplicate secondary series.
+  - Graphify entity mapping: `Kat34Scalper.IsStackEmaSeries`, `StackEmaLogic.MapRequestedSeries`, A1 BIP 1 lifecycle.
+
 ### [v0.90] — 2026-08-06
 - **StackEMA Brush thread fix**: color-picker brushes are frozen at every assignment, including NT8 property-grid edits and deserialization, preventing cross-thread `Freezable` access errors when adding the indicator.
   - Graphify entity mapping: `StackEMA.FreezeBrush`, `StackEMA.StackedPositive`, `StackEMA.StackedNegative`, `StackEMA.NeutralColor`.

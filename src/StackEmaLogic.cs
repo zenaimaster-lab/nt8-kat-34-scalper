@@ -63,6 +63,33 @@ namespace KatStackEMA
 			return period > 0 && barsAgo >= 0 && currentBar - barsAgo >= period;
 		}
 
+		// Existing series carry their actual BIP; reuse only matching bar type/period.
+		public static int[] MapRequestedSeries(int[] existingPeriodSeconds, int[] existingSeries, int[] requestedPeriodSeconds, int firstAddedSeries)
+		{
+			if (existingPeriodSeconds == null || existingSeries == null || requestedPeriodSeconds == null) return new int[0];
+			int[] result = new int[requestedPeriodSeconds.Length];
+			int nextAdded = firstAddedSeries;
+			for (int i = 0; i < requestedPeriodSeconds.Length; i++)
+			{
+				result[i] = -1;
+				for (int j = 0; j < Math.Min(existingPeriodSeconds.Length, existingSeries.Length); j++)
+					if (existingPeriodSeconds[j] == requestedPeriodSeconds[i])
+					{
+						result[i] = existingSeries[j];
+						break;
+					}
+				if (result[i] >= 0) continue;
+				for (int j = 0; j < i; j++)
+					if (requestedPeriodSeconds[j] == requestedPeriodSeconds[i])
+					{
+						result[i] = result[j];
+						break;
+					}
+				if (result[i] < 0) result[i] = nextAdded++;
+			}
+			return result;
+		}
+
 		public static string TimeframeLabel(StackEmaTimeframe timeframe)
 		{
 			switch (timeframe)

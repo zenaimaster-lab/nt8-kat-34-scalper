@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.90 (2026-08-06)
+ * Version: 0.92 (2026-08-06)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -86,7 +86,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.90";
+		public const string VERSION = "0.92";
 		public const string RELEASE_DATE = "2026-08-06";
 
 
@@ -255,7 +255,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				AddDataSeries(Data.BarsPeriodType.Second, (int)AlertA1EmaZoneTf1);
 				AddDataSeries(Data.BarsPeriodType.Second, (int)AlertA1EmaZoneTf2);
 				AddDataSeries(Data.BarsPeriodType.Second, (int)AlertA1EmaZoneTf3);
-				ConfigureStackEma();
+				// StackEMA reuses A1/ADX/zone series when periods match; it adds only unique series.
+				if (StackEmaFilterEnabled && HasVisibleStackEma()) ConfigureStackEma();
 			}
 			else if (State == State.DataLoaded)
 			{
@@ -276,7 +277,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				a1Atr = ATR(BarsArray[1], Math.Max(1, AlertA1AtrPeriod));
 				adxMtfInd = ADX(BarsArray[2], Math.Max(1, AdxMtfPeriod));
 				zoneEma34 = new[] { EMA(BarsArray[3], 34), EMA(BarsArray[4], 34), EMA(BarsArray[5], 34) };
-				LoadStackEma();
+				if (StackEmaFilterEnabled && HasVisibleStackEma()) LoadStackEma();
 
 				timeWindowDisabled = string.Equals(TimeFilterStart, TimeFilterEnd, StringComparison.OrdinalIgnoreCase);
 				if (!timeWindowDisabled)
@@ -325,7 +326,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				EvaluateAlertA1Bar();                                // Alert Signal sub-module A1 (fan) — dedicated 30s series
 				return;
 			}
-			if (IsStackEmaSeries(BarsInProgress)) return;
 			if (BarsInProgress != 0 || CurrentBars[0] < 1) return;
 
 			ClearLegacySignalDrawings();

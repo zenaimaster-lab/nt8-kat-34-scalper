@@ -42,6 +42,13 @@ public class Kat34ScalperLogicTests
 		Assert.Equal("30s", StackEmaLogic.TimeframeLabel(StackEmaTimeframe.S30));
 		Assert.Equal("15m", StackEmaLogic.TimeframeLabel(StackEmaTimeframe.M15));
 	}
+
+	[Fact]
+	public void StackEmaSeriesMap_ReusesExistingAndDeduplicatesRequests()
+	{
+		var map = StackEmaLogic.MapRequestedSeries(new[] { 30, 180, 180, 300 }, new[] { 1, 3, 4, 5 }, new[] { 30, 60, 180, 300, 900 }, 6);
+		Assert.Equal(new[] { 1, 6, 3, 5, 7 }, map);
+	}
 	#endregion
 
 	// --- A1 sequence: pullback from beyond ema34 -> ema89 touch -> U-turn close through ema34 ---

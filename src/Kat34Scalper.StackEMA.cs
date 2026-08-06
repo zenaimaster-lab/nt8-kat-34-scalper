@@ -15,14 +15,35 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private EMA[] stackEma34;
 		private EMA[] stackEma55;
 		private EMA[] stackEma89;
+		private int[] stackEmaSeries = { -1, -1, -1, -1, -1 };
 
 		private void ConfigureStackEma()
 		{
-			AddDataSeries(Data.BarsPeriodType.Second, (int)StackEmaTimeframe1);
-			AddDataSeries(Data.BarsPeriodType.Second, (int)StackEmaTimeframe2);
-			AddDataSeries(Data.BarsPeriodType.Second, (int)StackEmaTimeframe3);
-			AddDataSeries(Data.BarsPeriodType.Second, (int)StackEmaTimeframe4);
-			AddDataSeries(Data.BarsPeriodType.Second, (int)StackEmaTimeframe5);
+			int[] existingPeriods =
+			{
+				Math.Max(1, AlertA1PeriodSeconds),
+				(int)AlertA1EmaZoneTf1,
+				(int)AlertA1EmaZoneTf2,
+				(int)AlertA1EmaZoneTf3
+			};
+			int[] existingSeries = { 1, 3, 4, 5 };
+			int[] requested =
+			{
+				(int)StackEmaTimeframe1,
+				(int)StackEmaTimeframe2,
+				(int)StackEmaTimeframe3,
+				(int)StackEmaTimeframe4,
+				(int)StackEmaTimeframe5
+			};
+			stackEmaSeries = StackEmaLogic.MapRequestedSeries(existingPeriods, existingSeries, requested, 6);
+			for (int i = 0; i < stackEmaSeries.Length; i++)
+			{
+				if (stackEmaSeries[i] < 6) continue;
+				bool alreadyAdded = false;
+				for (int j = 0; j < i; j++)
+					if (stackEmaSeries[j] == stackEmaSeries[i]) alreadyAdded = true;
+				if (!alreadyAdded) AddDataSeries(Data.BarsPeriodType.Second, requested[i]);
+			}
 		}
 
 		private void LoadStackEma()
@@ -34,7 +55,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			stackEma89 = new EMA[5];
 			for (int i = 0; i < 5; i++)
 			{
-				int series = 6 + i;
+				int series = stackEmaSeries[i];
 				stackEma8[i] = EMA(BarsArray[series], StackEmaEMA8);
 				stackEma21[i] = EMA(BarsArray[series], StackEmaEMA21);
 				stackEma34[i] = EMA(BarsArray[series], StackEmaEMA34);
@@ -55,9 +76,14 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			}
 		}
 
+		private bool HasVisibleStackEma()
+		{
+			return StackEmaStack1Visible || StackEmaStack2Visible || StackEmaStack3Visible || StackEmaStack4Visible || StackEmaStack5Visible;
+		}
+
 		private int StackEmaDirectionAt(int pack, int barsAgo)
 		{
-			int series = 6 + pack;
+			int series = stackEmaSeries[pack];
 			int warmup = Math.Max(StackEmaEMA8, Math.Max(StackEmaEMA21, Math.Max(StackEmaEMA34, Math.Max(StackEmaEMA55, StackEmaEMA89))));
 			if (CurrentBars == null || CurrentBars.Length <= series || CurrentBars[series] < warmup) return 0;
 			DateTime cutoff = StackEmaLogic.ClosedBarCutoff(Times[0][barsAgo], SeriesPeriodSeconds(0), SeriesPeriodSeconds(series));
@@ -68,7 +94,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private bool StackEmaFilterPassAt(int barsAgo, bool forBuy)
 		{
-			if (!StackEmaFilterEnabled) return true;
+			if (!StackEmaFilterEnabled || !HasVisibleStackEma()) return true;
 			int[] directions = new int[5];
 			bool[] enabled = new bool[5];
 			for (int i = 0; i < 5; i++)
@@ -79,9 +105,5 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			return StackEmaLogic.FilterPass(true, forBuy, directions, enabled);
 		}
 
-		private bool IsStackEmaSeries(int barsInProgress)
-		{
-			return barsInProgress >= 6 && barsInProgress <= 10;
-		}
 	}
 }
