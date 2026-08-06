@@ -19,7 +19,7 @@ Chuẩn mô tả cho MỌI signal trong indicator. Mỗi signal là một sub-mo
 ## ALERT SIGNALS (A1, A2...)
 
 ### A1 — Alert Signal A1 (EmaZone30s)
-- File: `nt8-kat-A1-TradeBackground/Kat34Scalper.AlertSignal.A1.cs` | Settings group: `2. Alert Signal A1 — EmaZone30s` | HUD toggle: ALERT SIGNAL › `A1 (EmaZone30s)`
+- File: `../nt8-kat-A1-TradeBackground/Kat34Scalper.AlertSignal.A1.cs` (independent sibling repo) | Settings group: `2. Alert Signal A1 — EmaZone30s` | HUD toggle: ALERT SIGNAL › `A1 (EmaZone30s)`
 - Mục đích: Cảnh báo môi trường trend "fan" (EMA xếp quạt + góc nghiêng EMA 34) bằng vertical line + âm thanh. KHÔNG bắn lệnh Bot. **Độc lập hoàn toàn** với Bot Signals: series riêng, EMA riêng, không dùng chung state/drawing/logic.
 - Series riêng: `AddDataSeries(Second, AlertA1PeriodSeconds)` (default 30s) — chạy đúng TF này dù chart TF bất kỳ. EMA 8/34/144/200 tính riêng trên `BarsArray[1]`.
 - Điều kiện môi trường — LONG (SHORT mirror ngược lại), **mỗi điều kiện có toggle riêng**:
