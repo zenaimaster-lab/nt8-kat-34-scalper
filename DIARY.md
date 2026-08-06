@@ -19,6 +19,10 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.90] — 2026-08-06
+- **StackEMA Brush thread fix**: color-picker brushes are frozen at every assignment, including NT8 property-grid edits and deserialization, preventing cross-thread `Freezable` access errors when adding the indicator.
+  - Graphify entity mapping: `StackEMA.FreezeBrush`, `StackEMA.StackedPositive`, `StackEMA.StackedNegative`, `StackEMA.NeutralColor`.
+
 ### [v0.89] — 2026-08-06
 - **StackEMA settings polish**: standalone display name changed to `KAT-StackEMA`; Positive/Negative/Neutral settings now use NT8 `Brush` color pickers with 50% alpha rendering defaults.
   - Graphify entity mapping: `StackEMA.Name`, `StackEMA.StackedPositive`, `StackEMA.StackedNegative`, `StackEMA.NeutralColor`.

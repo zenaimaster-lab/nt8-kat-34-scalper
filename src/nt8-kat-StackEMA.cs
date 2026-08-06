@@ -1,6 +1,6 @@
 /*
  * nt8-kat-StackEMA.cs - standalone five-pack Stack EMA indicator.
- * Version: 0.89 (2026-08-06)
+ * Version: 0.90 (2026-08-06)
  *
  * Each pack reads its own closed secondary bar. Positive means price is above
  * EMA 8/21/34/55/89; Negative means price is below all five; otherwise Neutral.
@@ -26,7 +26,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 {
 	public class StackEMA : Indicator
 	{
-		public const string VERSION = "0.89";
+		public const string VERSION = "0.90";
 		public const string RELEASE_DATE = "2026-08-06";
 
 		private readonly int[] directions = new int[5];
@@ -173,7 +173,7 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			SolidColorBrush solid = selected as SolidColorBrush;
 			if (solid == null) return selected;
 			Color color = solid.Color;
-			return new SolidColorBrush(Color.FromArgb(128, color.R, color.G, color.B));
+			return FreezeBrush(new SolidColorBrush(Color.FromArgb(128, color.R, color.G, color.B)));
 		}
 
 		private void StartHudWatchdog()
@@ -323,10 +323,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		[Display(Name = "Stack 5 Visible", Order = 10, GroupName = "Stack Packs")]
 		public bool Stack5Enabled { get; set; }
 
+		private Brush stackedPositive;
+
 		[NinjaScriptProperty]
 		[Display(Name = "StackedPositive", Order = 11, GroupName = "Parameters")]
 		[XmlIgnore]
-		public Brush StackedPositive { get; set; }
+		public Brush StackedPositive
+		{
+			get { return stackedPositive; }
+			set { stackedPositive = FreezeBrush(value); }
+		}
 
 		[Browsable(false)]
 		public string StackedPositiveSerializable
@@ -335,10 +341,16 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			set { StackedPositive = Serialize.StringToBrush(value); }
 		}
 
+		private Brush stackedNegative;
+
 		[NinjaScriptProperty]
 		[Display(Name = "StackedNegative", Order = 12, GroupName = "Parameters")]
 		[XmlIgnore]
-		public Brush StackedNegative { get; set; }
+		public Brush StackedNegative
+		{
+			get { return stackedNegative; }
+			set { stackedNegative = FreezeBrush(value); }
+		}
 
 		[Browsable(false)]
 		public string StackedNegativeSerializable
@@ -347,16 +359,31 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			set { StackedNegative = Serialize.StringToBrush(value); }
 		}
 
+		private Brush neutralColor;
+
 		[NinjaScriptProperty]
 		[Display(Name = "NeutralColor", Order = 13, GroupName = "Parameters")]
 		[XmlIgnore]
-		public Brush NeutralColor { get; set; }
+		public Brush NeutralColor
+		{
+			get { return neutralColor; }
+			set { neutralColor = FreezeBrush(value); }
+		}
 
 		[Browsable(false)]
 		public string NeutralColorSerializable
 		{
 			get { return Serialize.BrushToString(NeutralColor); }
 			set { NeutralColor = Serialize.StringToBrush(value); }
+		}
+
+		private static Brush FreezeBrush(Brush brush)
+		{
+			if (brush == null) return null;
+			Freezable freezable = brush as Freezable;
+			if (freezable != null && !freezable.IsFrozen && freezable.CanFreeze)
+				freezable.Freeze();
+			return brush;
 		}
 		#endregion
 	}
