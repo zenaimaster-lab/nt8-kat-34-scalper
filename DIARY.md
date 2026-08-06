@@ -19,6 +19,11 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.94] — 2026-08-06
+- A1 separation: A1 is now a STANDALONE indicator (`KatA1TradeBackground`, NT8 menu KAT folder) owned by sibling repo `nt8-kat-A1-TradeBackground` v0.89. Host no longer compiles A1 as a partial class.
+- Host dropped A1 settings/series/EMAs/HUD toggle; ADX MTF series renumbered 2→1; StackEMA series mapping starts at 2 and reuses only the ADX MTF series.
+- Scalper connects to A1 and consumes its `SignalDirection`/`EpisodeDirection` (pending).
+
 ### [v0.93] — 2026-08-06
 - **Independent signal repos, no submodules**: A1 and StackEMA now live in their OWN repositories as SIBLING folders of Scalper — not submodules, not nested. Scalper's job is to CONNECT to them by relative path (compile gate + xunit + deploy).
   - Removed the `nt8-kat-A1-TradeBackground` submodule (`.gitmodules` deleted, gitlink removed); A1 stays canonical at `https://github.com/zenaimaster-lab/nt8-kat-A1-TradeBackground`.

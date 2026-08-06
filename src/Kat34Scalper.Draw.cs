@@ -84,7 +84,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			string owner = record.Owner ?? "B1";
 			if (owner == "B1" && !cachedB1) return;
 			if (owner == "B2" && !cachedB2) return;
-			if (owner == "A1" && !cachedAlertA1) return;
 			if (owner == "A2" && !cachedAlertA2) return;
 
 			Brush entryBrush = new SolidColorBrush(record.IsBuy ? BuyEntryLineColor : SellEntryLineColor);
@@ -960,11 +959,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 			var secAlert = new StackPanel();
 			Grid aRow = CreateTwoColGrid();
 			aRow.Margin = new Thickness(0);
-			Button btnAlertA1 = CreateFilterToggle("A1 (EmaZone30s)", () => cachedAlertA1, v => SetAlertA1Signal(v));
-			Grid.SetColumn(btnAlertA1, 0);
-			aRow.Children.Add(btnAlertA1);
 			Button btnAlertA2 = CreateFilterToggle("A2", () => cachedAlertA2, v => SetAlertA2Signal(v));
-			Grid.SetColumn(btnAlertA2, 2);
+			Grid.SetColumn(btnAlertA2, 0);
 			aRow.Children.Add(btnAlertA2);
 			secAlert.Children.Add(aRow);
 			mainPanel.Children.Add(CreateSectionCard(secAlert, 6));

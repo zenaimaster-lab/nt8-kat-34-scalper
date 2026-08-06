@@ -19,14 +19,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 
 		private void ConfigureStackEma()
 		{
-			int[] existingPeriods =
-			{
-				Math.Max(1, AlertA1PeriodSeconds),
-				(int)AlertA1EmaZoneTf1,
-				(int)AlertA1EmaZoneTf2,
-				(int)AlertA1EmaZoneTf3
-			};
-			int[] existingSeries = { 1, 3, 4, 5 };
+			int[] existingPeriods = { Math.Max(1, AdxMtfMinutes) * 60 };
+			int[] existingSeries = { 1 };
 			int[] requested =
 			{
 				(int)StackEmaTimeframe1,
@@ -35,10 +29,10 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 				(int)StackEmaTimeframe4,
 				(int)StackEmaTimeframe5
 			};
-			stackEmaSeries = StackEmaLogic.MapRequestedSeries(existingPeriods, existingSeries, requested, 6);
+			stackEmaSeries = StackEmaLogic.MapRequestedSeries(existingPeriods, existingSeries, requested, 2);
 			for (int i = 0; i < stackEmaSeries.Length; i++)
 			{
-				if (stackEmaSeries[i] < 6) continue;
+				if (stackEmaSeries[i] < 2) continue;
 				bool alreadyAdded = false;
 				for (int j = 0; j < i; j++)
 					if (stackEmaSeries[j] == stackEmaSeries[i]) alreadyAdded = true;

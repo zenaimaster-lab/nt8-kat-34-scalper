@@ -17,11 +17,6 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 		private void FlushAlertBackfill()
 		{
 			if (CurrentBars == null || CurrentBars.Length == 0 || CurrentBars[0] < 1) return;
-			if (alertA1BackfillPending)
-			{
-				alertA1BackfillPending = false;
-				BackfillAlertA1();
-			}
 			if (alertA2BackfillPending)
 			{
 				alertA2BackfillPending = false;
