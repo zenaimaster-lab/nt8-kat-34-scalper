@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.92` (Released: `2026-08-06`)
+**Current Version**: `v0.93` (Released: `2026-08-06`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -11,7 +11,7 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | `Kat34Scalper.cs` | **Main** | lifecycle (`OnStateChange`), settings (NinjaScript properties), per-bar orchestration |
 | `src/Kat34ScalperLogic.cs` | **Pure logic** | signal state machines + filter math + ATM parser — zero NT8 deps, xunit-tested |
 | `src/Kat34Scalper.AlertSignal.cs` | **Alert Signal (shared)** | shared alert backfill helpers |
-| `nt8-kat-A1-TradeBackground/Kat34Scalper.AlertSignal.A1.cs` | **Alert Signal A1** | canonical separate-repo submodule: EmaZone30s fan, zone gate, background bands, drawings, sound |
+| `../nt8-kat-A1-TradeBackground/Kat34Scalper.AlertSignal.A1.cs` | **Alert Signal A1** | independent sibling repo (no submodule): EmaZone30s fan, zone gate, background bands, drawings, sound |
 | `src/Kat34Scalper.AlertSignal.A2.cs` | **Alert Signal A2** | independent alert sub-module (placeholder template: chart drawings & alert sounds only) |
 | `src/Kat34Scalper.Signal.cs` | **Bot Signal (shared)** | backfill window helper, shared diagnostics |
 | `src/Kat34Scalper.Signal.B1.cs` | **Bot Signal B1** | independent bot signal sub-module: 34bounce8+ (`B1 (34bounce8+)` — own toggle, settings group, drawings, bot order execution) |
@@ -19,9 +19,9 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | `src/Kat34Scalper.Filter.cs` | **Filter** | two independent sides — BOT FILTER (MTF/ADX/Volume/Time/ER/CI → B1+B2) and ALERT FILTER (ADX/ER/CI + A1-only ADX rising & ADX MTF → A1+A2), per-bar `*At(barsAgo)` variants for backfill replay |
 | `src/Kat34Scalper.Bot.cs` | **Bot** | signal → order conversion (stop on valid side, limit when price ran past), ATM brackets, migration, trend-flip cancel, Close/Flatten |
 | `src/Kat34Scalper.Draw.cs` | **Draw** | entry/SL/TP + ATM trigger lines, labels, version label, alert sound, HUD (sections titled ALERT SIGNAL / BOT SIGNAL / ALERT FILTER / BOT FILTER / BOT / DRAW) |
-| `src/nt8-kat-StackEMA.cs` | **Standalone StackEMA** | independent `nt8-kat-StackEMA` indicator: five configurable timeframe packs, EMA 8/21/34/55/89, top-left status HUD |
-| `src/StackEmaLogic.cs` | **StackEMA pure logic** | Positive/Negative/Neutral direction, closed-bar MTF mapping, Scalper filter rule |
-| `src/Kat34Scalper.StackEMA.cs` | **StackEMA filter adapter** | Scalper BIP 6-10 secondary series and directional bot filter |
+| `../nt8-kat-StackEMA/nt8-kat-StackEMA.cs` | **Standalone StackEMA** | independent sibling repo (no submodule): `nt8-kat-StackEMA` indicator - five configurable timeframe packs, EMA 8/21/34/55/89, top-left status HUD |
+| `../nt8-kat-StackEMA/StackEmaLogic.cs` | **StackEMA pure logic** | independent sibling repo: Positive/Negative/Neutral direction, closed-bar MTF mapping, Scalper filter rule |
+| `src/Kat34Scalper.StackEMA.cs` | **StackEMA filter adapter** | mapped secondary series (reuses A1/zone series when periods match) and directional bot filter |
 
 Every signal sub-module is **independent and default OFF**; its stages are specified in **`docs/SIGNALS.md`** (the standard every new signal must follow). Per bar the pipeline runs: **Signal A0** (direction/marker) → **Filter** (A1-only gates) → **Signal A1** → fires **Draw** + **Bot**.
 
@@ -112,8 +112,8 @@ When `StackEMA Filter Enabled` is OFF, Scalper does not add StackEMA secondary s
 ## Development workflow
 - `pwsh scripts/Run-AllChecks.ps1` — xunit suite + net48 compile gate.
 - `pwsh scripts/Deploy-NT8.ps1` — copies sources into NT8 + verifies auto-recompile.
-- `nt8-kat-A1-TradeBackground` — separate Git repository mounted as a submodule; parent compile/deploy uses its canonical A1 source.
-- `pwsh scripts/connect-A1.ps1` — syncs and initializes pinned A1 submodule after fresh clone, then verifies A1 source.
+- `nt8-kat-A1-TradeBackground` and `nt8-kat-StackEMA` — INDEPENDENT Git repositories. They are NOT submodules; they sit as sibling folders next to this repo, and the compile gate / deploy script reference their canonical sources by relative path.
+- `pwsh scripts/connect-Repos.ps1` — after a fresh clone, verifies (and reports) the sibling A1 + StackEMA repos so compile/deploy can find them.
 - Version bump, diary, graphify and GitHub sync per `AGENTS.md` / `RULES.md`.
 
 ## License

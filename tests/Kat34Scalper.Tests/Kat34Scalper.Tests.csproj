@@ -19,7 +19,7 @@
 
   <ItemGroup>
     <Compile Include="..\..\src\Kat34ScalperLogic.cs" Link="Kat34ScalperLogic.cs" />
-    <Compile Include="..\..\src\StackEmaLogic.cs" Link="StackEmaLogic.cs" />
+    <Compile Include="..\..\..\nt8-kat-StackEMA\StackEmaLogic.cs" Link="StackEmaLogic.cs" />
   </ItemGroup>
 
 </Project>

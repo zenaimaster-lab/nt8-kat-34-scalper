@@ -19,6 +19,15 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.93] — 2026-08-06
+- **Independent signal repos, no submodules**: A1 and StackEMA now live in their OWN repositories as SIBLING folders of Scalper — not submodules, not nested. Scalper's job is to CONNECT to them by relative path (compile gate + xunit + deploy).
+  - Removed the `nt8-kat-A1-TradeBackground` submodule (`.gitmodules` deleted, gitlink removed); A1 stays canonical at `https://github.com/zenaimaster-lab/nt8-kat-A1-TradeBackground`.
+  - Created independent `nt8-kat-StackEMA` repo (`https://github.com/zenaimaster-lab/nt8-kat-StackEMA`); moved `src/nt8-kat-StackEMA.cs` + `src/StackEmaLogic.cs` out. Host keeps only the filter adapter `src/Kat34Scalper.StackEMA.cs`.
+  - `tools/CompileCheck/CompileCheck.csproj`, `tests/Kat34Scalper.Tests/Kat34Scalper.Tests.csproj`, and `scripts/Deploy-NT8.ps1` now reference the sibling repos by path (`..\nt8-kat-A1-TradeBackground`, `..\nt8-kat-StackEMA`).
+  - Replaced `scripts/connect-A1.ps1` with `scripts/connect-Repos.ps1` (verifies both sibling repos).
+  - A1 restored: with `StackEMA Filter Enabled` OFF (default) the host adds no StackEMA series, BIP 1 runs untouched, and A1 background bands + signal lines render as before.
+  - Graphify entity mapping: `Kat34Scalper.ConfigureStackEma`, `Kat34Scalper.LoadStackEma`, `Kat34Scalper.StackEmaFilterPassAt`, `StackEmaLogic.MapRequestedSeries`, A1 BIP 1 path, sibling repo references.
+
 ### [v0.92] — 2026-08-06
 - **A1/StackEMA clash fix**: StackEMA filter no longer adds secondary series while disabled. When enabled, it reuses matching A1/zone `Second` series, adds only unique series, and routes mapped BIPs instead of assuming 6-10. No visible StackEMA packs bypass filter and add no StackEMA series.
   - Graphify entity mapping: `StackEmaLogic.MapRequestedSeries`, `Kat34Scalper.ConfigureStackEma`, `Kat34Scalper.LoadStackEma`, A1 BIP 1 path. Secondary BIPs other than A1 now fall through to the existing `BarsInProgress != 0` return with no StackEMA interception.

@@ -47,7 +47,8 @@ On every code change, BEFORE closing session:
    - `Kat34Scalper.cs` (main: lifecycle, settings, orchestration)
    - `src\Kat34ScalperLogic.cs` (pure logic, xunit-tested)
    - `src\Kat34Scalper.Signal.cs` (Signal shared helpers: backfill window, FlushBackfill)
-   - `nt8-kat-A1-TradeBackground\Kat34Scalper.AlertSignal.A1.cs` (canonical A1 sub-repo source)
+   - `..\nt8-kat-A1-TradeBackground\Kat34Scalper.AlertSignal.A1.cs` (canonical A1 — independent sibling repo)
+   - `..\nt8-kat-StackEMA\nt8-kat-StackEMA.cs` + `..\nt8-kat-StackEMA\StackEmaLogic.cs` (canonical StackEMA — independent sibling repo)
    - `src\Kat34Scalper.Filter.cs` (Filter module: MTF, ADX, Volume, Time)
    - `src\Kat34Scalper.Bot.cs` (Bot module: order ops, stop/limit, ATM)
    - `src\Kat34Scalper.Draw.cs` (Draw module: lines + ATM triggers + HUD)
@@ -64,4 +65,4 @@ On every code change, BEFORE closing session:
 ## Version Tracking
 - Code versions: Kat34Scalper.cs VERSION constant
 - Doc versions: README.md, DIARY.md
-   - **Current: v0.92 (2026-08-06)**
+   - **Current: v0.93 (2026-08-06)**

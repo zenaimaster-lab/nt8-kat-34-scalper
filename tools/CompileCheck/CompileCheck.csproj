@@ -23,7 +23,10 @@
   <ItemGroup>
     <Compile Include="..\..\Kat34Scalper.cs" />
     <Compile Include="..\..\src\*.cs" />
-    <Compile Include="..\..\nt8-kat-A1-TradeBackground\Kat34Scalper.AlertSignal.A1.cs" />
+    <!-- Independent sibling repos (not submodules): canonical A1 + StackEMA sources. -->
+    <Compile Include="..\..\..\nt8-kat-A1-TradeBackground\Kat34Scalper.AlertSignal.A1.cs" />
+    <Compile Include="..\..\..\nt8-kat-StackEMA\nt8-kat-StackEMA.cs" />
+    <Compile Include="..\..\..\nt8-kat-StackEMA\StackEmaLogic.cs" />
   </ItemGroup>
 
   <ItemGroup>

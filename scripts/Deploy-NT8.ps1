@@ -11,12 +11,19 @@ $repoRoot   = Split-Path -Parent $PSScriptRoot
 $indicators = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\Indicators'
 $customDll  = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\NinjaTrader.Custom.dll'
 
-# Main file + every module under src\ + canonical A1 source from its separate repo.
+# Main file + every module under src\ + canonical sources from the independent
+# sibling repos (A1 + StackEMA — plain sibling checkouts, not submodules).
 $files = @('Kat34Scalper.cs') + (Get-ChildItem (Join-Path $repoRoot 'src') -Filter '*.cs' |
     ForEach-Object { 'src\' + $_.Name })
-$a1Source = Join-Path $repoRoot 'nt8-kat-A1-TradeBackground\Kat34Scalper.AlertSignal.A1.cs'
-if (-not (Test-Path $a1Source)) { throw "Missing A1 sub-repo source: $a1Source" }
-$files += 'nt8-kat-A1-TradeBackground\Kat34Scalper.AlertSignal.A1.cs'
+$siblings = Split-Path -Parent $repoRoot
+$externalFiles = @(
+    (Join-Path $siblings 'nt8-kat-A1-TradeBackground\Kat34Scalper.AlertSignal.A1.cs'),
+    (Join-Path $siblings 'nt8-kat-StackEMA\nt8-kat-StackEMA.cs'),
+    (Join-Path $siblings 'nt8-kat-StackEMA\StackEmaLogic.cs')
+)
+foreach ($x in $externalFiles) {
+    if (-not (Test-Path $x)) { throw "Missing sibling repo source: $x" }
+}
 
 # Legacy cleanup after the Kat8934 -> Kat34Scalper rename (v0.20): stale files would keep
 # the OLD indicator alive next to the new one inside NT8's single NinjaScript assembly.
@@ -27,6 +34,7 @@ Get-ChildItem $indicators -Filter 'Kat8934*.cs' -ErrorAction SilentlyContinue | 
 
 # Clean up orphaned Kat34Scalper files in NT8 Indicators folder that no longer exist in src\
 $targetLeaves = $files | ForEach-Object { Split-Path $_ -Leaf }
+$targetLeaves += $externalFiles | ForEach-Object { Split-Path $_ -Leaf }
 Get-ChildItem $indicators -Filter 'Kat34Scalper*.cs' -ErrorAction SilentlyContinue | ForEach-Object {
     if ($targetLeaves -notcontains $_.Name) {
         Remove-Item $_.FullName -Force
@@ -39,6 +47,10 @@ foreach ($f in $files) {
     $src = Join-Path $repoRoot $f
     if (-not (Test-Path $src)) { throw "Missing source: $f" }
     Copy-Item $src (Join-Path $indicators (Split-Path $f -Leaf)) -Force
+    Write-Host "deployed: $f"
+}
+foreach ($f in $externalFiles) {
+    Copy-Item $f (Join-Path $indicators (Split-Path $f -Leaf)) -Force
     Write-Host "deployed: $f"
 }
 

@@ -23,8 +23,8 @@ Whenever any changes are made to this repository, the following workflow MUST be
   - `Kat34Scalper.cs` -> `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\Kat34Scalper.cs`
   - `src\Kat34ScalperLogic.cs` -> `C:\Users\kieuanhtuan\Documents\NinjaTrader 8\bin\Custom\Indicators\Kat34ScalperLogic.cs`
 - Compile gate: `dotnet build tools/CompileCheck` must succeed (net48 + NT8 assemblies, mirrors NT8's internal Roslyn compile).
-- Canonical A1 source is `nt8-kat-A1-TradeBackground/Kat34Scalper.AlertSignal.A1.cs`; parent compile/deploy scripts include it directly.
-- Fresh checkout: run `pwsh scripts/connect-A1.ps1` to initialize pinned A1 submodule.
+- Signal indicators live in INDEPENDENT sibling repos (no submodules): canonical A1 source is `../nt8-kat-A1-TradeBackground/Kat34Scalper.AlertSignal.A1.cs`; canonical StackEMA sources are `../nt8-kat-StackEMA/nt8-kat-StackEMA.cs` + `../nt8-kat-StackEMA/StackEmaLogic.cs`. Compile/deploy scripts include them directly by sibling path.
+- Fresh checkout: run `pwsh scripts/connect-Repos.ps1` to verify the sibling A1 + StackEMA repos.
 
 ## 4. Git & GitHub Synchronization
 - Stage all modified files (`git add .`).
