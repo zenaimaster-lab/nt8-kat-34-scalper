@@ -19,6 +19,12 @@ graph TD
 ---
 
 ## 📜 Version History & Change Log
+### [v0.86] — 2026-08-06
+- **A1 extracted into separate repository**: canonical `Kat34Scalper.AlertSignal.A1.cs` now lives in `nt8-kat-A1-TradeBackground` and is mounted by Scalper as a Git submodule. Removed parent A1 duplicate to prevent source drift and duplicate partial-class members.
+  - Parent compile gate includes the A1 sub-repo source; `Deploy-NT8.ps1` copies it into NT8 with all other sources, preserving the existing `Kat34Scalper` partial-class contract and BIP 1 signal behavior.
+  - A1 repo owns its version/docs/diary/Graphify/workflow and delegates host xunit, net48 compile, full NT8 sync, and recompile verification to Scalper.
+  - Graphify entity mapping: `Kat34Scalper.AlertSignal.A1.cs`, `Kat34Scalper.EvaluateAlertA1Bar`, `Kat34Scalper.BackfillAlertA1`, `Kat34Scalper.EmaZonePassAt`, `Kat34Scalper.DrawEnvBand`, `Kat34Scalper.DrawAlertA1Line`.
+
 ### [v0.85] — 2026-08-05
 - **Custom alert sounds from local disk**: Alert Sound dropdown + playback now support NT8's user sounds folder `Documents\NinjaTrader 8\sounds` (no admin needed — drop any `.wav` there, it shows up in the dropdown and plays). Resolution order: user folder wins over install folder on equal names, install folder fallback. Converter auto-creates the user sounds folder for discoverability.
   - New pure logic `Kat34ScalperSound.ResolvePath/ListSounds` in `src\Kat34ScalperLogic.cs` + 2 tests (106 total). `Kat34ScalperSoundConverter` (Kat34Scalper.cs) and `PlayAlertSound` (Kat34Scalper.Draw.cs) both route through it.

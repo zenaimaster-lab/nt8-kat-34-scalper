@@ -1,6 +1,6 @@
 /*
  * Kat34Scalper.cs — main module (lifecycle, settings, orchestration)
- * Version: 0.85 (2026-08-05)
+ * Version: 0.86 (2026-08-06)
  * NinjaTrader 8 — EMA 34/89 rejection signal indicator (Sell / Buy).
  *
  * Co-Authored-By: Oz <oz-agent@warp.dev>
@@ -9,7 +9,7 @@
  *   Kat34Scalper.cs                    — main: state, OnStateChange, OnBarUpdate orchestration, settings
  *   src/Kat34ScalperLogic.cs           — pure signal/filter math + ATM parser (zero NT8 deps, xunit-tested)
  *   src/Kat34Scalper.AlertSignal.cs    — Alert Signal module shared helpers (alert backfill)
- *   src/Kat34Scalper.AlertSignal.A1.cs — Alert Signal sub-module A1: EmaZone30s (independent, alert-only)
+ *   nt8-kat-A1-TradeBackground/Kat34Scalper.AlertSignal.A1.cs — Alert Signal sub-module A1 (separate repo, submodule)
  *   src/Kat34Scalper.AlertSignal.A2.cs — Alert Signal sub-module A2: placeholder (independent, alert-only)
  *   src/Kat34Scalper.Signal.cs         — Bot Signal module shared helpers (backfill window)
  *   src/Kat34Scalper.Signal.B1.cs      — Bot Signal sub-module B1: 34bounce8+ (34+8+Bounce ema34-touch pending entry)
@@ -84,8 +84,8 @@ namespace NinjaTrader.NinjaScript.Indicators.KAT
 	public partial class Kat34Scalper : Indicator
 	{
 		#region Shared State (owned by main; module-specific state lives in its own file)
-		public const string VERSION = "0.85";
-		public const string RELEASE_DATE = "2026-08-05";
+		public const string VERSION = "0.86";
+		public const string RELEASE_DATE = "2026-08-06";
 
 
 		// Indicator series (primary chart TF)

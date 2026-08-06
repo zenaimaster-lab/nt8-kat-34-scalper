@@ -11,9 +11,12 @@ $repoRoot   = Split-Path -Parent $PSScriptRoot
 $indicators = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\Indicators'
 $customDll  = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\bin\Custom\NinjaTrader.Custom.dll'
 
-# Main file + every module under src\ (Logic, Signal, Filter, Bot, Draw, ...).
+# Main file + every module under src\ + canonical A1 source from its separate repo.
 $files = @('Kat34Scalper.cs') + (Get-ChildItem (Join-Path $repoRoot 'src') -Filter '*.cs' |
     ForEach-Object { 'src\' + $_.Name })
+$a1Source = Join-Path $repoRoot 'nt8-kat-A1-TradeBackground\Kat34Scalper.AlertSignal.A1.cs'
+if (-not (Test-Path $a1Source)) { throw "Missing A1 sub-repo source: $a1Source" }
+$files += 'nt8-kat-A1-TradeBackground\Kat34Scalper.AlertSignal.A1.cs'
 
 # Legacy cleanup after the Kat8934 -> Kat34Scalper rename (v0.20): stale files would keep
 # the OLD indicator alive next to the new one inside NT8's single NinjaScript assembly.

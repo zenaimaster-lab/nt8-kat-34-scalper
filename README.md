@@ -1,6 +1,6 @@
 # NT8 Kat 34 Scalper — EMA 34/89 Rejection Signal Indicator
 
-**Current Version**: `v0.85` (Released: `2026-08-05`)
+**Current Version**: `v0.86` (Released: `2026-08-06`)
 
 Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the chart with entry, SL and TP dash lines. Appears under the **KAT** folder when adding to a chart.
 
@@ -11,7 +11,7 @@ Signal indicator for **NinjaTrader 8 (NT8)**: draws Sell/Buy signals on the char
 | `Kat34Scalper.cs` | **Main** | lifecycle (`OnStateChange`), settings (NinjaScript properties), per-bar orchestration |
 | `src/Kat34ScalperLogic.cs` | **Pure logic** | signal state machines + filter math + ATM parser — zero NT8 deps, xunit-tested |
 | `src/Kat34Scalper.AlertSignal.cs` | **Alert Signal (shared)** | shared alert backfill helpers |
-| `src/Kat34Scalper.AlertSignal.A1.cs` | **Alert Signal A1** | independent alert sub-module (placeholder template: chart drawings & alert sounds only) |
+| `nt8-kat-A1-TradeBackground/Kat34Scalper.AlertSignal.A1.cs` | **Alert Signal A1** | canonical separate-repo submodule: EmaZone30s fan, zone gate, background bands, drawings, sound |
 | `src/Kat34Scalper.AlertSignal.A2.cs` | **Alert Signal A2** | independent alert sub-module (placeholder template: chart drawings & alert sounds only) |
 | `src/Kat34Scalper.Signal.cs` | **Bot Signal (shared)** | backfill window helper, shared diagnostics |
 | `src/Kat34Scalper.Signal.B1.cs` | **Bot Signal B1** | independent bot signal sub-module: 34bounce8+ (`B1 (34bounce8+)` — own toggle, settings group, drawings, bot order execution) |
@@ -105,6 +105,7 @@ TradeManager-style panel (same colors, sizes and structure): dark navy card `Arg
 ## Development workflow
 - `pwsh scripts/Run-AllChecks.ps1` — xunit suite + net48 compile gate.
 - `pwsh scripts/Deploy-NT8.ps1` — copies sources into NT8 + verifies auto-recompile.
+- `nt8-kat-A1-TradeBackground` — separate Git repository mounted as a submodule; parent compile/deploy uses its canonical A1 source.
 - Version bump, diary, graphify and GitHub sync per `AGENTS.md` / `RULES.md`.
 
 ## License
